@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: OpenMDW-1.1
+
+# franka_xhand_dual_policy — action-policy SFT (video + 38-dim action) on the
+# dual-arm Franka + XHand capture-tube LeRobot dataset, from a Cosmos3-Nano base.
+# Thin wrapper: selects the registered hydra experiment of the same name; the
+# DataPackerDataLoader / ActionDataPacker / dataset wiring all live in
+# cosmos_framework/configs/base/experiment/action/posttrain_config/franka_xhand_dual_policy.py
+#
+# Env vars consumed at load time:
+#   DATASET_PATH         -> LeRobot dataset root (FrankaXHandDualLeRobotDataset.root)
+#   WAN_VAE_PATH         -> Wan2.2 VAE checkpoint (model.config.tokenizer.vae_path)
+#   BASE_CHECKPOINT_PATH -> Cosmos3-Nano DCP checkpoint dir (checkpoint.load_path)
+
+[job]
+task       = "vfm"
+experiment = "franka_xhand_dual_policy"
+project    = "cosmos3"
+group      = "action"
+name       = "franka_xhand_dual_policy"
+wandb_mode = "offline"
+
+[model.tokenizer]
+vae_path = "${oc.env:WAN_VAE_PATH}"
+
+# HSDP (Hybrid Sharded Data Parallel) for 32-GPU / 4-node:
+# shard the model within a node (8 GPUs over fast NVLink), replicate across the
+# 4 nodes (only gradient all-reduce crosses the slow inter-node network).
+# 8 * 4 = 32 = WORLD_SIZE. Uses ~4x more per-GPU memory than full shard (we have
+# the headroom); activation_checkpointing stays "full" to keep memory safe.
+[model.parallelism]
+data_parallel_shard_degree     = 8
+data_parallel_replicate_degree = 4
+
+[trainer]
+distributed_parallelism = "fsdp"
+grad_accum_iter         = 2
+logging_iter            = 1
+max_iter                = 12500
+
+[checkpoint]
+load_path = "${oc.env:BASE_CHECKPOINT_PATH}"
+save_iter = 1250
