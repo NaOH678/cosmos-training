@@ -11,7 +11,7 @@ bucket-C deviations. Key model-side differences vs nano:
   * LoRA-only fine-tune: ``lora_enabled=True``, ``lora_rank=16``,
     ``lora_alpha=32``, target modules
     ``q_proj_moe_gen,k_proj_moe_gen,v_proj_moe_gen,o_proj_moe_gen``.
-  * EMA disabled; ``action_gen=False``.
+  * EMA disabled.
   * Parallelism: ``data_parallel_shard_degree=4``,
     ``context_parallel_shard_degree=2``, ``compile.enabled=False``.
   * Optimizer trains only ``lora_`` keys at ``lr=5e-4``.
@@ -51,11 +51,11 @@ import copy
 from hydra.core.config_store import ConfigStore
 
 from cosmos_framework.configs.base.experiment.sft.models.super_model_config import SUPER_MODEL_CONFIG
-from cosmos_framework.data.vfm.joint_dataloader import (
+from cosmos_framework.data.generator.joint_dataloader import (
     PackingDataLoader,
     RankPartitionedDataLoader,
 )
-from cosmos_framework.data.vfm.local_datasets.sft_dataset import get_sft_dataset
+from cosmos_framework.data.generator.local_datasets.sft_dataset import get_sft_dataset
 from cosmos_framework.utils.lazy_config import LazyCall as L
 from cosmos_framework.utils.lazy_config import LazyDict
 
@@ -70,7 +70,7 @@ vision_sft_super = LazyDict(
             {"override /data_val": None},
             {"override /optimizer": "adamw"},
             # YAML used `scheduler: warmup_cosine_lr` but that group is only
-            # registered in cosmos_framework/configs/base/vlm/defaults/optimizer.py
+            # registered in cosmos_framework/configs/base/reasoner/defaults/optimizer.py
             # (reachable from the vlm config tree). The base vfm config path
             # only knows `lambdacosine`, which also sets
             # lr_scheduler_type="LambdaCosine" — behaviorally identical.
@@ -87,7 +87,6 @@ vision_sft_super = LazyDict(
             {"override /ema": "power"},
             {"override /tokenizer": "wan2pt2_tokenizer"},
             {"override /sound_tokenizer": None},
-            {"override /cluster": None},
             {"override /vlm_config": None},
             {"override /ckpt_type": "dcp"},
             "_self_",

@@ -9,17 +9,21 @@ from typing import Any
 
 import torch
 
-from cosmos_framework.data.vfm.action.domain_utils import EMBODIMENT_TO_RAW_ACTION_DIM, get_domain_id
-from cosmos_framework.data.vfm.action.json_formatter import ActionPromptJsonFormatter
-from cosmos_framework.data.vfm.action.transforms import (
+from cosmos_framework.data.generator.action.action_processing import (
+    ActionProcessingRecord,
+    make_batched_action_processing_fields,
+    pad_action_to_max_dim,
+)
+from cosmos_framework.data.generator.action.domain_utils import EMBODIMENT_TO_RAW_ACTION_DIM, get_domain_id
+from cosmos_framework.data.generator.action.json_formatter import ActionPromptJsonFormatter
+from cosmos_framework.data.generator.action.transforms import (
     build_sequence_plan_from_mode,
     find_closest_target_size,
-    pad_action_to_max_dim,
     reflection_pad_to_target,
 )
 from cosmos_framework.inference.args import ModelMode
 from cosmos_framework.inference.vision import read_media_frames
-from cosmos_framework.utils.vfm.data_utils import get_vision_data_resolution
+from cosmos_framework.utils.generator.data_utils import get_vision_data_resolution
 
 
 def _load_actions(
@@ -40,7 +44,7 @@ def _load_actions(
                 f"Raw action dimension from file ({raw_dim}) does not match expected dimension ({raw_action_dim})"
             )
             return pad_action_to_max_dim(raw, max_action_dim)
-        case ModelMode.POLICY | ModelMode.INVERSE_DYNAMICS:
+        case ModelMode.WAM | ModelMode.INVERSE_DYNAMICS:
             assert raw_action_dim is not None, "raw_action_dim is required for policy and inverse_dynamics modes"
             return torch.zeros(action_chunk_size, max_action_dim, dtype=torch.float32)
         case _:
@@ -122,10 +126,15 @@ def build_action_batch(
         image_size=padded_image_size,
     )
 
+    action_processing_record = ActionProcessingRecord(
+        raw_action_dim=raw_action_dim,
+        action_normalizer=None,
+    )
+
     return {
         input_video_key: [[video_padded]] * batch_size,
         "action": [[action]] * batch_size,
-        "raw_action_dim": [torch.tensor(raw_action_dim, dtype=torch.long)] * batch_size,
+        **make_batched_action_processing_fields(action_processing_record, batch_size),
         "mode": [model_mode.value] * batch_size,
         "ai_caption": [ai_caption] * batch_size,
         "prompt": [prompt] * batch_size,

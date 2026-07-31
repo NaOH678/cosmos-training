@@ -112,8 +112,12 @@ class ImageioVideoHandler(BaseFileHandler):
         file: IO[bytes],
         format: str = "mp4",  # pylint: disable=redefined-builtin
         fps: int = 17,
-        quality: int = 5,
+        quality: int | None = 5,
         ffmpeg_params=None,
+        crf: int | None = None,
+        codec: str = "libx264",
+        preset: str = "medium",
+        pix_fmt: str = "yuv420p",
         **kwargs,
     ):
         """
@@ -124,50 +128,61 @@ class ImageioVideoHandler(BaseFileHandler):
             file (IO[bytes]): A file-like object to which the video data will be written.
             format (str): Format of the video file (default 'mp4').
             fps (int): Frames per second of the output video (default 17).
-            quality (int): Quality of the video (0-10, default 5).
+            quality (int): Quality of the video (0-10, default 5). Maps to libx264 ``-qscale:v`` (VBR).
+                Ignored when ``crf`` is set (qscale and CRF are mutually exclusive for libx264).
             ffmpeg_params (list): Additional parameters to pass to ffmpeg.
-
+            crf (int | None): Constant Rate Factor for H.264 (0-51, lower = higher quality / larger
+                file). When set, switches to CRF rate control, which yields far smaller files at a
+                matched perceptual quality than the ``quality`` (qscale) path. Defaults to ``None``
+                (legacy qscale behavior, fully backward-compatible).
+            codec (str): Video codec, used only on the CRF path (default 'libx264').
+            preset (str): x264 speed/efficiency preset, used only on the CRF path (default 'medium').
+            pix_fmt (str): Pixel format, used only on the CRF path (default 'yuv420p' for broad
+                playback compatibility).
         """
         if isinstance(obj, torch.Tensor):
             assert obj.dtype == torch.uint8, "Tensor must be of type uint8"
             obj = obj.cpu().numpy()
         h, w = obj.shape[1:-1]
 
-        # Encode as universally playable H.264: yuv420p chroma + a finite CRF.
-        #
-        # We deliberately bypass imageio-ffmpeg's `quality` knob here. At its top
-        # setting (quality=10, used for action rollouts) it requests *lossless*
-        # x264, and lossless x264 is only available under the "High 4:4:4
-        # Predictive" profile. The result is a file whose pixels are yuv420p but
-        # whose profile header advertises 4:4:4 — a mismatch that most players,
-        # browsers, and hardware decoders render as an all-black video.
-        #
-        # Forcing `-crf 18` (visually lossless) keeps the encode out of lossless
-        # mode, so x264 emits a standard "High" profile that plays everywhere.
-        compat_output_params = ["-pix_fmt", "yuv420p", "-crf", "18"]
+        # H.264 + yuv420p requires both dimensions to be even. Some eval videos
+        # keep the raw camera aspect ratio (for example 569x640), and ffmpeg
+        # fails with "width not divisible by 2" unless we pad before encoding.
+        # Pad minimally on the bottom/right edge so content coordinates remain
+        # unchanged and update ffmpeg's raw input size to match the padded array.
+        pad_h = h % 2
+        pad_w = w % 2
+        if pad_h or pad_w:
+            log.debug(f"Padding video from {w}x{h} to {w + pad_w}x{h + pad_h} for MP4 encoding")
+            obj = np.pad(obj, ((0, 0), (0, pad_h), (0, pad_w), (0, 0)), mode="edge")
+            h, w = obj.shape[1:-1]
 
         # Default ffmpeg params that ensure width and height are set
         default_ffmpeg_params = ["-s", f"{w}x{h}"]
 
-        # Use provided ffmpeg_params if any, otherwise use defaults
-        final_ffmpeg_params = ffmpeg_params if ffmpeg_params is not None else default_ffmpeg_params
-        final_ffmpeg_params = list(final_ffmpeg_params) + compat_output_params
-
-        mimsave_kwargs = {
-            "fps": fps,
-            "macro_block_size": 1,
-            "codec": "libx264",
-            # Output pixel format is set via `-pix_fmt` in `compat_output_params`
-            # below; we don't pass `pixelformat` here to avoid a duplicate
-            # `-pix_fmt` on the ffmpeg command line.
-            "ffmpeg_params": final_ffmpeg_params,
-            "output_params": ["-f", "mp4"],
-        }
+        if crf is not None:
+            # CRF rate control. ``quality`` (qscale) and ``-crf`` are mutually exclusive for
+            # libx264, so the qscale ``quality`` kwarg is intentionally not forwarded here.
+            mimsave_kwargs = {
+                "fps": fps,
+                "codec": codec,
+                "pixelformat": pix_fmt,
+                "macro_block_size": 1,
+                "ffmpeg_params": (ffmpeg_params or []) + ["-crf", str(crf), "-preset", preset] + default_ffmpeg_params,
+                "output_params": ["-f", "mp4"],
+            }
+        else:
+            # Preserve caller-provided ffmpeg params, but always append the post-padding
+            # input size so custom params cannot leave ffmpeg seeing stale odd dimensions.
+            mimsave_kwargs = {
+                "fps": fps,
+                "quality": quality,
+                "macro_block_size": 1,
+                "ffmpeg_params": (ffmpeg_params or []) + default_ffmpeg_params,
+                "output_params": ["-f", "mp4"],
+            }
         # Update with any other kwargs
         mimsave_kwargs.update(kwargs)
-        # Drop the caller's `quality` so it can't reintroduce lossless x264 and the
-        # broken 4:4:4 profile; our explicit `-crf` governs quality instead.
-        mimsave_kwargs.pop("quality", None)
         log.debug(f"mimsave_kwargs: {mimsave_kwargs}")
 
         imageio.mimsave(file, obj, format, **mimsave_kwargs)

@@ -11,10 +11,6 @@
 /examples/data/
 /examples/checkpoints/
 
-# Upstream LFS example images are often unavailable in local clones; do not publish
-# pointer-only files into the WorldAct snapshot.
-/inputs/prompt_upsampler/image_inputs/*.jpg
-
 # Local training output (generated, large).
 training_output/
 

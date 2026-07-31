@@ -6,7 +6,7 @@ import math
 import os
 from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, cast, override
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, Self, Sequence, cast, override
 
 import pydantic
 import pynvml
@@ -160,11 +160,12 @@ class ModelMode(StrEnum):
     IMAGE2IMAGE = "image2image"
     IMAGE2VIDEO = "image2video"
     VIDEO2VIDEO = "video2video"
+    AUDIO_IMAGE2VIDEO = "audio_image2video"
 
     # Action
     FORWARD_DYNAMICS = "forward_dynamics"
     INVERSE_DYNAMICS = "inverse_dynamics"
-    POLICY = "policy"
+    WAM = "wam"
 
     REASONER = "reasoner"
 
@@ -176,16 +177,29 @@ class ModelMode(StrEnum):
     def is_reasoner(self) -> bool:
         return self in REASONER_MODEL_MODES
 
+    @property
+    def is_sound_condition(self) -> bool:
+        return self in SOUND_CONDITION_MODEL_MODES
+
 
 # Image-output modes: ``num_frames`` defaults to 1 and the output is saved as a still image.
 _IMAGE_OUTPUT_MODES: frozenset[ModelMode] = frozenset({ModelMode.TEXT2IMAGE, ModelMode.IMAGE2IMAGE})
 
 # Modes that produce action tensors and require a model with ``action_gen=True``.
 ACTION_MODEL_MODES: frozenset[ModelMode] = frozenset(
-    {ModelMode.FORWARD_DYNAMICS, ModelMode.INVERSE_DYNAMICS, ModelMode.POLICY}
+    {ModelMode.FORWARD_DYNAMICS, ModelMode.INVERSE_DYNAMICS, ModelMode.WAM}
 )
 
 REASONER_MODEL_MODES: frozenset[ModelMode] = frozenset({ModelMode.REASONER})
+
+# Modes that condition generation on a real input audio clip (require a model
+# with ``sound_gen=True`` and a ``sound_path``).
+SOUND_CONDITION_MODEL_MODES: frozenset[ModelMode] = frozenset({ModelMode.AUDIO_IMAGE2VIDEO})
+
+
+def is_reasoner_only(sample_overrides: Sequence["OmniSampleOverrides"]) -> bool:
+    """Return whether every requested sample uses the reasoner-only path."""
+    return bool(sample_overrides) and all(sample.sample_meta.model_mode.is_reasoner for sample in sample_overrides)
 
 
 class VisionMode(StrEnum):
@@ -237,6 +251,16 @@ class TransferArgs(ArgsBase):
     """Resolved transfer inference arguments for a single control hint."""
 
     control_path: ResolvedFilePathOrUrl | None = None
+    weight: float = 1.0
+    """Strength of this control signal in the weighted multi-control attention aggregation."""
+
+    @pydantic.field_validator("weight", mode="before")
+    @classmethod
+    def _coerce_none_weight(cls, v: float | None) -> float:
+        # ``TransferOverrides.weight`` defaults to None ("unset") and is resolved into
+        # this required float via ``_build`` (which does not strip None). An unset weight
+        # resolves to the neutral 1.0 → equal weighting / single-control parity.
+        return 1.0 if v is None else v
 
 
 class EdgeTransferArgs(TransferArgs):
@@ -252,6 +276,9 @@ class TransferOverrides(OverridesBase):
 
     control_path: ResolvedFilePathOrUrl | None = None
     """Path or URL to pre-computed control input."""
+
+    weight: float | None = None
+    """Override the control weight for multi-control weighted attention aggregation."""
 
     def download(self, output_dir: Path):
         if self.control_path is not None:
@@ -397,7 +424,7 @@ class VisionDataArgs(ArgsBase, _VisionDataBase):
         autodetect via cosmos_framework.inference.vision.read_and_resize_media before reaching
         this property and never observe the fallback.
         """
-        from cosmos_framework.data.vfm.utils import IMAGE_RES_SIZE_INFO, VIDEO_RES_SIZE_INFO
+        from cosmos_framework.data.generator.utils import IMAGE_RES_SIZE_INFO, VIDEO_RES_SIZE_INFO
 
         assert self.resolution
         aspect_ratio: AspectRatio = self.aspect_ratio or "16,9"
@@ -513,6 +540,7 @@ class VisionDataOverrides(OverridesBase, _VisionDataBase):
 
 class SoundDataArgs(ArgsBase):
     enable_sound: bool = False
+    sound_path: ResolvedFilePath | None = None
 
 
 class SoundDataOverrides(OverridesBase):
@@ -520,8 +548,23 @@ class SoundDataOverrides(OverridesBase):
 
     enable_sound: Training[bool | None] = None
     """Enable joint video+sound generation (t2vs mode). Requires a checkpoint with sound modules."""
+    sound_path: ResolvedFilePathOrUrl | None = None
+    """Path or URL to a conditioning audio clip (e.g. .wav/.mp3/.flac). Required for
+    audio_image2video; the clip is encoded by the AVAE and used as a clean condition."""
+
+    @override
+    def download(self, output_dir: Path):
+        super().download(output_dir)
+        self.sound_path = download_file(self.sound_path, output_dir, "sound")
 
     def _build_sound_data(self, model_config: "OmniMoTModelConfig", sample_meta: SampleMeta):
+        if sample_meta.model_mode.is_sound_condition:
+            if self.sound_path is None:
+                raise ValueError(
+                    f"model_mode={sample_meta.model_mode.value} requires a `sound_path` "
+                    "(a conditioning audio clip)"
+                )
+            self.enable_sound = True
         if self.enable_sound is None:
             self.enable_sound = False
         if self.enable_sound and not model_config.sound_gen:
@@ -583,7 +626,7 @@ class ActionDataOverrides(OverridesBase):
             case ModelMode.FORWARD_DYNAMICS:
                 if self.action_path is None:
                     raise ValueError(f"'action_path' is required for model_mode={mode.value!r}")
-            case ModelMode.INVERSE_DYNAMICS | ModelMode.POLICY:
+            case ModelMode.INVERSE_DYNAMICS | ModelMode.WAM:
                 pass
             case _:
                 assert_never(mode)
@@ -595,6 +638,35 @@ class ActionDataOverrides(OverridesBase):
 _ReasonerTemperature = Annotated[float, pydantic.Field(gt=0, le=100)]
 _ReasonerTopP = Annotated[float, pydantic.Field(gt=0, le=1)]
 _ReasonerRepetitionPenalty = Annotated[float, pydantic.Field(gt=0)]
+
+
+def _mapping_get(node: Any, key: str) -> Any:
+    """``.get`` that tolerates None and non-mapping nodes (dict / DictConfig / LazyDict)."""
+    getter = getattr(node, "get", None)
+    return getter(key) if callable(getter) else None
+
+
+def _reasoner_vision_capable(model_config: "OmniMoTModelConfig") -> bool:
+    """Whether the checkpoint's reasoner LM can encode image/video prompts.
+
+    Qwen-family reasoners carry the ViT inside the checkpoint, gated by
+    ``include_visual``; a falsy value (e.g. an old ``--no-vit`` export, or a
+    text-only LLM backbone) means the tower was never built, so a vision
+    prompt would only fail mid-batch at the ``hasattr(causal_lm, "visual")``
+    gate. Edge's Nemotron reasoner sets ``include_visual=None`` by design and
+    loads its SigLIP2 tower lazily (``_ensure_vision_tower``), so it is always
+    vision-capable. Unknown families are treated as capable (never block).
+    """
+    vlm_config = model_config.vlm_config
+    model_instance = getattr(vlm_config, "model_instance", None)
+    target = str(_mapping_get(model_instance, "_target_") or "")
+    model_name = getattr(vlm_config, "model_name", "") or ""
+    if "Nemotron3DenseVLTextForCausalLM" in target or "Cosmos3-Edge" in model_name:
+        return True
+    if "Qwen" not in target and not model_name.startswith("Qwen/"):
+        return True
+    include_visual = _mapping_get(_mapping_get(model_instance, "config"), "include_visual")
+    return bool(include_visual)
 
 
 class ReasonerDataArgs(ArgsBase):
@@ -609,11 +681,12 @@ class ReasonerDataArgs(ArgsBase):
     top_p: _ReasonerTopP | None = None
     repetition_penalty: _ReasonerRepetitionPenalty | None = None
     presence_penalty: float | None = None
+    video_fps: pydantic.PositiveFloat | None = None
 
 
 class ReasonerDataOverrides(OverridesBase):
     """Reasoner overrides for ``model_mode='reasoner'``. ``vision_path`` (if set) is
-    used as the conditioning image; the VLM processor handles preprocessing."""
+    used as the conditioning image or video; the VLM processor handles preprocessing."""
 
     max_new_tokens: pydantic.PositiveInt | None = None
     """Maximum number of new tokens to generate per prompt."""
@@ -629,6 +702,8 @@ class ReasonerDataOverrides(OverridesBase):
     """CTRL/HF-style multiplicative repetition penalty (>0). ``1.0`` is identity."""
     presence_penalty: float | None = None
     """Additive presence penalty (any sign). ``0.0`` is identity."""
+    video_fps: pydantic.PositiveFloat | None = None
+    """Frames per second to sample from a video vision_path. None -> decoder default (2.0)."""
 
     def _build_reasoner_data(self, model_config: "OmniMoTModelConfig", sample_meta: SampleMeta):
         if not sample_meta.model_mode.is_reasoner:
@@ -636,6 +711,14 @@ class ReasonerDataOverrides(OverridesBase):
         self = cast("SampleDataOverrides", self)
         if not self.prompt.strip():
             raise ValueError("Reasoner inference requires a non-empty 'prompt'.")
+        if self.vision_path is not None and not _reasoner_vision_capable(model_config):
+            raise ValueError(
+                f"Reasoner sample {getattr(self, 'name', None)!r} conditions on vision input "
+                f"'{self.vision_path}', but the loaded checkpoint's reasoner LM has no visual tower "
+                "(model config include_visual is false — e.g. a --no-vit export or a text-only LLM "
+                "backbone). Use a text-only prompt, or re-export the checkpoint with the default "
+                "--vit / use a full checkpoint for image/video reasoner prompts."
+            )
 
 
 class _TransferDataBase:
@@ -663,6 +746,7 @@ class TransferDataArgs(ArgsBase, _TransferDataBase):
     show_input: bool | None = None
     num_first_chunk_conditional_frames: pydantic.NonNegativeInt | None = None
     share_vision_temporal_positions: bool | None = None
+    emphasize_control_in_prompt: bool | None = None
 
 
 class TransferDataOverrides(OverridesBase, _TransferDataBase):
@@ -701,6 +785,10 @@ class TransferDataOverrides(OverridesBase, _TransferDataBase):
     """Number of conditioning frames for the first chunk (defaults to ``num_conditional_frames``)."""
     share_vision_temporal_positions: bool | None = None
     """Share vision temporal position ids across autoregressive chunks."""
+    emphasize_control_in_prompt: bool | None = None
+    """If True (default), auto-append a one-sentence directive to the user prompt that
+    names the active control modality (e.g. "Follow the edge control video precisely.
+    ..."). Set False for clean baselines / ablations. The system prompt is unchanged."""
 
     @pydantic.model_validator(mode="after")
     def _validate_transfer_hints(self) -> Self:
@@ -740,6 +828,7 @@ class TransferDataOverrides(OverridesBase, _TransferDataBase):
         "show_input": False,
         "num_first_chunk_conditional_frames": 0,
         "share_vision_temporal_positions": True,
+        "emphasize_control_in_prompt": True,
     }
     _TRANSFER_HINT_DEFAULTS: ClassVar[dict[TransferHintKey, dict[str, Any]]] = {
         TransferHintKey.EDGE: {"preset_edge_threshold": PresetEdgeThreshold.MEDIUM},
@@ -958,9 +1047,22 @@ class OmniSampleOverrides(
         "Qwen/Qwen3-VL-32B-Instruct": "32B",
         "Qwen/Qwen3-VL-30B-A3B-Instruct": "30B-A3B",
         "Qwen/Qwen3-VL-235B-A22B-Instruct": "235B-A22B",
+        "nvidia/Cosmos3-Edge-Reasoner": "2B",
+    }
+
+    _NUM_FRAMES_DEFAULTS: ClassVar[dict[str, int]] = {
+        # Cosmos3-Edge defaults to a shorter 121-frame clip for video
+        # generation; every other model keeps the per-modality JSON default
+        # (189). Keyed by ``vlm_config.model_name`` so only Edge is affected.
+        "nvidia/Cosmos3-Edge-Reasoner": 121,
     }
 
     _RESOLUTION_SHIFT_DEFAULTS: ClassVar[dict[(ModelSize, Resolution), float]] = {
+        # 2B rows mirror Cosmos3-Edge's training shift (Cosmos3-Edge.yaml
+        # rectified_flow_training_config.shift: 256->3, 480->5, 720->10).
+        ("2B", "256"): 3.0,
+        ("2B", "480"): 5.0,
+        ("2B", "720"): 10.0,
         ("8B", "256"): 3.0,
         ("8B", "480"): 5.0,
         ("8B", "720"): 10.0,
@@ -992,6 +1094,21 @@ class OmniSampleOverrides(
         self.__dict__.update(merged.__dict__)
         self.model_mode = sample_meta.model_mode
 
+        # Model-specific num_frames default for video generation (e.g.
+        # Cosmos3-Edge -> 121). Applies only when the user did not request a
+        # frame count and the mode produces a plain video; image, action, and
+        # reasoner modes keep their own num_frames handling (reasoner reports
+        # VIDEO vision_mode but uses num_frames as an inert 1).
+        if (
+            "num_frames" not in user_fields
+            and sample_meta.vision_mode == VisionMode.VIDEO
+            and not sample_meta.model_mode.is_action
+            and not sample_meta.model_mode.is_reasoner
+        ):
+            num_frames_default = self._NUM_FRAMES_DEFAULTS.get(model_config.vlm_config.model_name)
+            if num_frames_default is not None:
+                self.num_frames = num_frames_default
+
         self._build_sample()
         self._build_sampling(model_config=model_config, sample_meta=sample_meta)
         self._build_text_data(model_config=model_config, sample_meta=sample_meta)
@@ -1010,7 +1127,9 @@ class OmniSampleOverrides(
         )
 
         if not shift_configured and not sample_meta.model_mode.is_reasoner:
-            model_size = self._VLM_MODEL_SIZE[model_config.vlm_config.model_name]
+            # Unregistered backbone names (custom fine-tunes) simply skip shift
+            # defaulting rather than KeyError-ing.
+            model_size = self._VLM_MODEL_SIZE.get(model_config.vlm_config.model_name)
             key = (model_size, self.resolution)
             if key in self._RESOLUTION_SHIFT_DEFAULTS:
                 self.shift = self._RESOLUTION_SHIFT_DEFAULTS[key]
@@ -1058,6 +1177,15 @@ _CHECKPOINTS: dict[str, CheckpointConfig] = {
             revision="main",
         ),
     ),
+    "Cosmos3-Edge": CheckpointConfig(
+        model_memory_bytes=MODEL_MEMORY_BYTES_BY_SIZE["2B"],
+        config_file=str(CONFIG_DIR / "model/Cosmos3-Edge.yaml"),
+        s3_uri="s3://bucket1/cosmos3_vfm/cosmos3_ga_midtraining/cosmos3_ga_4bm2b_v1_midtrain_0630a/checkpoints/iter_000028000/",
+        hf=CheckpointDirHf(
+            repository="nvidia/Cosmos3-Edge",
+            revision="main",
+        ),
+    ),
     "Cosmos3-Super": CheckpointConfig(
         model_memory_bytes=MODEL_MEMORY_BYTES_BY_SIZE["32B"],
         config_file=str(CONFIG_DIR / "model/Cosmos3-Super.yaml"),
@@ -1093,6 +1221,47 @@ _CHECKPOINTS: dict[str, CheckpointConfig] = {
         # Self-contained checkpoint: use its bundled processor instead of
         # downloading the base Cosmos3-Super repo just for the tokenizer.
         vlm_processor_from_checkpoint=True,
+    ),
+    "Cosmos3-Super-Text2Image-4Step": CheckpointConfig(
+        model_memory_bytes=MODEL_MEMORY_BYTES_BY_SIZE["32B"],
+        config_file=str(CONFIG_DIR / "model/Cosmos3-Super.yaml"),
+        s3_uri="s3://bucket1/cosmos3_vfm/cosmos3_ga_text2image_4step/",
+        hf=CheckpointDirHf(
+            repository="nvidia/Cosmos3-Super-Text2Image-4Step",
+            revision="main",
+        ),
+        experiment_overrides=(
+            "model.config.resolution='768'",
+            "model.config.action_gen=false",
+            "model.config.sound_gen=false",
+            "model.config.sound_dim=null",
+            "model.config.sound_tokenizer=null",
+            "model.config.rectified_flow_training_config.shift.720=5",
+            "model.config.rectified_flow_training_config.shift.768=5",
+            "model.config.tokenizer.encode_chunk_frames.768=8",
+            "model.config.tokenizer.encode_exact_durations=null",
+            "model.config.fixed_step_sampler_config.t_list=[1.0,0.9375,0.8333333333333334,0.625]",
+            "model.config.fixed_step_sampler_config.sample_type=sde",
+        ),
+    ),
+    "Cosmos3-Super-Image2Video-4Step": CheckpointConfig(
+        model_memory_bytes=MODEL_MEMORY_BYTES_BY_SIZE["32B"],
+        config_file=str(CONFIG_DIR / "model/Cosmos3-Super.yaml"),
+        s3_uri="s3://bucket1/cosmos3_vfm/cosmos3_ga_image2video_4step/",
+        hf=CheckpointDirHf(
+            repository="nvidia/Cosmos3-Super-Image2Video-4Step",
+            revision="main",
+        ),
+        experiment_overrides=(
+            "model.config.resolution='480'",
+            "model.config.action_gen=false",
+            "model.config.sound_gen=false",
+            "model.config.sound_dim=null",
+            "model.config.sound_tokenizer=null",
+            "model.config.diffusion_expert_config.base_fps=16",
+            "model.config.fixed_step_sampler_config.t_list=[1.0,0.9375,0.8333333333333334,0.625]",
+            "model.config.fixed_step_sampler_config.sample_type=sde",
+        ),
     ),
 }
 DEFAULT_CHECKPOINT_NAME = "Cosmos3-Nano"
@@ -1247,8 +1416,7 @@ def _get_device_memory_bytes() -> int:
     try:
         pynvml.nvmlInit()
         handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-        info = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        pynvml.nvmlShutdown()
+        info = _get_nvml_device_memory_info(handle)
         return info.total
     except Exception:
         # Fallback for unified memory architectures (e.g., GB10) where
@@ -1257,3 +1425,17 @@ def _get_device_memory_bytes() -> int:
         if torch.cuda.is_available():
             return int(torch.cuda.get_device_properties(0).total_memory)
         return 128 * 1024**3  # Default 128GB
+    finally:
+        try:
+            pynvml.nvmlShutdown()
+        except Exception:
+            pass
+
+
+def _get_nvml_device_memory_info(handle: Any) -> Any:
+    try:
+        return pynvml.nvmlDeviceGetMemoryInfo_v2(handle)
+    except AttributeError:
+        return pynvml.nvmlDeviceGetMemoryInfo(handle)
+    except pynvml.NVMLError_NotSupported:
+        return pynvml.nvmlDeviceGetMemoryInfo(handle)

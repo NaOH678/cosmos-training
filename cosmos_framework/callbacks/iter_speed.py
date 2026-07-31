@@ -42,22 +42,10 @@ class IterSpeed(EveryN):
         iteration: int = 0,
     ) -> None:
         if self.hit_counter < self.hit_thres:
-            # Per-modality flow-matching loss breakdown (present in output_batch when
-            # the model emits them, e.g. for vision_gen/action_gen training).
-            mod_loss = ""
-            for key, label in (
-                ("flow_matching_loss_vision", "L_vid"),
-                ("flow_matching_loss_action", "L_act"),
-                ("flow_matching_loss_sound", "L_snd"),
-            ):
-                v = output_batch.get(key)
-                if isinstance(v, torch.Tensor):
-                    mod_loss += f"{label}: {v.detach().float().mean().item():.4f} | "
             log.info(
                 f"Iteration {iteration}: "
                 f"Hit counter: {self.hit_counter + 1}/{self.hit_thres} | "
                 f"Loss: {loss.detach().item():.4f} | "
-                f"{mod_loss}"
                 f"Time: {time.time() - self.last_hit_time:.2f}s",
                 rank0_only=False,
             )
@@ -84,23 +72,14 @@ class IterSpeed(EveryN):
         cur_time = time.time()
         iter_speed = (cur_time - self.time) / self.every_n / self.step_size
 
-        mod_loss = ""
-        for key, label in (
-            ("flow_matching_loss_vision", "L_vid"),
-            ("flow_matching_loss_action", "L_act"),
-            ("flow_matching_loss_sound", "L_snd"),
-        ):
-            v = output_batch.get(key)
-            if isinstance(v, torch.Tensor):
-                mod_loss += f" | {label}: {v.detach().float().mean().item():.4f}"
-
         log.info(
-            f"{iteration} : iter_speed {iter_speed:.2f} seconds per iteration | Loss: {loss.detach().item():.4f}{mod_loss}",
+            f"{iteration} : iter_speed {iter_speed:.2f} seconds per iteration | Loss: {loss.detach().item():.4f}",
             rank0_only=False,
         )
 
         per_sample_batch_counter = dict()
-        if hasattr(model, "is_image_batch"):
+        # for VFM
+        if hasattr(model, "is_image_batch") and hasattr(model, "input_image_key") and hasattr(model, "input_video_key"):
             is_image_batch = model.is_image_batch(data_batch)
             if is_image_batch:
                 image_batch_size = len(data_batch[model.input_image_key])
@@ -108,6 +87,18 @@ class IterSpeed(EveryN):
             else:
                 video_batch_size = len(data_batch[model.input_video_key])
                 per_sample_batch_counter["video_batch_size"] = video_batch_size
+        # for LLM training only
+        elif "input_ids" in data_batch:
+            mbs = data_batch["input_ids"].shape[0]
+            dp_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
+            grad_accum_iter = int(trainer.config.trainer.grad_accum_iter)
+            per_sample_batch_counter["token_batch_size"] = mbs
+            per_sample_batch_counter["token_global_batch_size"] = mbs * dp_size * grad_accum_iter
+            # Cumulative token count (LLM analog of sample_counter). Set by
+            # ``LLMPretrainModel.training_step`` into a persistent buffer on
+            # ``model.net``, so this value survives checkpoint resume.
+            if hasattr(model, "token_counter"):
+                per_sample_batch_counter["token_counter"] = model.token_counter
 
         if wandb.run:
             sample_counter = getattr(trainer, "sample_counter", iteration)

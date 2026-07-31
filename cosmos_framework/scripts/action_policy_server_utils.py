@@ -47,7 +47,7 @@ def get_local_ip() -> str:
         return socket.gethostbyname(socket.gethostname())
 
 
-def maybe_init_distributed(*, gpu_id: int = 0) -> None:
+def maybe_init_distributed() -> None:
     """
     Initialize a one-rank process group when launched outside torchrun so FSDP
     and distributed utilities have the process-group state they expect.
@@ -61,7 +61,7 @@ def maybe_init_distributed(*, gpu_id: int = 0) -> None:
 
     world_size_env = os.getenv("WORLD_SIZE")
     rank_env = os.getenv("RANK")
-    local_rank = int(os.getenv("LOCAL_RANK", str(gpu_id)))
+    local_rank = int(os.getenv("LOCAL_RANK", "0"))
 
     backend = "nccl" if torch.cuda.is_available() else "gloo"
 
@@ -72,7 +72,7 @@ def maybe_init_distributed(*, gpu_id: int = 0) -> None:
         return
 
     if torch.cuda.is_available():
-        torch.cuda.set_device(gpu_id)
+        torch.cuda.set_device(0)
     port = _get_free_local_port()
     dist.init_process_group(backend=backend, init_method=f"tcp://127.0.0.1:{port}", rank=0, world_size=1)
 

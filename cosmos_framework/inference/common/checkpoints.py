@@ -71,13 +71,13 @@ def _materialize_avae_ckpt(local_dir: str) -> None:
     The new HF layout ships ``sound_tokenizer/{config.json,
     diffusion_pytorch_model.safetensors}`` in the diffusers OobleckDecoder layout
     (``decoder.block.*`` keys, Snake1d ``alpha``/``beta`` shaped ``[1, C, 1]``). The
-    native loader in ``cosmos_framework/model/vfm/tokenizers/audio/avae.py`` builds an
+    native loader in ``cosmos_framework/model/generator/tokenizers/audio/avae.py`` builds an
     ``nn.Sequential`` decoder keyed ``decoder.layers.*`` with Snake params shaped
     ``[C]`` and loads via ``load_state_dict(strict=False)`` — so without remapping
     the keys, none match and every decoder weight is silently left at init (noise).
     We invert the forward conversion (key remap + snake reshape) and wrap the result
-    under ``state_dict``. Decoder-only is sufficient: generation only decodes sound
-    latents to a waveform. Idempotent.
+    under ``state_dict``. Native ``encoder.layers.*`` keys pass through
+    ``_avae_block_key_to_legacy`` unchanged. Idempotent.
     """
     import torch
     from safetensors.torch import load_file
@@ -131,7 +131,7 @@ def register_checkpoints():
         for s3_prefix in [
             # 'cosmos_framework.configs.base.defaults.vlm.download_tokenizer_files'
             "cosmos3/pretrained/huggingface",
-            # 'cosmos_framework.utils.vfm.vlm.pretrained_models_downloader.maybe_download_hf_model_from_s3'
+            # 'cosmos_framework.utils.generator.vlm.pretrained_models_downloader.maybe_download_hf_model_from_s3'
             "cosmos_reason2/hf_models",
         ]:
             register_checkpoint(
@@ -207,6 +207,25 @@ def register_checkpoints():
         )
     )
 
+    # The backbone URI Edge SFT recipes pin (edge_model_config), mapped to the
+    # public nvidia/Cosmos3-Edge repo. Deliberately NO 'include' filter:
+    # training's backbone seeding needs the full repo (the root safetensors
+    # index points into transformer/*); export_model narrows its own download
+    # to EDGE_VIT_BUNDLE_HF_INCLUDE at the call site.
+    register_checkpoint(
+        CheckpointConfig(
+            uuid=uuid4().hex,
+            name="Cosmos3-Edge-Reasoner-590c1c0",
+            s3=CheckpointDirS3(
+                uri="s3://bucket/cosmos3/pretrained/huggingface/nvidia/Cosmos3-Edge-Reasoner-590c1c0",
+            ),
+            hf=CheckpointDirHf(
+                repository="nvidia/Cosmos3-Edge",
+                revision="main",
+            ),
+        ),
+    )
+
     register_checkpoint(
         CheckpointConfig(
             uuid=uuid4().hex,
@@ -249,9 +268,9 @@ def register_checkpoints():
                 revision="main",
                 subdirectory="sound_tokenizer",
             ),
-            # The sound_tokenizer/ safetensors are decoder-only and use the diffusers
-            # OobleckDecoder key layout; _materialize_avae_ckpt remaps them back to the
-            # legacy decoder.layers.* layout the native AVAE loader expects.
+            # _materialize_avae_ckpt remaps the diffusers OobleckDecoder keys
+            # (decoder.block.*) back to the legacy decoder.layers.* layout the native AVAE
+            # loader expects; native encoder.layers.* keys pass through unchanged.
             post_download=_materialize_avae_ckpt,
         ),
     )

@@ -3,7 +3,11 @@
 
 """User-facing torch.compile knobs for VFM and VLM training paths."""
 
+from typing import Literal
+
 import attrs
+
+ARPostSaturationMode = Literal["default", "static-compile"]
 
 
 @attrs.define(slots=False)
@@ -24,12 +28,18 @@ class CompileConfig:
     # (maps to ``torch.compile(dynamic=...)``).  Defaults to True for training,
     # which sees varying shapes across batches (sequence length, CP sharding, ...);
     # specializing would recompile continuously.  See ParallelismOverrides in
-    # cosmos_framework/inference/common/args.py for the inference-side rationale
+    # packages/cosmos3/cosmos3/common/args.py for the inference-side rationale
     # (where dynamic=False is preferred for stable AR shapes).
     compile_dynamic: bool = True
 
     # Whether to use CUDA graphs for faster inference. This option does not work during training.
     use_cuda_graphs: bool = False
+
+    # AR-inference-specific post-saturation behavior. "default" preserves the global compile flags.
+    ar_post_saturation_mode: ARPostSaturationMode = attrs.field(
+        default="default",
+        validator=attrs.validators.in_({"default", "static-compile"}),
+    )
 
     # Enable autotuning for pointwise/reduction Triton kernels (e.g. RMSNorm).
     # Explores 6 candidate configs instead of the default 1, improving kernel performance
