@@ -6,7 +6,7 @@
 from cosmos_framework.inference.common.init import init_script
 
 init_script(
-    env={
+    default_env={
         "COSMOS_DEVICE": "cpu",
     }
 )
@@ -24,12 +24,15 @@ from torch.distributed.checkpoint.state_dict import get_model_state_dict
 
 from cosmos_framework.checkpoint.dcp import CustomSavePlanner
 from cosmos_framework.inference.args import OmniSetupOverrides
-from cosmos_framework.inference.common.args import CheckpointOverrides, ResolvedPath
+from cosmos_framework.inference.common.args import (
+    CheckpointOverrides,
+    ResolvedFilePath,
+    ResolvedPath,
+)
 from cosmos_framework.inference.common.checkpoints import register_checkpoints
 from cosmos_framework.inference.common.public_model_config import build_public_model_config
 from cosmos_framework.inference.model import Cosmos3OmniConfig, Cosmos3OmniModel
 from cosmos_framework.utils.checkpoint_db import _CHECKPOINTS
-
 
 _AVAE_REGISTRY_URI = "s3://bucket/pretrained/tokenizers/audio/avae"
 
@@ -50,11 +53,58 @@ def _redirect_avae_to_local(hf_path):
         avae.hf._path = str(sound_tokenizer_dir)
 
 
+def _redirect_processor_to_local(model_dict: dict, hf_path) -> bool:
+    """Use processor files bundled with a local checkpoint when compatible."""
+    from cosmos_framework.inference.inference import (
+        _bundled_processor_serves_node,
+        _checkpoint_has_processor_files,
+        _point_tokenizer_node_at_dir,
+    )
+
+    tokenizer_config = model_dict.get("config", {}).get("vlm_config", {}).get("tokenizer")
+    if not isinstance(tokenizer_config, dict):
+        return False
+    if not _checkpoint_has_processor_files(hf_path):
+        return False
+    if not _bundled_processor_serves_node(tokenizer_config, hf_path):
+        return False
+    return _point_tokenizer_node_at_dir(tokenizer_config, hf_path)
+
+
+def _redirect_video_vae_to_local(model_dict: dict, hf_path) -> bool:
+    """Use a checkpoint-bundled Wan VAE instead of the download registry."""
+    tokenizer_config = model_dict.get("config", {}).get("tokenizer")
+    if not isinstance(tokenizer_config, dict):
+        return False
+    configured_path = tokenizer_config.get("vae_path")
+    if not isinstance(configured_path, str) or not configured_path:
+        return False
+
+    file_name = configured_path.rsplit("/", 1)[-1]
+    for candidate in (hf_path / "vae" / file_name, hf_path / file_name):
+        if candidate.is_file():
+            return _redirect_video_vae_to_file(model_dict, candidate)
+    return False
+
+
+def _redirect_video_vae_to_file(model_dict: dict, vae_path) -> bool:
+    """Point the model's video tokenizer at an explicit local Wan VAE file."""
+    tokenizer_config = model_dict.get("config", {}).get("tokenizer")
+    if not isinstance(tokenizer_config, dict) or not vae_path.is_file():
+        return False
+    tokenizer_config["vae_path"] = str(vae_path)
+    tokenizer_config["bucket_name"] = ""
+    tokenizer_config["object_store_credential_path_pretrained"] = ""
+    return True
+
+
 class Args(pydantic.BaseModel):
     checkpoint: CheckpointOverrides
     """Hugging Face checkpoint."""
     output_path: Annotated[ResolvedPath, tyro.conf.arg(aliases=("-o",))]
     """Output DCP checkpoint directory."""
+    video_vae_path: ResolvedFilePath | None = None
+    """Optional local Wan2.2_VAE.pth used while instantiating the model."""
 
 
 def convert_model_to_dcp(args: Args):
@@ -63,6 +113,14 @@ def convert_model_to_dcp(args: Args):
     hf_path = checkpoint_config.download_checkpoint()
     _redirect_avae_to_local(hf_path)
     model_dict = checkpoint_config.load_model_config_dict()
+    if _redirect_processor_to_local(model_dict, hf_path):
+        print(f"Using checkpoint-bundled processor files at {hf_path}")
+    if args.video_vae_path is not None:
+        if not _redirect_video_vae_to_file(model_dict, args.video_vae_path):
+            raise ValueError("Checkpoint model config does not expose a video tokenizer")
+        print(f"Using explicit local video VAE at {args.video_vae_path}")
+    elif _redirect_video_vae_to_local(model_dict, hf_path):
+        print(f"Using checkpoint-bundled video VAE at {model_dict['config']['tokenizer']['vae_path']}")
     hf_config = Cosmos3OmniConfig(model=build_public_model_config(model_dict))
     hf_model = Cosmos3OmniModel.from_pretrained_dcp(hf_path, config=hf_config)
     state_dict = get_model_state_dict(hf_model.model)
