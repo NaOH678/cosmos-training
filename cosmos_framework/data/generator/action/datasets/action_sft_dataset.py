@@ -19,9 +19,10 @@ from typing import Any
 
 from torch.utils.data import Dataset, IterableDataset, get_worker_info
 
-from cosmos_framework.data.generator.action.datasets.droid_merged_lerobot_dataset import DROIDMergedLeRobotDataset
 from cosmos_framework.data.generator.action.datasets.droid_lerobot_dataset import DROIDLeRobotDataset
+from cosmos_framework.data.generator.action.datasets.droid_merged_lerobot_dataset import DROIDMergedLeRobotDataset
 from cosmos_framework.data.generator.action.datasets.libero_lerobot_dataset import LIBEROLeRobotDataset
+from cosmos_framework.data.generator.action.datasets.singlerighthand_raw_dataset import SingleRightHandRawDataset
 from cosmos_framework.data.generator.action.transforms import ActionTransformPipeline
 
 
@@ -48,30 +49,41 @@ class ActionSFTDataset(Dataset):
 class ActionIterableShuffleDataset(IterableDataset):
     """Streaming view of a map-style ``ActionSFTDataset``.
 
-    Each ``(rank, worker)`` is assigned a DISJOINT subset of episodes (sharded over
-    ``shard_world_size * num_workers``), shuffles its episode ORDER, and streams the
-    windows WITHIN each episode sequentially -> within-rank batch diversity (the N
-    workers of a rank stream N different episodes) AND cross-rank diversity, while
-    keeping reads sequential (I/O locality + COW; no RandomSampler random-access OOM).
+    Each ``(rank, worker)`` is assigned a disjoint subset of contiguous window blocks.
+    Large episode blocks can be split before sharding to balance datasets with only a
+    few episodes across many workers while preserving sequential decoding locality.
     Re-shuffles each epoch and streams indefinitely (the trainer stops at ``max_iter``).
 
     ``shard_world_size`` / ``shard_rank`` are set by ``RankPartitionedDataLoader``.
     """
 
-    def __init__(self, dataset: "ActionSFTDataset", seed: int = 42):
+    def __init__(self, dataset: "ActionSFTDataset", seed: int = 42, max_block_size: int | None = None):
         super().__init__()
         self._dataset = dataset
         self._seed = int(seed)
+        self._max_block_size = int(max_block_size) if max_block_size is not None else None
+        if self._max_block_size is not None and self._max_block_size < 1:
+            raise ValueError(f"max_block_size must be >= 1, got {self._max_block_size}")
         self.shard_world_size = 1
         self.shard_rank = 0
 
     def __len__(self) -> int:  # informational only; iteration is infinite
         return len(self._dataset)
 
+    def _get_shuffle_blocks(self) -> list[tuple[int, int]]:
+        blocks = self._dataset.get_shuffle_blocks()
+        if self._max_block_size is None:
+            return blocks
+        return [
+            (start + offset, min(self._max_block_size, length - offset))
+            for start, length in blocks
+            for offset in range(0, length, self._max_block_size)
+        ]
+
     def __iter__(self):
         import torch
 
-        blocks = self._dataset.get_shuffle_blocks()
+        blocks = self._get_shuffle_blocks()
         wi = get_worker_info()
         wid = wi.id if wi is not None else 0
         nw = wi.num_workers if wi is not None else 1
@@ -147,6 +159,73 @@ def get_action_droid_sft_dataset(
     sft = ActionSFTDataset(dataset, transform, resolution)
     if iterable_shuffle:
         return ActionIterableShuffleDataset(sft, seed=episode_shuffle_seed)
+    return sft
+
+
+def get_action_singlerighthand_raw_sft_dataset(
+    *,
+    root: str,
+    cache_root: str,
+    fps: float = 15.0,
+    chunk_length: int = 32,
+    split: str = "train",
+    split_seed: int = 42,
+    split_val_ratio: float = 0.03,
+    sample_stride: int = 1,
+    mode: str = "wam",
+    use_state: bool = True,
+    viewpoint: str = "concat_view",
+    task_text: str | None = None,
+    use_image_augmentation: bool = False,
+    use_precomputed_video: bool | str = False,
+    resolution: str | int = "480",
+    max_action_dim: int = 64,
+    tokenizer_config: dict | None = None,
+    cfg_dropout_rate: float = 0.1,
+    append_viewpoint_info: bool = True,
+    append_duration_fps_timestamps: bool = True,
+    append_resolution_info: bool = True,
+    append_idle_frames: bool = False,
+    format_prompt_as_json: bool = True,
+    iterable_shuffle: bool = False,
+    episode_shuffle_seed: int = 42,
+    shuffle_block_size: int | None = 256,
+) -> Dataset:
+    """Build single-right-hand WAM SFT from raw MP4s and extracted NPZ arrays."""
+    dataset = SingleRightHandRawDataset(
+        root=root,
+        cache_root=cache_root,
+        fps=fps,
+        chunk_length=chunk_length,
+        split=split,
+        split_seed=split_seed,
+        split_val_ratio=split_val_ratio,
+        sample_stride=sample_stride,
+        mode=mode,
+        use_state=use_state,
+        viewpoint=viewpoint,
+        task_text=task_text,
+        use_image_augmentation=use_image_augmentation,
+        use_precomputed_video=use_precomputed_video,
+        video_cache_resolution=resolution,
+    )
+    transform = ActionTransformPipeline(
+        tokenizer_config=tokenizer_config,
+        cfg_dropout_rate=cfg_dropout_rate,
+        max_action_dim=max_action_dim,
+        append_viewpoint_info=append_viewpoint_info,
+        append_duration_fps_timestamps=append_duration_fps_timestamps,
+        append_resolution_info=append_resolution_info,
+        append_idle_frames=append_idle_frames,
+        format_prompt_as_json=format_prompt_as_json,
+    )
+    sft = ActionSFTDataset(dataset, transform, resolution)
+    if iterable_shuffle:
+        return ActionIterableShuffleDataset(
+            sft,
+            seed=episode_shuffle_seed,
+            max_block_size=shuffle_block_size,
+        )
     return sft
 
 
