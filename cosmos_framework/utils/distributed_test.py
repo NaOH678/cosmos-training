@@ -36,6 +36,52 @@ def test_init_uses_gloo_backend_for_cpu(monkeypatch: pytest.MonkeyPatch) -> None
     assert init_process_group.call_args.kwargs["backend"] == "gloo"
 
 
+def test_init_continues_when_cpu_affinity_is_invalid(monkeypatch: pytest.MonkeyPatch) -> None:
+    init_process_group = Mock()
+    monkeypatch.setenv("COSMOS_DEVICE", "cpu")
+    monkeypatch.setattr(distributed, "INTERNAL", False)
+    monkeypatch.setattr(distributed.dist, "is_initialized", lambda: False)
+    monkeypatch.setattr(distributed.dist, "is_available", lambda: True)
+    monkeypatch.setattr(distributed.dist, "init_process_group", init_process_group)
+    monkeypatch.setattr(distributed.pynvml, "nvmlInit", lambda: None)
+    monkeypatch.setattr(
+        distributed,
+        "Device",
+        lambda _local_rank: SimpleNamespace(get_cpu_affinity=lambda: [0]),
+    )
+    monkeypatch.setattr(
+        distributed.os,
+        "sched_setaffinity",
+        Mock(side_effect=OSError(22, "Invalid argument")),
+    )
+    monkeypatch.setattr(distributed.torch.cuda, "set_device", lambda _local_rank: None)
+
+    distributed.init()
+
+    assert init_process_group.call_args.kwargs["backend"] == "gloo"
+
+
+def test_init_can_partition_allowed_cpus_by_local_rank(monkeypatch: pytest.MonkeyPatch) -> None:
+    init_process_group = Mock()
+    set_affinity = Mock()
+    monkeypatch.setenv("COSMOS_DEVICE", "cpu")
+    monkeypatch.setenv("COSMOS_CPU_AFFINITY_MODE", "partition")
+    monkeypatch.setenv("LOCAL_RANK", "4")
+    monkeypatch.setenv("LOCAL_WORLD_SIZE", "8")
+    monkeypatch.setattr(distributed, "INTERNAL", False)
+    monkeypatch.setattr(distributed.dist, "is_initialized", lambda: False)
+    monkeypatch.setattr(distributed.dist, "is_available", lambda: True)
+    monkeypatch.setattr(distributed.dist, "init_process_group", init_process_group)
+    monkeypatch.setattr(distributed.os, "sched_getaffinity", lambda _pid: set(range(64)))
+    monkeypatch.setattr(distributed.os, "sched_setaffinity", set_affinity)
+    monkeypatch.setattr(distributed.torch.cuda, "set_device", lambda _local_rank: None)
+
+    distributed.init()
+
+    set_affinity.assert_called_once_with(0, list(range(32, 40)))
+    assert init_process_group.call_args.kwargs["backend"] == "gloo"
+
+
 def _contains_tensor(value: Any) -> bool:
     if isinstance(value, torch.Tensor):
         return True

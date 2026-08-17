@@ -19,8 +19,8 @@ import torch
 import torch.distributed as dist
 from torch.distributed import get_process_group_ranks
 
-from cosmos_framework.utils.flags import INTERNAL
 from cosmos_framework.utils.device import Device
+from cosmos_framework.utils.flags import INTERNAL
 
 if dist.is_available():
     from torch.distributed.distributed_c10d import _get_default_group
@@ -37,14 +37,31 @@ def init() -> int | None:
     if dist.is_initialized():
         return torch.cuda.current_device()
 
-    # Set GPU affinity.
-    pynvml.nvmlInit()
     local_rank = int(os.getenv("LOCAL_RANK", 0))
+    affinity_mode = os.getenv("COSMOS_CPU_AFFINITY_MODE", "nvml").lower()
     try:
-        device = Device(local_rank)
-        os.sched_setaffinity(0, device.get_cpu_affinity())
-    except pynvml.NVMLError as e:
-        log.warning(f"Failed to set device affinity: {e}")
+        if affinity_mode == "partition":
+            allowed_cpus = sorted(os.sched_getaffinity(0))
+            local_world_size = int(os.getenv("LOCAL_WORLD_SIZE", 1))
+            if not 0 <= local_rank < local_world_size:
+                raise ValueError(f"LOCAL_RANK={local_rank} must be in [0, {local_world_size})")
+            start = len(allowed_cpus) * local_rank // local_world_size
+            end = len(allowed_cpus) * (local_rank + 1) // local_world_size
+            rank_cpus = allowed_cpus[start:end]
+            if not rank_cpus:
+                raise ValueError(
+                    f"Cannot partition {len(allowed_cpus)} allowed CPUs across {local_world_size} local ranks"
+                )
+            os.sched_setaffinity(0, rank_cpus)
+            log.info(f"CPU affinity mode=partition, CPUs={rank_cpus}", rank0_only=False)
+        elif affinity_mode == "nvml":
+            pynvml.nvmlInit()
+            device = Device(local_rank)
+            os.sched_setaffinity(0, device.get_cpu_affinity())
+        elif affinity_mode != "none":
+            raise ValueError(f"Unsupported COSMOS_CPU_AFFINITY_MODE={affinity_mode!r}")
+    except (pynvml.NVMLError, OSError) as e:
+        log.warning(f"Failed to set device affinity: {e}", rank0_only=False)
     # Set up distributed communication. CPU checkpoint conversion needs Gloo
     # because NCCL cannot synchronize CPU-resident tokenizer or model tensors.
     os.environ["TORCH_NCCL_BLOCKING_WAIT"] = "0"

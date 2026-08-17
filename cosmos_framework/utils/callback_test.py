@@ -3,10 +3,13 @@
 
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
+import torch
 
-from cosmos_framework.utils.callback import Callback, CallBackGroup
+from cosmos_framework.utils import callback as callback_module
+from cosmos_framework.utils.callback import Callback, CallBackGroup, WandBCallback
 
 
 def _foreign_callback_type() -> type[Any]:
@@ -53,3 +56,43 @@ def test_callback_group_rejects_foreign_callback_without_metadata_slots() -> Non
         CallBackGroup(config=config, trainer=SimpleNamespace())
 
     assert repr(callback_config) in str(error.value)
+
+
+@pytest.mark.L0
+@pytest.mark.CPU
+def test_wandb_callback_logs_global_modality_losses(monkeypatch: pytest.MonkeyPatch) -> None:
+    callback = WandBCallback()
+    timer = SimpleNamespace(compute_average_results=lambda: {"dataloader": 1.25}, reset=MagicMock())
+    callback.config = SimpleNamespace(trainer=SimpleNamespace(logging_iter=10))
+    callback.trainer = SimpleNamespace(training_timer=timer)
+
+    monkeypatch.setattr(callback_module.dist, "all_reduce", lambda tensor, op: None)
+    monkeypatch.setattr(callback_module.distributed, "is_rank0", lambda: True)
+    wandb_log = MagicMock()
+    terminal_log = MagicMock()
+    monkeypatch.setattr(callback_module.wandb, "log", wandb_log)
+    monkeypatch.setattr(callback_module.log, "info", terminal_log)
+
+    callback.on_training_step_end(
+        model=SimpleNamespace(),
+        data_batch={"video": torch.zeros(2, 1)},
+        output_batch={
+            "flow_matching_loss_vision": torch.tensor(1.5),
+            "flow_matching_loss_action": torch.tensor(0.25),
+        },
+        loss=torch.tensor(4.0),
+        iteration=10,
+    )
+
+    wandb_log.assert_called_once_with(
+        {
+            "timer/dataloader": 1.25,
+            "train/loss": 4.0,
+            "iteration": 10,
+            "train/video_loss": 1.5,
+            "train/action_loss": 0.25,
+        },
+        step=10,
+    )
+    terminal_log.assert_called_once_with("Iteration 10: Total Loss: 4.0000 | Video Loss: 1.5000 | Action Loss: 0.2500")
+    timer.reset.assert_called_once_with()

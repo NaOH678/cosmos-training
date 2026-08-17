@@ -102,7 +102,11 @@ class DeviceMonitor(EveryN):
             log.info(f"{self.name} callback: local_dir: {self.local_dir}")
 
         local_rank = int(os.getenv("LOCAL_RANK", 0))
+        pynvml.nvmlInit()
         self.handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
+
+    def on_train_end(self, model: ImaginaireModel, iteration: int = 0) -> None:
+        pynvml.nvmlShutdown()
 
     def every_n_impl(
         self,

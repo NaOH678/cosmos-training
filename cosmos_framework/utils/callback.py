@@ -15,10 +15,9 @@ import torch.utils.data
 import tqdm
 import wandb
 
-from cosmos_framework.utils.lazy_config import instantiate
 from cosmos_framework.utils import distributed, log, misc, wandb_util
+from cosmos_framework.utils.lazy_config import instantiate
 from cosmos_framework.utils.misc import get_local_tensor_if_DTensor
-
 
 try:
     from megatron.core import parallel_state
@@ -27,9 +26,9 @@ except ImportError:
 
 
 if TYPE_CHECKING:
-    from cosmos_framework.utils.config import Config
     from cosmos_framework.model._base import ImaginaireModel
     from cosmos_framework.trainer import ImaginaireTrainer
+    from cosmos_framework.utils.config import Config
 
 
 class CallBackGroup:
@@ -461,17 +460,42 @@ class WandBCallback(Callback):
         if iteration % self.config.trainer.logging_iter == 0:
             timer_results = self.trainer.training_timer.compute_average_results()
 
-            # reduce loss
-            sample_size = torch.tensor(misc.get_data_batch_size(data_batch), device="cuda")
+            # Reduce the total and modality losses across data-parallel ranks.
+            sample_size = torch.tensor(misc.get_data_batch_size(data_batch), device=loss.device)
             loss_sum = loss * sample_size
+            modality_loss_sums = {}
+            modality_loss_keys = {
+                "flow_matching_loss_vision": "train/video_loss",
+                "flow_matching_loss_action": "train/action_loss",
+            }
+            for output_key, metric_name in modality_loss_keys.items():
+                if output_key in output_batch:
+                    modality_loss_sums[metric_name] = output_batch[output_key].detach().float().mean() * sample_size
+
             dist.all_reduce(loss_sum, op=dist.ReduceOp.SUM)
+            for modality_loss_sum in modality_loss_sums.values():
+                dist.all_reduce(modality_loss_sum, op=dist.ReduceOp.SUM)
             dist.all_reduce(sample_size, op=dist.ReduceOp.SUM)
             avg_loss = loss_sum.item() / sample_size.item()
+            modality_losses = {
+                metric_name: modality_loss_sum.item() / sample_size.item()
+                for metric_name, modality_loss_sum in modality_loss_sums.items()
+            }
 
             if distributed.is_rank0():
-                wandb.log({f"timer/{key}": value for key, value in timer_results.items()}, step=iteration)
-                wandb.log({"train/loss": avg_loss}, step=iteration)
-                wandb.log({"iteration": iteration}, step=iteration)
+                loss_parts = [f"Total Loss: {avg_loss:.4f}"]
+                if "train/video_loss" in modality_losses:
+                    loss_parts.append(f"Video Loss: {modality_losses['train/video_loss']:.4f}")
+                if "train/action_loss" in modality_losses:
+                    loss_parts.append(f"Action Loss: {modality_losses['train/action_loss']:.4f}")
+                log.info(f"Iteration {iteration}: " + " | ".join(loss_parts))
+
+                wandb.log(
+                    {f"timer/{key}": value for key, value in timer_results.items()}
+                    | {"train/loss": avg_loss, "iteration": iteration}
+                    | modality_losses,
+                    step=iteration,
+                )
             self.trainer.training_timer.reset()
 
     def on_validation_start(
