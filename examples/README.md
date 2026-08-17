@@ -19,3 +19,20 @@ This directory contains:
 | Reasoner Alignment SFT (Cosmos3-Nano)        | `launch_sft_videophy2_nano.sh`        |
 | Reasoner Alignment SFT (Cosmos3-Super)       | `launch_sft_videophy2_super.sh`       |
 | Reasoner Alignment SFT (Cosmos3-Edge)        | `launch_sft_videophy2_edge.sh`        |
+| Single-right-hand policy SFT (Edge, 4B)      | `launch_sft_action_policy_singlerighthand_edge.sh` |
+| Single-right-hand policy SFT (Nano, 16B)     | `launch_sft_action_policy_singlerighthand_nano.sh` |
+| Single-right-hand model selector             | `launch_sft_action_policy_singlerighthand.sh` |
+
+
+## simple launch parameters
+
+cd /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft
+source .venv/bin/activate
+
+HF_HUB_OFFLINE=1 \
+NPROC_PER_NODE=8 \
+MASTER_PORT=50130 \
+SINGLERIGHTHAND_USE_VIDEO_CACHE=true \
+COSMOS_GPU_VIDEO_AUGMENTATION=false \
+EXTRA_TAIL_OVERRIDES="trainer.max_iter=50000 checkpoint.save_iter=2500" \
+bash examples/launch_sft_action_policy_singlerighthand_edge.sh
