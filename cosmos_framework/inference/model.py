@@ -518,6 +518,7 @@ class Cosmos3OmniModel(transformers.PreTrainedModel):
         parallelism_config: ParallelismConfig | None = None,
         compile_config: CompileConfig | None = None,
         quantization_config: QuantizationConfig | None = None,
+        use_ema_weights: bool = False,
     ):
         if config is None:
             config = Cosmos3OmniConfig.from_pretrained(checkpoint_path)
@@ -539,10 +540,18 @@ class Cosmos3OmniModel(transformers.PreTrainedModel):
         if language_model is not None:
             language_model._local_checkpoint_dir = str(checkpoint_path)
         checkpoint_type = CheckpointType.from_path(checkpoint_path)
+        load_planner = None
         match checkpoint_type:
             case CheckpointType.DCP:
                 state_dict = get_model_state_dict(model.model)
                 storage_reader = FileSystemReader(str(checkpoint_path))
+                if use_ema_weights:
+                    from cosmos_framework.checkpoint.dcp import CustomLoadPlanner
+
+                    # The inference model intentionally instantiates only ``net``.
+                    # Read the checkpoint's ``net_ema`` tensors into those regular
+                    # parameter buffers without allocating a second model copy.
+                    load_planner = CustomLoadPlanner(load_ema_to_reg=True)
             case CheckpointType.HF:
                 if _is_diffusers_checkpoint(checkpoint_path):
                     state_dict = get_model_state_dict(model.model.net)
@@ -564,7 +573,10 @@ class Cosmos3OmniModel(transformers.PreTrainedModel):
                 storage_reader = HuggingFaceStorageReader(str(checkpoint_path))
             case _:
                 assert_never(checkpoint_type)
-        dcp.load(state_dict=state_dict, storage_reader=storage_reader)
+        if load_planner is None:
+            dcp.load(state_dict=state_dict, storage_reader=storage_reader)
+        else:
+            dcp.load(state_dict=state_dict, storage_reader=storage_reader, planner=load_planner)
         return model
 
     @classmethod

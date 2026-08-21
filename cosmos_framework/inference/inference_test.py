@@ -82,6 +82,7 @@ def test_separate_vision_decode_gpu_is_ignored_without_vision_tokenizer(
     assert pipe.model is model
     assert pipe.vae_decode_stream is None
     load_model.assert_called_once()
+    assert load_model.call_args.kwargs["use_ema_weights"] is True
     device_count.assert_not_called()
 
 
