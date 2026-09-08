@@ -105,6 +105,11 @@ class SingleRightHandRawDataset(Dataset):
             raise ValueError(
                 f"Unsupported cache schema in {manifest_path}; rerun tools/prepare_singlerighthand_raw.py --overwrite"
             )
+        self._arm_action_space = str(manifest.get("arm_action_space", "eef")).lower().strip()
+        if self._arm_action_space not in {"eef", "joint"}:
+            raise ValueError(
+                f"Unsupported arm_action_space={self._arm_action_space!r} in {manifest_path}; expected 'eef' or 'joint'"
+            )
         self._task_text = task_text or str(manifest.get("task_text", "make a sandwich"))
 
         all_episodes = [
@@ -182,9 +187,18 @@ class SingleRightHandRawDataset(Dataset):
 
     @property
     def action_spec(self) -> ActionSpec:
+        if self._arm_action_space == "joint":
+            return build_action_spec(
+                Joint(n=7, label="arm", prefix="right"),
+                Joint(n=20, label="hand", prefix="right"),
+            )
         return build_action_spec(
             Pos(prefix="right"), Rot("quat_xyzw", prefix="right"), Joint(n=20, label="hand", prefix="right")
         )
+
+    @property
+    def arm_action_space(self) -> str:
+        return self._arm_action_space
 
     @property
     def action_names(self) -> list[str]:

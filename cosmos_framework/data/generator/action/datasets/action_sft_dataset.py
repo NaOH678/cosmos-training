@@ -21,6 +21,7 @@ from torch.utils.data import Dataset, IterableDataset, get_worker_info
 
 from cosmos_framework.data.generator.action.datasets.droid_lerobot_dataset import DROIDLeRobotDataset
 from cosmos_framework.data.generator.action.datasets.droid_merged_lerobot_dataset import DROIDMergedLeRobotDataset
+from cosmos_framework.data.generator.action.datasets.dualhand_joint_cache_dataset import DualHandJointCacheDataset
 from cosmos_framework.data.generator.action.datasets.libero_lerobot_dataset import LIBEROLeRobotDataset
 from cosmos_framework.data.generator.action.datasets.singlerighthand_raw_dataset import SingleRightHandRawDataset
 from cosmos_framework.data.generator.action.transforms import ActionTransformPipeline
@@ -207,6 +208,67 @@ def get_action_singlerighthand_raw_sft_dataset(
         task_text=task_text,
         use_image_augmentation=use_image_augmentation,
         use_precomputed_video=use_precomputed_video,
+        video_cache_resolution=resolution,
+    )
+    transform = ActionTransformPipeline(
+        tokenizer_config=tokenizer_config,
+        cfg_dropout_rate=cfg_dropout_rate,
+        max_action_dim=max_action_dim,
+        append_viewpoint_info=append_viewpoint_info,
+        append_duration_fps_timestamps=append_duration_fps_timestamps,
+        append_resolution_info=append_resolution_info,
+        append_idle_frames=append_idle_frames,
+        format_prompt_as_json=format_prompt_as_json,
+    )
+    sft = ActionSFTDataset(dataset, transform, resolution)
+    if iterable_shuffle:
+        return ActionIterableShuffleDataset(
+            sft,
+            seed=episode_shuffle_seed,
+            max_block_size=shuffle_block_size,
+        )
+    return sft
+
+
+def get_action_dualhand_joint_cache_sft_dataset(
+    *,
+    cache_root: str,
+    fps: float = 15.0,
+    chunk_length: int = 32,
+    split: str = "train",
+    split_seed: int = 42,
+    split_val_ratio: float = 0.03,
+    sample_stride: int = 1,
+    mode: str = "wam",
+    use_state: bool = True,
+    viewpoint: str = "concat_view",
+    task_text: str | None = None,
+    resolution: str | int = "480",
+    max_action_dim: int = 64,
+    tokenizer_config: dict | None = None,
+    cfg_dropout_rate: float = 0.1,
+    append_viewpoint_info: bool = True,
+    append_duration_fps_timestamps: bool = True,
+    append_resolution_info: bool = True,
+    append_idle_frames: bool = False,
+    format_prompt_as_json: bool = True,
+    iterable_shuffle: bool = False,
+    episode_shuffle_seed: int = 42,
+    shuffle_block_size: int | None = 256,
+) -> Dataset:
+    """Build dual-hand 54D joint WAM SFT entirely from precomputed caches."""
+    dataset = DualHandJointCacheDataset(
+        cache_root=cache_root,
+        fps=fps,
+        chunk_length=chunk_length,
+        split=split,
+        split_seed=split_seed,
+        split_val_ratio=split_val_ratio,
+        sample_stride=sample_stride,
+        mode=mode,
+        use_state=use_state,
+        viewpoint=viewpoint,
+        task_text=task_text,
         video_cache_resolution=resolution,
     )
     transform = ActionTransformPipeline(

@@ -9,11 +9,12 @@ from types import MethodType
 import numpy as np
 import torch
 
+from cosmos_framework.data.generator.action.action_spec import DimType
 from cosmos_framework.data.generator.action.datasets.singlerighthand_raw_dataset import SingleRightHandRawDataset
 
 
 def _build_dataset(
-    tmp_path, *, use_precomputed_video: bool = False
+    tmp_path, *, use_precomputed_video: bool = False, arm_action_space: str | None = None
 ) -> tuple[SingleRightHandRawDataset, list[tuple[np.ndarray, np.ndarray]]]:
     raw_root = tmp_path / "raw"
     cache_root = tmp_path / "cache"
@@ -29,9 +30,10 @@ def _build_dataset(
         arrays.append((state, action))
         episode_rows.append({"name": name, "num_frames": num_frames, "source_fps": 30.0})
 
-    (cache_root / "manifest.json").write_text(
-        json.dumps({"schema_version": 2, "task_text": "make a sandwich", "episodes": episode_rows})
-    )
+    manifest = {"schema_version": 2, "task_text": "make a sandwich", "episodes": episode_rows}
+    if arm_action_space is not None:
+        manifest["arm_action_space"] = arm_action_space
+    (cache_root / "manifest.json").write_text(json.dumps(manifest))
     if use_precomputed_video:
         (cache_root / "video_frames").mkdir()
         video_rows = []
@@ -92,6 +94,28 @@ def test_official_temporal_window_and_episode_boundaries(tmp_path) -> None:
     torch.testing.assert_close(sample_2["action"][0], torch.from_numpy(arrays[0][0][2]))
     torch.testing.assert_close(dataset[3]["action"][0], torch.from_numpy(arrays[1][0][0]))
     assert int(sample_0["domain_id"]) == 26
+
+
+def test_action_spec_follows_manifest_arm_action_space(tmp_path) -> None:
+    joint_dataset, _ = _build_dataset(tmp_path / "joint", arm_action_space="joint")
+    legacy_dataset, _ = _build_dataset(tmp_path / "legacy")
+
+    assert joint_dataset.arm_action_space == "joint"
+    assert joint_dataset.action_spec.dim == 27
+    assert joint_dataset.action_spec.names[:8] == [
+        "right_arm_0",
+        "right_arm_1",
+        "right_arm_2",
+        "right_arm_3",
+        "right_arm_4",
+        "right_arm_5",
+        "right_arm_6",
+        "right_hand_0",
+    ]
+    assert set(joint_dataset.action_spec.types) == {DimType.JOINT}
+    assert legacy_dataset.arm_action_space == "eef"
+    assert legacy_dataset.action_spec.types[:3] == [DimType.POS] * 3
+    assert legacy_dataset.action_spec.types[3:7] == [DimType.ROT] * 4
 
 
 def test_compose_views_preserves_aspect_ratio() -> None:
