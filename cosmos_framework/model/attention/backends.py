@@ -9,6 +9,7 @@ Frontend APIs
 """
 
 import torch
+from torch._dynamo.comptime import comptime
 
 from cosmos_framework.model.attention.cudnn.checks import cudnn_attention_check
 from cosmos_framework.model.attention.flash2.checks import flash2_attention_check
@@ -19,9 +20,11 @@ from cosmos_framework.model.attention.utils import get_arch_tag
 from cosmos_framework.model.attention.utils.environment import (
     filter_attention_backends,
     filter_multi_dim_attention_backends,
+    is_torch_compiling,
 )
 from cosmos_framework.model.attention.utils.safe_ops import log
 from cosmos_framework.model.attention.utils.safe_ops.functools import lru_cache
+from cosmos_framework.utils import log as framework_log
 
 BACKEND_CHECK_MAP = {
     "cudnn": cudnn_attention_check,
@@ -33,6 +36,72 @@ BACKEND_CHECK_MAP = {
 BACKEND_MULTI_DIM_CHECK_MAP = {
     "natten": natten_multi_dim_attention_check,
 }
+
+_LOGGED_BACKEND_SELECTIONS: set[tuple[str, int, bool, bool, bool, bool, bool]] = set()
+
+
+def _emit_backend_selection_info(
+    selected_backend: str,
+    arch_tag: int,
+    requires_grad: bool,
+    is_causal: bool,
+    is_varlen: bool,
+    deterministic: bool,
+    explicitly_requested: bool,
+) -> None:
+    key = (
+        selected_backend,
+        arch_tag,
+        requires_grad,
+        is_causal,
+        is_varlen,
+        deterministic,
+        explicitly_requested,
+    )
+    if key in _LOGGED_BACKEND_SELECTIONS:
+        return
+    _LOGGED_BACKEND_SELECTIONS.add(key)
+    framework_log.info(
+        "Attention backend selected: "
+        f"{selected_backend} (sm{arch_tag}, requires_grad={requires_grad}, "
+        f"causal={is_causal}, varlen={is_varlen}, deterministic={deterministic}, "
+        f"source={'explicit' if explicitly_requested else 'auto'})"
+    )
+
+
+def _emit_backend_selection_info_at_compile_time(ctx) -> None:
+    _emit_backend_selection_info(
+        selected_backend=ctx.get_local("selected_backend").as_python_constant(),
+        arch_tag=ctx.get_local("arch_tag").as_python_constant(),
+        requires_grad=ctx.get_local("requires_grad").as_python_constant(),
+        is_causal=ctx.get_local("is_causal").as_python_constant(),
+        is_varlen=ctx.get_local("is_varlen").as_python_constant(),
+        deterministic=ctx.get_local("deterministic").as_python_constant(),
+        explicitly_requested=ctx.get_local("explicitly_requested").as_python_constant(),
+    )
+
+
+def _report_backend_selection(
+    selected_backend: str,
+    arch_tag: int,
+    requires_grad: bool,
+    is_causal: bool,
+    is_varlen: bool,
+    deterministic: bool,
+    explicitly_requested: bool,
+) -> None:
+    if is_torch_compiling():
+        comptime(_emit_backend_selection_info_at_compile_time)
+        return
+    _emit_backend_selection_info(
+        selected_backend=selected_backend,
+        arch_tag=arch_tag,
+        requires_grad=requires_grad,
+        is_causal=is_causal,
+        is_varlen=is_varlen,
+        deterministic=deterministic,
+        explicitly_requested=explicitly_requested,
+    )
 
 
 def is_backend_compatible(
@@ -213,7 +282,8 @@ def choose_backend(
         backend (str | None): selected backend, or None if no backends are compatible.
 
     """
-    if backend is not None:
+    explicitly_requested = backend is not None
+    if explicitly_requested:
         if is_backend_compatible(
             backend=backend,
             query_shape=query_shape,
@@ -228,14 +298,25 @@ def choose_backend(
             deterministic=deterministic,
             raise_error=raise_error,
         ):
-            return backend
+            selected_backend = backend
+            arch_tag = get_arch_tag(device)
+            _report_backend_selection(
+                selected_backend=selected_backend,
+                arch_tag=arch_tag,
+                requires_grad=requires_grad,
+                is_causal=is_causal,
+                is_varlen=is_varlen,
+                deterministic=deterministic,
+                explicitly_requested=explicitly_requested,
+            )
+            return selected_backend
         return None
 
     arch_tag = get_arch_tag(device)
     backend_list = get_backend_list(arch_tag)
-    for backend in backend_list:
+    for candidate_backend in backend_list:
         if is_backend_compatible(
-            backend=backend,
+            backend=candidate_backend,
             query_shape=query_shape,
             key_shape=key_shape,
             value_shape=value_shape,
@@ -248,7 +329,17 @@ def choose_backend(
             deterministic=deterministic,
             raise_error=False,
         ):
-            return backend
+            selected_backend = candidate_backend
+            _report_backend_selection(
+                selected_backend=selected_backend,
+                arch_tag=arch_tag,
+                requires_grad=requires_grad,
+                is_causal=is_causal,
+                is_varlen=is_varlen,
+                deterministic=deterministic,
+                explicitly_requested=explicitly_requested,
+            )
+            return selected_backend
 
     if not raise_error:
         return None
