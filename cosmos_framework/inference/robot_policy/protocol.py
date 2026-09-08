@@ -94,6 +94,18 @@ def _validate_robot_layout(request: Mapping[str, Any], config: RobotPolicyConfig
         raise ProtocolError("COSMOS_PROFILE_MISMATCH", "robot_layout does not match the deployment manifest")
 
 
+def _validate_action_profile(request: Mapping[str, Any], config: RobotPolicyConfig) -> None:
+    expected = config.deployment.action_space
+    for field in ("arm_command_mode", "action_space"):
+        value = request.get(field)
+        # Protocol-v2 EEF clients predate these explicit fields. Keep them
+        # compatible, while requiring the safety-critical joint declaration.
+        if value is None and expected == "eef":
+            continue
+        if value != expected:
+            raise ProtocolError("COSMOS_PROFILE_MISMATCH", f"{field} must be {expected!r}")
+
+
 def validate_hello(request: Mapping[str, Any], config: RobotPolicyConfig) -> tuple[str, int]:
     """Validate a hello request without invoking model inference."""
 
@@ -102,6 +114,7 @@ def validate_hello(request: Mapping[str, Any], config: RobotPolicyConfig) -> tup
         raise ProtocolError("COSMOS_MESSAGE_TYPE", "message_type must be hello")
     identity = _require_identity(request)
     _validate_robot_layout(request, config)
+    _validate_action_profile(request, config)
 
     camera_names = request.get("camera_names")
     if not isinstance(camera_names, list) or not all(isinstance(name, str) for name in camera_names):

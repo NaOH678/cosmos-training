@@ -74,6 +74,7 @@ def main() -> None:
         f"Robot policy ready endpoint=http://{config.service.host}:{config.service.port}"
         f"{config.service.endpoint} model_id={config.deployment.model_id} "
         f"mode={config.model.service_mode} cameras={','.join(config.deployment.camera_names)} "
+        f"action_space={config.deployment.action_space} "
         f"weights={'ema' if config.model.use_ema_weights else 'regular'} "
         f"sampler={config.model.sampler} guidance={config.model.guidance} "
         f"num_steps={config.model.num_steps} shift={config.model.shift} "

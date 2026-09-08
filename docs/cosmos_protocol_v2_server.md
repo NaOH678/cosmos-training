@@ -106,6 +106,74 @@ one-rank process group because Cosmos model loading uses FSDP/DTensor utilities.
 It rejects `WORLD_SIZE > 1` rather than starting multiple HTTP listeners with
 an invalid collective request flow.
 
+### Dropper Edge 4B checkpoint
+
+The dropper deployment uses a dedicated joint-action manifest and adapter. Its
+27D model state is seven right-arm joints followed by 20 right-hand joints, all
+in radians; its 27D output has the same absolute-joint layout. The wire response
+uses `arm_joint_action_{left,right}` in radians and `hand_action_{left,right}` in
+degrees. The left side holds its measured joints for the entire chunk. EEF
+fields remain observation diagnostics and are never used to build this model's
+state or interpret its output.
+
+The inference prompt exactly matches the training cache:
+`draw liquid from the beaker with a dropper and dispense it into the test tube`.
+The manifest also requires joint `arm_command_mode`/`action_space`, the exact
+joint `robot_layout`, and enables `startup_handoff`. Its launcher defaults to
+`iter_000030000` from the
+`singlerighthand-dropper-edge-droid-50k-aot` run:
+
+```bash
+bash script/start_cosmos_dropper_policy_server.sh
+```
+
+The normal platform command is:
+
+```bash
+/bin/bash -c 'cd /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft && exec /bin/bash script/start_cosmos_dropper_policy_server.sh'
+```
+
+Change only `COSMOS_CKPT_STEP` when testing another checkpoint. The shared Edge
+launcher zero-pads the step and derives the checkpoint directory and model ID:
+
+```bash
+COSMOS_CKPT_STEP=32500 bash script/start_cosmos_dropper_policy_server.sh
+```
+
+If the run directory name changes, set `COSMOS_RUN_NAME` once. The dedicated
+manifest is
+`examples/deployment/cosmos_singlerighthand_dropper_edge_protocol_v2.yaml`.
+
+### Nano 16B checkpoint
+
+Nano 16B uses the same protocol-v2 Python service with the original EEF adapter,
+plus a separate deployment manifest and launcher. The launcher defaults to the
+single-right-hand Nano run's `iter_000027500` checkpoint:
+
+```bash
+bash script/start_cosmos_nano_policy_server.sh
+```
+
+The normal platform command is:
+
+```bash
+/bin/bash -c 'cd /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft && exec /bin/bash script/start_cosmos_nano_policy_server.sh'
+```
+
+Change only `COSMOS_CKPT_STEP` to select another checkpoint. The launcher
+zero-pads it and derives the checkpoint directory and model ID together:
+
+```bash
+COSMOS_CKPT_STEP=25000 bash script/start_cosmos_nano_policy_server.sh
+```
+
+Nano's frozen training config remains under
+`runs/cosmos/singlerighthand-nano-policy-droid/cosmos3_action/action_sft/action_policy_singlerighthand_nano/config.yaml`.
+Do not point the Nano launcher at an Edge config or checkpoint: their model
+architectures are incompatible. This protocol server currently loads Nano on
+one visible GPU, so the selected GPU must have enough memory for the 16B BF16
+inference model and runtime activations.
+
 ## Health and operation
 
 ```bash

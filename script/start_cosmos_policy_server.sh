@@ -26,7 +26,7 @@ CHECKPOINT_DIR="${RUN_DIR}/checkpoints/${CHECKPOINT_ITER}"
 MODEL_CONFIG_FILE="${RUN_DIR}/config.yaml"
 MODEL_ID="${COSMOS_MODEL_ID:-${COSMOS_RUN_NAME}-${CHECKPOINT_ITER//_/-}}"
 
-DEPLOYMENT_CONFIG="${REPO_ROOT}/examples/deployment/cosmos_singlerighthand_protocol_v2.yaml"
+DEPLOYMENT_CONFIG="${COSMOS_DEPLOYMENT_CONFIG:-${REPO_ROOT}/examples/deployment/cosmos_singlerighthand_protocol_v2.yaml}"
 PYTHON_BIN="${COSMOS_PYTHON:-${REPO_ROOT}/.venv/bin/python}"
 # Production uses the model's complete action chunk. Set
 # COSMOS_SERVICE_MODE=small_motion explicitly for bounded diagnostics.
@@ -77,6 +77,7 @@ echo "Run name: ${COSMOS_RUN_NAME}"
 echo "Model ID: ${MODEL_ID}"
 echo "Checkpoint: ${CHECKPOINT_DIR}"
 echo "Model config: ${MODEL_CONFIG_FILE}"
+echo "Deployment config: ${DEPLOYMENT_CONFIG}"
 
 cd "${REPO_ROOT}"
 exec env -u LD_LIBRARY_PATH "${PYTHON_BIN}" \

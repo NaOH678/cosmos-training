@@ -19,14 +19,18 @@ import pytest
 from cosmos_framework.inference.robot_policy.adapters import (
     AdapterOutput,
     HoldAdapter,
+    JointHoldAdapter,
     _compose_right_wrist_over_head,
     _decode_jpeg_rgb,
     _verify_checkpoint_sha256,
+    build_native_right_joint_state,
     build_native_right_state,
+    create_model_adapter,
     native_right_actions_to_wire,
+    native_right_joint_actions_to_wire,
 )
 from cosmos_framework.inference.robot_policy.config import RobotPolicyConfig, load_robot_policy_config
-from cosmos_framework.inference.robot_policy.protocol import ProtocolError, validate_observation
+from cosmos_framework.inference.robot_policy.protocol import ProtocolError, validate_hello, validate_observation
 from cosmos_framework.inference.robot_policy.server import PolicyApplication, RobotPolicyHTTPServer, SessionRegistry
 
 
@@ -60,6 +64,21 @@ def _robot_layout() -> dict[str, Any]:
     }
 
 
+def _joint_robot_layout() -> dict[str, Any]:
+    layout = _robot_layout()
+    layout["action_layout"] = [
+        {"side": "left", "arm_joint": [0, 7], "hand": [7, 27]},
+        {"side": "right", "arm_joint": [27, 34], "hand": [34, 54]},
+    ]
+    layout["units"] = {
+        "qpos.arm": "radian",
+        "qpos.hand": "radian",
+        "action.arm_joint": "radian",
+        "action.hand": "degree",
+    }
+    return layout
+
+
 def _config(**service_overrides: Any) -> RobotPolicyConfig:
     service = {
         "host": "127.0.0.1",
@@ -77,6 +96,33 @@ def _config(**service_overrides: Any) -> RobotPolicyConfig:
                 "model_id": "cosmos-test-v1",
                 "camera_names": ["head", "right_wrist"],
                 "robot_layout": _robot_layout(),
+            },
+            "model": {"service_mode": "hold", "warmup": False},
+            "service": service,
+        }
+    )
+
+
+def _joint_config(**service_overrides: Any) -> RobotPolicyConfig:
+    service = {
+        "host": "127.0.0.1",
+        "port": 18080,
+        "max_request_bytes": 1024 * 1024,
+        "max_response_bytes": 1024 * 1024,
+        "max_sessions": 2,
+        "session_ttl_s": 60.0,
+        "max_inflight_inferences": 1,
+    }
+    service.update(service_overrides)
+    return RobotPolicyConfig.model_validate(
+        {
+            "deployment": {
+                "model_id": "cosmos-joint-test-v1",
+                "arm_command_mode": "joint",
+                "action_space": "joint",
+                "camera_names": ["head", "right_wrist"],
+                "robot_layout": _joint_robot_layout(),
+                "startup_handoff": True,
             },
             "model": {"service_mode": "hold", "warmup": False},
             "service": service,
@@ -116,6 +162,18 @@ def _hello(request_id: int = 1, session_id: str = "session-a") -> dict[str, Any]
     }
 
 
+def _joint_hello(request_id: int = 1, session_id: str = "session-a") -> dict[str, Any]:
+    request = _hello(request_id, session_id)
+    request.update(
+        {
+            "robot_layout": _joint_robot_layout(),
+            "arm_command_mode": "joint",
+            "action_space": "joint",
+        }
+    )
+    return request
+
+
 def _observation(request_id: int = 2, session_id: str = "session-a") -> dict[str, Any]:
     timestamp = 1000.0
     image = {
@@ -144,6 +202,12 @@ def _observation(request_id: int = 2, session_id: str = "session-a") -> dict[str
         "hand_state_right": _hand_state(),
         "images": {"head": copy.deepcopy(image), "right_wrist": copy.deepcopy(image)},
     }
+
+
+def _joint_observation(request_id: int = 2, session_id: str = "session-a") -> dict[str, Any]:
+    request = _observation(request_id, session_id)
+    request["robot_layout"] = _joint_robot_layout()
+    return request
 
 
 class _CountingHoldAdapter(HoldAdapter):
@@ -199,6 +263,44 @@ def test_example_config_is_valid() -> None:
     assert config.coordinate_frames.model_to_wire_transform == "identity"
 
 
+def test_nano_example_config_is_valid() -> None:
+    root = Path(__file__).parents[3]
+    config = load_robot_policy_config(root / "examples/deployment/cosmos_singlerighthand_nano_protocol_v2.yaml")
+    assert config.deployment.model_id == "singlerighthand-nano-policy-droid-iter-000027500"
+    assert config.model.experiment == "action_policy_singlerighthand_nano"
+    assert config.model.max_action_dim == 64
+    assert config.model.use_ema_weights is True
+
+
+def test_dropper_edge_example_config_is_valid() -> None:
+    root = Path(__file__).parents[3]
+    config = load_robot_policy_config(root / "examples/deployment/cosmos_singlerighthand_dropper_edge_protocol_v2.yaml")
+    assert config.deployment.model_id == "singlerighthand-dropper-edge-droid-50k-aot-iter-000030000"
+    assert config.deployment.camera_names == ["head", "right_wrist"]
+    assert config.deployment.arm_command_mode == "joint"
+    assert config.deployment.action_space == "joint"
+    assert config.deployment.robot_layout == _joint_robot_layout()
+    assert config.deployment.startup_handoff is True
+    assert config.model.experiment == "action_policy_singlerighthand_edge"
+    assert config.model.task == "draw liquid from the beaker with a dropper and dispense it into the test tube"
+    assert config.model.use_ema_weights is True
+
+
+def test_joint_hello_requires_explicit_matching_action_profile() -> None:
+    config = _joint_config()
+    assert validate_hello(_joint_hello(), config) == ("session-a", 1)
+
+    missing_mode = _joint_hello()
+    del missing_mode["arm_command_mode"]
+    with pytest.raises(ProtocolError, match="arm_command_mode must be 'joint'"):
+        validate_hello(missing_mode, config)
+
+    wrong_space = _joint_hello()
+    wrong_space["action_space"] = "eef"
+    with pytest.raises(ProtocolError, match="action_space must be 'joint'"):
+        validate_hello(wrong_space, config)
+
+
 def test_checkpoint_sha256_verification(tmp_path: Path) -> None:
     artifact = tmp_path / "model.bin"
     artifact.write_bytes(b"fixed-model-artifact")
@@ -239,6 +341,36 @@ def test_native_right_action_conversion_holds_left_and_converts_hand_to_degrees(
     assert actions[0]["hand_action_right"] == pytest.approx([np.rad2deg(0.1)] * 20)
 
 
+def test_joint_action_conversion_uses_joint_envelope_and_holds_left() -> None:
+    config = _joint_config()
+    observation = _observation()
+    observation["arm_state_left"]["joint_pos"] = np.arange(7, dtype=np.float32) / 100.0
+    observation["arm_state_right"]["joint_pos"] = np.arange(7, dtype=np.float32) / 50.0
+    native = np.zeros((32, 27), dtype=np.float32)
+    native[:, :7] = observation["arm_state_right"]["joint_pos"] + 0.01
+    native[:, 7:] = 0.1
+
+    actions = native_right_joint_actions_to_wire(observation, native, config)
+
+    assert len(actions) == 32
+    assert set(actions[0]) == {
+        "arm_joint_action_left",
+        "hand_action_left",
+        "arm_joint_action_right",
+        "hand_action_right",
+    }
+    assert actions[0]["arm_joint_action_left"] == pytest.approx(np.arange(7) / 100.0)
+    assert actions[-1]["arm_joint_action_left"] == pytest.approx(actions[0]["arm_joint_action_left"])
+    assert actions[0]["arm_joint_action_right"] == pytest.approx(np.arange(7) / 50.0 + 0.01)
+    assert actions[0]["hand_action_left"] == pytest.approx([0.0] * 20)
+    assert actions[0]["hand_action_right"] == pytest.approx([np.rad2deg(0.1)] * 20)
+
+
+def test_joint_hold_adapter_is_selected_without_changing_eef_hold_adapter() -> None:
+    assert isinstance(create_model_adapter(_joint_config()), JointHoldAdapter)
+    assert type(create_model_adapter(_config())) is HoldAdapter
+
+
 def test_binomial_smoothing_reduces_zigzag_and_preserves_final_grasp_target() -> None:
     raw_config = _config().model_dump()
     raw_config["model"].update(
@@ -268,9 +400,10 @@ def test_binomial_smoothing_reduces_zigzag_and_preserves_final_grasp_target() ->
     raw_hand = np.asarray([step["hand_action_right"] for step in unsmoothed])
     filtered_hand = np.asarray([step["hand_action_right"] for step in smoothed])
 
-    assert np.linalg.norm(np.diff(filtered_position, axis=0), axis=1).mean() < 0.25 * np.linalg.norm(
-        np.diff(raw_position, axis=0), axis=1
-    ).mean()
+    assert (
+        np.linalg.norm(np.diff(filtered_position, axis=0), axis=1).mean()
+        < 0.25 * np.linalg.norm(np.diff(raw_position, axis=0), axis=1).mean()
+    )
     assert np.abs(np.diff(filtered_hand, axis=0)).mean() < 0.25 * np.abs(np.diff(raw_hand, axis=0)).mean()
     assert filtered_position[-1] == pytest.approx(raw_position[-1])
     assert filtered_hand[-1] == pytest.approx(raw_hand[-1])
@@ -285,6 +418,21 @@ def test_native_state_layout_normalizes_xyzw_and_keeps_hand_radians() -> None:
     assert state.shape == (27,)
     assert state[:3] == pytest.approx([0.1, 0.2, 0.3])
     assert state[3:7] == pytest.approx([0.0, 0.0, 0.0, 1.0])
+    assert state[7:] == pytest.approx(np.arange(20, dtype=np.float32) / 100.0)
+
+
+def test_native_joint_state_uses_only_arm_and_hand_joints_in_radians() -> None:
+    observation = _observation()
+    observation["arm_state_right"]["joint_pos"] = np.arange(7, dtype=np.float32) / 10.0
+    observation["hand_state_right"]["joint_pos"] = np.arange(20, dtype=np.float32) / 100.0
+    del observation["arm_state_right"]["eef"]
+    del observation["arm_state_right"]["ee_pos"]
+    del observation["arm_state_right"]["ee_quat"]
+
+    state = build_native_right_joint_state(observation)
+
+    assert state.shape == (27,)
+    assert state[:7] == pytest.approx(np.arange(7, dtype=np.float32) / 10.0)
     assert state[7:] == pytest.approx(np.arange(20, dtype=np.float32) / 100.0)
 
 
@@ -341,6 +489,25 @@ def test_hello_does_not_infer_and_observation_preserves_identity() -> None:
     assert response["message_type"] == "action_chunk"
     assert response["session_id"] == "session-a"
     assert response["request_id"] == 12
+
+
+def test_joint_hello_and_observation_return_only_joint_action_envelope() -> None:
+    config = _joint_config()
+    application = PolicyApplication(config, JointHoldAdapter(config))
+
+    hello_response, handle = application.handle_request(_joint_hello(21), "connection-joint", None, time.time())
+    assert hello_response["message_type"] == "hello_ack"
+
+    response, _ = application.handle_request(_joint_observation(22), "connection-joint", handle, time.time())
+    assert response["message_type"] == "action_chunk"
+    assert response["request_id"] == 22
+    assert len(response["action_chunk"]) == 32
+    assert set(response["action_chunk"][0]) == {
+        "arm_joint_action_left",
+        "hand_action_left",
+        "arm_joint_action_right",
+        "hand_action_right",
+    }
 
 
 def test_reconnect_discards_an_inflight_old_generation() -> None:

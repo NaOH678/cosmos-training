@@ -110,6 +110,16 @@ def _measured_side(observation: Mapping[str, Any], side: str) -> tuple[np.ndarra
     return eef, hand_deg
 
 
+def _measured_joint_side(observation: Mapping[str, Any], side: str) -> tuple[np.ndarray, np.ndarray]:
+    arm_joint_rad = np.asarray(observation[f"arm_state_{side}"]["joint_pos"], dtype=np.float32).copy()
+    hand_joint_rad = np.asarray(observation[f"hand_state_{side}"]["joint_pos"], dtype=np.float32)
+    if arm_joint_rad.shape != (7,) or not np.isfinite(arm_joint_rad).all():
+        raise ProtocolError("COSMOS_INVALID_STATE", f"arm_state_{side}.joint_pos must be finite 7D")
+    if hand_joint_rad.shape != (20,) or not np.isfinite(hand_joint_rad).all():
+        raise ProtocolError("COSMOS_INVALID_STATE", f"hand_state_{side}.joint_pos must be finite 20D")
+    return arm_joint_rad, np.rad2deg(hand_joint_rad).astype(np.float32)
+
+
 def _hold_action(observation: Mapping[str, Any]) -> dict[str, Any]:
     left_eef, left_hand = _measured_side(observation, "left")
     right_eef, right_hand = _measured_side(observation, "right")
@@ -117,6 +127,17 @@ def _hold_action(observation: Mapping[str, Any]) -> dict[str, Any]:
         "arm_action_left": {"ee_pos": left_eef[:3].tolist(), "ee_quat": left_eef[3:].tolist()},
         "hand_action_left": left_hand.tolist(),
         "arm_action_right": {"ee_pos": right_eef[:3].tolist(), "ee_quat": right_eef[3:].tolist()},
+        "hand_action_right": right_hand.tolist(),
+    }
+
+
+def _joint_hold_action(observation: Mapping[str, Any]) -> dict[str, Any]:
+    left_arm_joint, left_hand = _measured_joint_side(observation, "left")
+    right_arm_joint, right_hand = _measured_joint_side(observation, "right")
+    return {
+        "arm_joint_action_left": left_arm_joint.tolist(),
+        "hand_action_left": left_hand.tolist(),
+        "arm_joint_action_right": right_arm_joint.tolist(),
         "hand_action_right": right_hand.tolist(),
     }
 
@@ -129,6 +150,17 @@ def build_native_right_state(observation: Mapping[str, Any]) -> np.ndarray:
     state = np.concatenate([right_eef, right_hand]).astype(np.float32)
     if state.shape != (27,) or not np.isfinite(state).all():
         raise ProtocolError("COSMOS_INVALID_STATE", "right policy state must be finite 27D")
+    return state
+
+
+def build_native_right_joint_state(observation: Mapping[str, Any]) -> np.ndarray:
+    """Build the joint-trained 27D state: right arm radians, then hand radians."""
+
+    right_arm_joint = np.asarray(observation["arm_state_right"]["joint_pos"], dtype=np.float32)
+    right_hand_joint = np.asarray(observation["hand_state_right"]["joint_pos"], dtype=np.float32)
+    state = np.concatenate([right_arm_joint, right_hand_joint]).astype(np.float32)
+    if state.shape != (27,) or not np.isfinite(state).all():
+        raise ProtocolError("COSMOS_INVALID_STATE", "right joint policy state must be finite 27D")
     return state
 
 
@@ -148,9 +180,7 @@ def _smooth_endpoint_preserving(values: np.ndarray, anchor: np.ndarray) -> np.nd
     return filtered[1:].astype(np.float32)
 
 
-def _smooth_native_right_actions(
-    observation: Mapping[str, Any], actions: np.ndarray, min_norm: float
-) -> np.ndarray:
+def _smooth_native_right_actions(observation: Mapping[str, Any], actions: np.ndarray, min_norm: float) -> np.ndarray:
     state = build_native_right_state(observation)
     smoothed = actions.copy()
     smoothed[:, :3] = _smooth_endpoint_preserving(actions[:, :3], state[:3])
@@ -168,6 +198,14 @@ def _smooth_native_right_actions(
     filtered_quaternions = _smooth_endpoint_preserving(quaternion_sequence[1:], quaternion_sequence[0])
     for index, quaternion in enumerate(filtered_quaternions):
         smoothed[index, 3:7] = _normalize_quaternion(quaternion, min_norm)
+    return smoothed
+
+
+def _smooth_native_right_joint_actions(observation: Mapping[str, Any], actions: np.ndarray) -> np.ndarray:
+    state = build_native_right_joint_state(observation)
+    smoothed = actions.copy()
+    smoothed[:, :7] = _smooth_endpoint_preserving(actions[:, :7], state[:7])
+    smoothed[:, 7:27] = _smooth_endpoint_preserving(actions[:, 7:27], state[7:27])
     return smoothed
 
 
@@ -267,6 +305,88 @@ def native_right_actions_to_wire(
     return result
 
 
+def _validate_joint_action_chunk(
+    observation: Mapping[str, Any],
+    action_chunk: list[dict[str, Any]],
+    config: RobotPolicyConfig,
+) -> None:
+    if len(action_chunk) != config.deployment.wire_chunk_size:
+        raise ProtocolError("COSMOS_INVALID_ACTION", "action chunk length does not match the deployment manifest")
+
+    expected_keys = {
+        "arm_joint_action_left",
+        "hand_action_left",
+        "arm_joint_action_right",
+        "hand_action_right",
+    }
+    previous = {side: _measured_joint_side(observation, side) for side in ("left", "right")}
+    for step in action_chunk:
+        if not isinstance(step, Mapping) or set(step) != expected_keys:
+            raise ProtocolError("COSMOS_INVALID_ACTION", "joint action step has an invalid envelope")
+        for side in ("left", "right"):
+            arm = np.asarray(step[f"arm_joint_action_{side}"], dtype=np.float64)
+            hand = np.asarray(step[f"hand_action_{side}"], dtype=np.float64)
+            if arm.shape != (7,) or not np.isfinite(arm).all():
+                raise ProtocolError("COSMOS_INVALID_ACTION", f"arm_joint_action_{side} must be finite 7D")
+            if hand.shape != (20,) or not np.isfinite(hand).all():
+                raise ProtocolError("COSMOS_INVALID_ACTION", f"hand_action_{side} must be finite 20D")
+
+            previous_arm, previous_hand = previous[side]
+            arm_step_deg = np.max(np.abs(np.rad2deg(arm - previous_arm)))
+            if float(arm_step_deg) > config.safety.max_arm_joint_step_deg:
+                raise ProtocolError("COSMOS_UNSAFE_ACTION", f"arm_joint_action_{side} step exceeds the safety limit")
+            if float(np.max(np.abs(hand - previous_hand))) > config.safety.max_hand_step_deg:
+                raise ProtocolError("COSMOS_UNSAFE_ACTION", f"hand_action_{side} step exceeds the safety limit")
+            previous[side] = (arm.astype(np.float32), hand.astype(np.float32))
+
+
+def native_right_joint_actions_to_wire(
+    observation: Mapping[str, Any],
+    native_actions: np.ndarray,
+    config: RobotPolicyConfig,
+) -> list[dict[str, Any]]:
+    """Convert absolute 27D arm/hand joint targets into bilateral wire actions."""
+
+    actions = np.asarray(native_actions, dtype=np.float32)
+    expected_shape = (config.model.native_chunk_size, config.model.native_action_dim)
+    if actions.shape != expected_shape or not np.isfinite(actions).all():
+        raise ProtocolError("COSMOS_INVALID_ACTION", f"model action must have shape {expected_shape}")
+
+    left_arm_joint, left_hand_deg = _measured_joint_side(observation, "left")
+    right_current_arm_joint, right_current_hand_deg = _measured_joint_side(observation, "right")
+    if config.model.trajectory_smoothing == "binomial5":
+        actions = _smooth_native_right_joint_actions(observation, actions)
+
+    result: list[dict[str, Any]] = []
+    for native in actions:
+        right_arm_joint = native[:7].astype(np.float32)
+        right_hand_deg = np.rad2deg(native[7:27]).astype(np.float32)
+
+        if config.model.service_mode == "small_motion":
+            arm_limit_rad = np.deg2rad(float(config.safety.small_motion_max_arm_joint_deg))
+            right_arm_joint = right_current_arm_joint + np.clip(
+                right_arm_joint - right_current_arm_joint,
+                -arm_limit_rad,
+                arm_limit_rad,
+            )
+            right_hand_deg = right_current_hand_deg + np.clip(
+                right_hand_deg - right_current_hand_deg,
+                -float(config.safety.small_motion_max_hand_deg),
+                float(config.safety.small_motion_max_hand_deg),
+            )
+
+        result.append(
+            {
+                "arm_joint_action_left": left_arm_joint.tolist(),
+                "hand_action_left": left_hand_deg.tolist(),
+                "arm_joint_action_right": right_arm_joint.tolist(),
+                "hand_action_right": right_hand_deg.tolist(),
+            }
+        )
+    _validate_joint_action_chunk(observation, result, config)
+    return result
+
+
 class HoldAdapter(ModelAdapter):
     """Diagnostic adapter that returns measured bilateral hold targets."""
 
@@ -278,6 +398,20 @@ class HoldAdapter(ModelAdapter):
         action = _hold_action(observation)
         chunk = [action for _ in range(self.config.deployment.wire_chunk_size)]
         _validate_action_chunk(observation, chunk, self.config)
+        return AdapterOutput(action_chunk=chunk, inference_ms=0.0)
+
+
+class JointHoldAdapter(ModelAdapter):
+    """Diagnostic adapter that holds measured bilateral arm and hand joints."""
+
+    @property
+    def is_ready(self) -> bool:
+        return True
+
+    def infer(self, observation: Mapping[str, Any]) -> AdapterOutput:
+        action = _joint_hold_action(observation)
+        chunk = [action for _ in range(self.config.deployment.wire_chunk_size)]
+        _validate_joint_action_chunk(observation, chunk, self.config)
         return AdapterOutput(action_chunk=chunk, inference_ms=0.0)
 
 
@@ -360,7 +494,7 @@ def _compose_right_wrist_over_head(head_rgb: np.ndarray, wrist_rgb: np.ndarray) 
 
 
 class SingleRightHandCosmosAdapter(ModelAdapter):
-    """Cosmos WAM adapter for the 27D single-right-hand sandwich policy."""
+    """Cosmos WAM adapter for 27D single-right-hand EEF policies."""
 
     def __init__(self, config: RobotPolicyConfig) -> None:
         super().__init__(config)
@@ -548,18 +682,50 @@ class SingleRightHandCosmosAdapter(ModelAdapter):
         )
 
 
+class SingleRightHandJointCosmosAdapter(SingleRightHandCosmosAdapter):
+    """Cosmos WAM adapter for 27D absolute arm/hand-joint policies."""
+
+    def _warmup(self) -> None:
+        images = {
+            name: np.zeros(tuple(self.config.image_preprocessing.warmup_shapes[name]), dtype=np.uint8)
+            for name in self.config.deployment.camera_names
+        }
+        state = np.zeros((self.config.model.native_action_dim,), dtype=np.float32)
+        self._infer_native(images, state)
+
+    def infer(self, observation: Mapping[str, Any]) -> AdapterOutput:
+        if not self._ready:
+            raise ProtocolError("COSMOS_NOT_READY", "Cosmos model is not ready", fatal_session=True)
+        images = observation["images"]
+        images_rgb = {name: _decode_jpeg_rgb(images[name], name) for name in self.config.deployment.camera_names}
+        right_state = build_native_right_joint_state(observation)
+        native_actions, inference_ms = self._infer_native(images_rgb, right_state)
+        return AdapterOutput(
+            action_chunk=native_right_joint_actions_to_wire(observation, native_actions, self.config),
+            inference_ms=inference_ms,
+        )
+
+
 def create_model_adapter(config: RobotPolicyConfig) -> ModelAdapter:
     if config.model.service_mode == "hold":
+        if config.deployment.action_space == "joint":
+            return JointHoldAdapter(config)
         return HoldAdapter(config)
+    if config.deployment.action_space == "joint":
+        return SingleRightHandJointCosmosAdapter(config)
     return SingleRightHandCosmosAdapter(config)
 
 
 __all__ = [
     "AdapterOutput",
     "HoldAdapter",
+    "JointHoldAdapter",
     "ModelAdapter",
     "SingleRightHandCosmosAdapter",
+    "SingleRightHandJointCosmosAdapter",
+    "build_native_right_joint_state",
     "build_native_right_state",
     "create_model_adapter",
+    "native_right_joint_actions_to_wire",
     "native_right_actions_to_wire",
 ]

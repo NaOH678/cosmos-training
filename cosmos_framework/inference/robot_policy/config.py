@@ -15,6 +15,7 @@ from omegaconf import OmegaConf
 CameraName = Literal["head", "left_wrist", "right_wrist"]
 HandSide = Literal["left", "right"]
 ServiceMode = Literal["full", "hold", "small_motion"]
+ActionSpace = Literal["eef", "joint"]
 
 
 class _ConfigModel(pydantic.BaseModel):
@@ -26,6 +27,8 @@ class DeploymentConfig(_ConfigModel):
     schema_version: Literal[2] = 2
     model_id: str
     mode: Literal["right", "left", "both"] = "right"
+    arm_command_mode: ActionSpace = "eef"
+    action_space: ActionSpace = "eef"
     camera_names: list[CameraName] = pydantic.Field(min_length=1)
     robot_layout: dict[str, Any] | None = None
     active_hand_sides: list[HandSide] = pydantic.Field(default_factory=lambda: ["right"])
@@ -118,10 +121,12 @@ class CoordinateFramesConfig(_ConfigModel):
 class SafetyConfig(_ConfigModel):
     max_eef_step_m: pydantic.PositiveFloat = 0.15
     max_eef_step_deg: pydantic.PositiveFloat = 75.0
+    max_arm_joint_step_deg: pydantic.PositiveFloat = 75.0
     max_hand_step_deg: pydantic.PositiveFloat = 75.0
     quaternion_min_norm: pydantic.PositiveFloat = 1e-6
     small_motion_max_eef_m: pydantic.PositiveFloat = 0.01
     small_motion_max_eef_deg: pydantic.PositiveFloat = 5.0
+    small_motion_max_arm_joint_deg: pydantic.PositiveFloat = 5.0
     small_motion_max_hand_deg: pydantic.PositiveFloat = 5.0
 
 
@@ -175,6 +180,18 @@ class RobotPolicyConfig(_ConfigModel):
             raise ValueError("singlerighthand deployment requires active_hand_sides=['right']")
         if self.deployment.zero_filled_hand_sides != ["left"]:
             raise ValueError("singlerighthand deployment requires zero_filled_hand_sides=['left']")
+        if self.deployment.arm_command_mode != self.deployment.action_space:
+            raise ValueError("deployment.arm_command_mode and deployment.action_space must match")
+        if self.deployment.robot_layout is not None:
+            action_key = "arm_joint" if self.deployment.action_space == "joint" else "eef"
+            expected_action_layout = [
+                {"side": "left", action_key: [0, 7], "hand": [7, 27]},
+                {"side": "right", action_key: [27, 34], "hand": [34, 54]},
+            ]
+            if self.deployment.robot_layout.get("action_layout") != expected_action_layout:
+                raise ValueError(
+                    f"robot_layout.action_layout must describe bilateral {self.deployment.action_space} targets"
+                )
         expected_cameras = ["head", "right_wrist"]
         if self.deployment.camera_names != expected_cameras:
             raise ValueError("singlerighthand deployment requires camera_names=['head', 'right_wrist'] in this order")
@@ -196,6 +213,7 @@ def load_robot_policy_config(path: Path | str) -> RobotPolicyConfig:
 
 
 __all__ = [
+    "ActionSpace",
     "CameraName",
     "RobotPolicyConfig",
     "ServiceMode",
