@@ -12,9 +12,19 @@ import torch
 from torch import nn
 from torch.distributed import ProcessGroup
 
+from cosmos_framework.data.generator.sequence_packing.runtime import (
+    SequencePack,
+    from_all_seq,
+    from_und_gen_splits,
+    get_device_and_dtype,
+    get_gen_seq,
+    get_und_seq,
+    set_gen_seq,
+    set_und_seq,
+    zeros_like,
+)
 from cosmos_framework.model.attention import attention as imaginaire_attention
 from cosmos_framework.model.attention.masks import CausalType
-from cosmos_framework.utils import log
 from cosmos_framework.model.generator.mot.attention import (
     AttentionMaskType,
     dispatch_attention,
@@ -73,17 +83,7 @@ from cosmos_framework.model.generator.reasoner.qwen3_vl_moe.qwen3_vl_moe import 
     Qwen3VLMoeVisionModel,
 )
 from cosmos_framework.model.generator.utils.memory import KVToStore, MemoryState, MemoryValue
-from cosmos_framework.data.generator.sequence_packing.runtime import (
-    SequencePack,
-    from_all_seq,
-    from_und_gen_splits,
-    get_device_and_dtype,
-    get_gen_seq,
-    get_und_seq,
-    set_gen_seq,
-    set_und_seq,
-    zeros_like,
-)
+from cosmos_framework.utils import log
 
 # Torch optimization settings
 torch._dynamo.config.cache_size_limit = 512
@@ -548,6 +548,7 @@ class PackedAttentionMoT(nn.Module):
             self.num_attention_heads * self.head_dim, self.hidden_size, bias=config.attention_bias
         )
 
+        self._pointflow_edge = layer_types.variant == "nemotron_dense"
         self._apply_rotary_pos_emb = layer_types.apply_rotary_pos_emb
         self.dispatch_attention_fn = dispatch_attention
         self.replicated_attention_io_local_head_o_proj = False
@@ -671,15 +672,46 @@ class PackedAttentionMoT(nn.Module):
         else:
             packed_key_states_normalized_ = None
 
-        packed_attn_output, kv_to_store = self.dispatch_attention_fn(
-            packed_query_states_,
-            packed_key_states_,
-            packed_value_states_,
-            attention_mask,
-            natten_metadata=natten_metadata,
-            memory_value=memory_value,
-            packed_key_states_normalized=packed_key_states_normalized_,
-        )
+        from cosmos_framework.model.generator.pointflow_attention import reference_attention_enabled
+
+        # Only reached when the point payload was labelled pairwise, which happens
+        # only while the reference attention is enabled; see
+        # pointflow_attention.reference_attention_enabled for why it is opt-in.
+        if getattr(attention_mask, "pointflow_modalities", None) is not None and reference_attention_enabled():
+            from cosmos_framework.model.generator.pointflow_attention import (
+                pairwise_point_attention,
+                temporal_rotary,
+            )
+
+            if not self._pointflow_edge or memory_value is not None or self.dispatch_attention_fn != dispatch_attention:
+                raise ValueError("Point attention requires Edge, CP=1, no memory or dispatch override")
+            sections = getattr(self.config, "mrope_section", [24, 20, 20])
+            qt_und, kt_und = temporal_rotary(
+                q_und, k_und, get_und_seq(packed_cos), get_und_seq(packed_sin), sections, self._apply_rotary_pos_emb
+            )
+            qt_gen, kt_gen = temporal_rotary(
+                q_gen, k_gen, get_gen_seq(packed_cos), get_gen_seq(packed_sin), sections, self._apply_rotary_pos_emb
+            )
+            packed_attn_output = pairwise_point_attention(
+                packed_query_states_,
+                packed_key_states_,
+                packed_value_states_,
+                from_und_gen_splits(qt_und, qt_gen, pack),
+                from_und_gen_splits(kt_und, kt_gen, pack),
+                attention_mask,
+                normalized_k=packed_key_states_normalized_,
+            )
+            kv_to_store = None
+        else:
+            packed_attn_output, kv_to_store = self.dispatch_attention_fn(
+                packed_query_states_,
+                packed_key_states_,
+                packed_value_states_,
+                attention_mask,
+                natten_metadata=natten_metadata,
+                memory_value=memory_value,
+                packed_key_states_normalized=packed_key_states_normalized_,
+            )
 
         # Produce kv_to_store for MemoryState.write_for_layer() when the
         # dispatch didn't already provide one (e.g. standard or AR frame-0

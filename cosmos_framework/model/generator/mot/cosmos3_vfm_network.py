@@ -9,6 +9,8 @@ from torch import nn
 from transformers.configuration_utils import PretrainedConfig
 from transformers.modeling_utils import PreTrainedModel
 
+from cosmos_framework.data.generator.sequence_packing import ModalityData, PackedSequence
+from cosmos_framework.data.generator.sequence_packing.natten import verify_natten_parameter_list
 from cosmos_framework.model.generator.mot.attention import SplitInfo, build_packed_sequence
 from cosmos_framework.model.generator.mot.context_parallel_utils import (
     get_context_parallel_last_hidden_state,
@@ -17,8 +19,6 @@ from cosmos_framework.model.generator.mot.context_parallel_utils import (
 from cosmos_framework.model.generator.mot.domain_aware_linear import DomainAwareLinear
 from cosmos_framework.model.generator.mot.modeling_utils import TimestepEmbedder, has_noisy_tokens
 from cosmos_framework.model.generator.utils.memory import MemoryState
-from cosmos_framework.data.generator.sequence_packing import ModalityData, PackedSequence
-from cosmos_framework.data.generator.sequence_packing.natten import verify_natten_parameter_list
 
 
 class Cosmos3VFMNetworkConfig(PretrainedConfig):
@@ -167,6 +167,59 @@ class Cosmos3VFMNetwork(PreTrainedModel):
 
         self.config = config
         self.parallel_dims = None
+        self.pointflow_branch = None
+
+    def install_pointflow(
+        self,
+        checkpoint,
+        *,
+        timing,
+        stage=3,
+        freeze_geometry=False,
+        content_dim=256,
+        decoder_dim=256,
+        token_mode="cluster",
+    ):
+        """Install after base materialization/loading, before optimizer/FSDP construction.
+
+        This explicit task-7 entry avoids losing pretrained Sonata weights to to_empty.
+        Distributed initialization/resume orchestration is handled in task 9.
+        """
+        from cosmos_framework.model.generator.pointflow_branch import PointFlowBranch
+
+        if self.pointflow_branch is not None:
+            raise ValueError("PointFlow branch is already installed")
+        parameter = next(self.parameters())
+        if parameter.is_meta:
+            raise ValueError("Install PointFlow on a materialized network")
+        if (
+            self.config.joint_attn_implementation != "two_way"
+            or self.video_temporal_causal
+            or not self.config.enable_fps_modulation
+            or self.config.base_fps != 24
+            or self.config.temporal_compression_factor_vision != 4
+            or timing.steps_per_token != 4
+        ):
+            raise ValueError("PointFlow requires two-way, FPS modulation, base_fps=24 and temporal compression=4")
+        self.pointflow_branch = PointFlowBranch(
+            checkpoint,
+            timing=timing,
+            hidden_dim=self.hidden_size,
+            stage=stage,
+            freeze_geometry=freeze_geometry,
+            content_dim=content_dim,
+            decoder_dim=decoder_dim,
+            token_mode=token_mode,
+        ).to(device=parameter.device)
+        self.pointflow_branch.codec.to(dtype=parameter.dtype)
+        self.pointflow_branch.train(self.training)
+        from cosmos_framework.utils import log
+
+        codec = self.pointflow_branch.codec
+        log.info(
+            f"PointFlow branch installed: token_mode={token_mode}, stage={stage}, "
+            f"freeze_geometry={freeze_geometry}, geometry_dim={codec.geometry_projection.in_features}"
+        )
 
     def init_weights(self, buffer_device: torch.device | None):
         if self.config.vision_gen or self.config.action_gen or self.config.sound_gen:
@@ -896,6 +949,8 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         packed_seq: PackedSequence,
         memory: MemoryState | None = None,
         video_temporal_causal: bool | None = None,
+        pointflow_displacement: torch.Tensor | None = None,
+        pointflow_sigma: torch.Tensor | None = None,
     ) -> dict:
         """
         Forward pass for Cosmos3VFMNetwork.
@@ -906,6 +961,8 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             memory: Optional MemoryState for persistent KV-cache memory
                 (AR inference or rolling-KV-cache training).  Built by
                 ``OmniMoTModel.build_memory_state()``.
+            pointflow_displacement: Explicit noisy point displacement [H,sum(N),3].
+            pointflow_sigma: Diffusion time [B], separate from physical frame time.
             video_temporal_causal: Per-call attention-mode override; ``None``
                 (default) uses the config-selected ``self.video_temporal_causal``.
 
@@ -914,6 +971,7 @@ class Cosmos3VFMNetwork(PreTrainedModel):
                 - "preds_vision": list[Tensor[C,T,H,W]], one per sample.
                 - "preds_action": Velocity predictions for action tokens (if action_gen).
                 - "preds_sound": Velocity predictions for sound tokens (if sound_gen).
+                - "preds_pointflow": Original-point velocity [H,sum(N),3], when PointFlow is supplied.
                 - "last_hidden_state": Last hidden state from the transformer.
                 - "lbl_metadata_*": Load balancing metadata.
                 - "ce_preds": Cross-entropy predictions (if predict_text_tokens is True).
@@ -922,7 +980,38 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         # This is intentional for proper batch norm / dropout behavior
         # assert self.training, "Cosmos3VFMNetwork only supports training mode"
 
+        pointflow_geometry = None
+        if packed_seq.point is not None or packed_seq.pointflow_data is not None:
+            if (
+                self.config.joint_attn_implementation != "two_way"
+                or (self.video_temporal_causal if video_temporal_causal is None else video_temporal_causal)
+                or memory is not None
+                or packed_seq.control_weights is not None
+                or (self.parallel_dims is not None and self.parallel_dims.cp_enabled)
+                or self.pad_for_cuda_graphs
+            ):
+                raise ValueError("Point tokens require CP=1 two-way, no temporal causal/memory/controls/CUDA graphs")
+
+        if packed_seq.pointflow_data is not None:
+            if self.pointflow_branch is None:
+                raise ValueError("PointFlow data supplied but no PointFlow branch is installed")
+            if pointflow_displacement is None or pointflow_sigma is None:
+                raise ValueError("Supply explicit noisy PointFlow displacement and sigma; never use GT by default")
+            packed_seq, pointflow_geometry, pointflow_displacement = self.pointflow_branch.encode(
+                packed_seq,
+                pointflow_displacement,
+                pointflow_sigma,
+                pixel_stride=self.latent_downsample,
+            )
+        elif pointflow_displacement is not None or pointflow_sigma is not None:
+            raise ValueError("PointFlow state supplied without PointFlow inputs")
+
         packed_sequence, target_dtype = self._encode_text(packed_seq)  # packed_sequence: [N_total,hidden_size]
+
+        if packed_seq.point is not None:
+            packed_sequence[packed_seq.point.sequence_indexes] = packed_seq.point.tokens.to(
+                device=packed_sequence.device, dtype=target_dtype
+            )
 
         # encode vision tokens
         original_latent_shapes: List[Tuple[int, int, int]] | None = None
@@ -956,6 +1045,8 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             all_gen_indexes.append(packed_seq.action.sequence_indexes)
         if packed_seq.sound is not None and isinstance(packed_seq.sound.sequence_indexes, torch.Tensor):
             all_gen_indexes.append(packed_seq.sound.sequence_indexes)
+        if packed_seq.point is not None:
+            all_gen_indexes.append(packed_seq.point.sequence_indexes)
         vision_sequence_indexes = torch.cat(all_gen_indexes, dim=0) if all_gen_indexes else None  # [N_gen_tokens]
 
         # When temporal causal is enabled the buffer is [action_t0, vision_t0, action_t1, vision_t1, ...].
@@ -1014,6 +1105,17 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             null_action_supertokens=packed_seq.null_action_supertokens,
             pad_for_cuda_graphs=self.pad_for_cuda_graphs,
         )
+
+        # Keyed off the payload rather than the environment, so the modality map
+        # is built exactly when the pairwise reference attention will consume it.
+        # Under the default legacy_mrope this stays None and the generator uses
+        # dispatch_attention_fn with the plain full mRoPE.
+        if packed_seq.point is not None and packed_seq.point.attention_mode == "pairwise_point_mrope":
+            modalities = torch.zeros(packed_seq.sequence_length, dtype=torch.long, device=packed_sequence.device)
+            if packed_seq.action is not None:
+                modalities[packed_seq.action.sequence_indexes] = 1
+            modalities[packed_seq.point.sequence_indexes] = 2
+            attention_meta.pointflow_modalities = modalities
 
         # ── Multi-control transfer: annotate SplitInfo with per-item ranges ──────
         # Activated only when packed_seq carries control_weights, i.e. the caller
@@ -1083,6 +1185,19 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             parallel_dims=sequence_shard_parallel_dims,
         )  # [N_total,hidden_size]
         output_dict = dict()
+        if packed_seq.point is not None:
+            output_dict["point_hidden"] = packed_seq.point.hidden(last_hidden_state)
+
+        if pointflow_geometry is not None:
+            output_dict["preds_pointflow"] = self.pointflow_branch.decode(
+                pointflow_geometry,
+                packed_seq.pointflow_data.inputs,
+                output_dict["point_hidden"],
+                pointflow_displacement,
+                pointflow_sigma,
+            )
+            output_dict["pointflow_cluster_offsets"] = pointflow_geometry["cluster_offsets"]
+            output_dict["pointflow_point_offsets"] = pointflow_geometry["point_offsets"]
 
         # decode vision tokens
         if self.config.vision_gen:

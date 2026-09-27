@@ -5,12 +5,12 @@ from typing import Any
 
 import attrs
 
-from cosmos_framework.utils.lazy_config import LazyDict
 from cosmos_framework.configs.base.defaults.activation_checkpointing import ActivationCheckpointingConfig
 from cosmos_framework.configs.base.defaults.compile import CompileConfig
 from cosmos_framework.configs.base.defaults.ema import EMAConfig
 from cosmos_framework.configs.base.defaults.parallelism import ParallelismConfig
 from cosmos_framework.configs.base.defaults.reasoner import VLMConfig
+from cosmos_framework.utils.lazy_config import LazyDict
 
 
 @attrs.define(slots=False)
@@ -72,6 +72,8 @@ class RectifiedFlowTrainingConfig:
 
     # user: please adjust this value according to loss_scale to balance the action loss with the video loss.
     # default is 10.0 to align with previous training settings.
+    pointflow_loss_weight: float = 1.0
+    pointflow_displacement_scale: float = 1.0  # meters per model unit; fixed train/inference scale
     action_loss_weight: float = 10.0
 
     # Independent noise schedule for action. When False (default), action shares the sigma
@@ -86,6 +88,13 @@ class RectifiedFlowTrainingConfig:
     # its own scalar sigma per sample ([B,1]) from `rectified_flow_sound` using `shift_sound`.
     independent_sound_schedule: bool = False
     shift_sound: int | None = None  # must be int; None → inherit `shift` (which must also be int)
+
+    # Independent noise schedule for PointFlow. When False (default), PointFlow shares the
+    # vision sigma of its sample. When True, it draws its own scalar sigma per batch slot
+    # ([B,1]) from the vision RF sampler, decoupled from the vision draw -- the
+    # conditional-fit evaluation pairs clean GT video with noisy point tokens, a
+    # combination the shared schedule never produces in training.
+    independent_pointflow_schedule: bool = False
 
     # When True, per-instance flow-matching loss is normalized by the count of
     # active (noisy) elements rather than all elements — preserves sum/active_count

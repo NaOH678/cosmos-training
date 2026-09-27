@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import collections
 import json
+import os
+import re
 import time
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple
@@ -16,18 +18,19 @@ from einops import rearrange
 from torch.distributed._composable.fsdp import FSDPModule
 from torch.nn.modules.module import _IncompatibleKeys
 
-from cosmos_framework.utils.flags import DEVICE, TRAINING, Device
-from cosmos_framework.utils.lazy_config import LazyDict
-from cosmos_framework.utils.lazy_config import instantiate as lazy_instantiate
-from cosmos_framework.model._base import ImaginaireModel
-from cosmos_framework.utils import log, misc
-from cosmos_framework.utils.count_params import count_params
-from cosmos_framework.utils.timer import Timer
-from cosmos_framework.model.generator.algorithm.loss.flow_matching import compute_flow_matching_loss
-from cosmos_framework.model.generator.algorithm.loss.load_balancing import compute_load_balancing_loss
 from cosmos_framework.configs.base.defaults.model_config import OmniMoTModelConfig
 from cosmos_framework.data.generator.action.action_processing import ActionProcessor, get_action_processing_records
+from cosmos_framework.data.generator.sequence_packing import (
+    PackedSequence,
+    SequencePlan,
+    build_sequence_plans_from_data_batch,
+    pack_input_sequence,
+)
+from cosmos_framework.data.generator.sequence_packing.modality import add_special_tokens
 from cosmos_framework.data.generator.utils import IMAGE_RES_SIZE_INFO, VIDEO_RES_SIZE_INFO
+from cosmos_framework.model._base import ImaginaireModel
+from cosmos_framework.model.generator.algorithm.loss.flow_matching import compute_flow_matching_loss
+from cosmos_framework.model.generator.algorithm.loss.load_balancing import compute_load_balancing_loss
 from cosmos_framework.model.generator.diffusion.rectified_flow import RectifiedFlow
 from cosmos_framework.model.generator.diffusion.samplers.edm import EDMSampler
 from cosmos_framework.model.generator.diffusion.samplers.fixed_step import FixedStepSampler
@@ -43,7 +46,27 @@ from cosmos_framework.model.generator.mot.inference_text_kv_memory import (
 )
 from cosmos_framework.model.generator.mot.modeling_utils import has_noisy_tokens
 from cosmos_framework.model.generator.mot.parallelize_vfm_network import parallelize_vfm_network
+from cosmos_framework.model.generator.pointflow_profiling import (
+    flush_marks as flush_pointflow_marks,
+)
+from cosmos_framework.model.generator.pointflow_profiling import (
+    format_report as pointflow_phase_report,
+)
+from cosmos_framework.model.generator.pointflow_profiling import (
+    mark as mark_pointflow_boundary,
+)
+from cosmos_framework.model.generator.pointflow_profiling import (
+    phase as pointflow_phase,
+)
+from cosmos_framework.model.generator.pointflow_profiling import (
+    profile_enabled as pointflow_profiling_enabled,
+)
+from cosmos_framework.model.generator.pointflow_profiling import (
+    reset as reset_pointflow_phases,
+)
 from cosmos_framework.model.generator.reasoner.qwen3_vl.utils import tokenize_caption
+from cosmos_framework.model.generator.tokenizers.interface import VideoTokenizerInterface
+from cosmos_framework.model.generator.upsampler.prompts import build_messages, clean_response
 from cosmos_framework.model.generator.utils.data_and_condition import (
     GenerationDataClean,
     GenerationDataNoised,
@@ -63,19 +86,16 @@ from cosmos_framework.model.generator.utils.moe_utils import (
 from cosmos_framework.model.generator.utils.safetensors_loader import (
     load_language_model as load_language_model_safetensors,
 )
-from cosmos_framework.data.generator.sequence_packing import (
-    PackedSequence,
-    SequencePlan,
-    build_sequence_plans_from_data_batch,
-    pack_input_sequence,
-)
-from cosmos_framework.data.generator.sequence_packing.modality import add_special_tokens
-from cosmos_framework.model.generator.tokenizers.interface import VideoTokenizerInterface
-from cosmos_framework.model.generator.upsampler.prompts import build_messages, clean_response
+from cosmos_framework.utils import distributed, log, misc
+from cosmos_framework.utils.count_params import count_params
+from cosmos_framework.utils.flags import DEVICE, TRAINING, Device
 from cosmos_framework.utils.generator.data_utils import get_vision_data_resolution, read_positive_int_metadata
 from cosmos_framework.utils.generator.dtensor_helper import DTensorFastEmaModelUpdater
 from cosmos_framework.utils.generator.model_weights_stats import WeightTrainingStat
 from cosmos_framework.utils.generator.parallelism import ParallelDims
+from cosmos_framework.utils.lazy_config import LazyDict
+from cosmos_framework.utils.lazy_config import instantiate as lazy_instantiate
+from cosmos_framework.utils.timer import Timer
 
 
 class OmniMoTModel(ImaginaireModel):
@@ -84,9 +104,29 @@ class OmniMoTModel(ImaginaireModel):
     for visual / sound / action generation.
     """
 
+    # Iterations between PointFlow per-phase timing reports; 0 disables them.
+    # Each report covers the window since the previous one and resets the
+    # accumulator, so the printed values are per-step averages in milliseconds.
+    POINTFLOW_PHASE_LOG_EVERY = 20
+
+    # Subgraph boundaries observed in the backward pass, as (mark, name regex).
+    # A mark fires when that parameter receives its gradient, which places it on
+    # the backward timeline: the decoder's output projection starts the point
+    # head sweep, the first trunk layer's query projection ends the transformer
+    # sweep, and the codec/Sonata ends the point branch.  Patterns are regular
+    # expressions because activation checkpointing and FSDP insert wrapper
+    # segments (``_checkpoint_wrapped_module``) into the parameter names.
+    POINTFLOW_BACKWARD_MARKER_PARAMS = (
+        ("dec_out", r".*pointflow_branch\.codec\.decoder\.2\.weight"),
+        ("trunk", r".*language_model\.model\.layers\.0\..*self_attn\.q_proj_moe_gen\.weight"),
+        ("point_encode", r".*pointflow_branch\.codec\.motion_encoder\.0\.weight"),
+        ("sonata", r".*pointflow_branch\.geometry\.backbone\.embedding\.stem\.linear\.weight"),
+    )
+
     def __init__(self, config: OmniMoTModelConfig):
         super().__init__()
         self.config = config
+        self._pointflow_markers_installed = False
         log.info(f"OmniMoTModel: config {self.config}")
 
         # 0. Set up precision
@@ -193,7 +233,6 @@ class OmniMoTModel(ImaginaireModel):
         else:
             self.tokenizer_sound_gen = None
 
-
     def build_net(self, dtype: torch.dtype, *, lora_enabled: bool | None = None) -> torch.nn.Module:
         # Build model network and parallelize it.
         lora_enabled = self.config.lora_enabled if lora_enabled is None else lora_enabled
@@ -275,6 +314,34 @@ class OmniMoTModel(ImaginaireModel):
                 net.init_weights(buffer_device=DEVICE)
                 if lora_enabled:
                     self._init_lora_weights_post_materialization(net)
+
+                # PointFlow must be materialized before FSDP is initialized.  The
+                # branch is deliberately opt-in through a checkpoint path so all
+                # existing Cosmos recipes remain unchanged.
+                pointflow_checkpoint = os.environ.get("POINTFLOW_SONATA_CHECKPOINT")
+                if pointflow_checkpoint:
+                    from cosmos_framework.data.pointflow_window import PointFlowTiming
+
+                    token_mode = os.environ.get("POINTFLOW_TOKEN_MODE", "cluster")
+                    if token_mode not in ("cluster", "per_point"):
+                        raise ValueError(f"Unknown POINTFLOW_TOKEN_MODE: {token_mode}")
+                    net.install_pointflow(
+                        pointflow_checkpoint,
+                        timing=PointFlowTiming(
+                            fps=float(os.environ.get("POINTFLOW_FPS", "15")),
+                            steps=int(os.environ.get("POINTFLOW_STEPS", "32")),
+                            steps_per_token=int(os.environ.get("POINTFLOW_STEPS_PER_TOKEN", "4")),
+                        ),
+                        stage=int(os.environ.get("POINTFLOW_SONATA_STAGE", "3")),
+                        freeze_geometry=os.environ.get("POINTFLOW_FREEZE_SONATA", "false").lower()
+                        in {"1", "true", "yes", "on"},
+                        token_mode=token_mode,
+                    )
+                    scale = self.config.rectified_flow_training_config.pointflow_displacement_scale
+                    log.info(
+                        f"PointFlow displacement scale: {scale} m/model-unit "
+                        "(must match the point selection; re-measure when the selection changes)"
+                    )
 
         return net
 
@@ -847,7 +914,8 @@ class OmniMoTModel(ImaginaireModel):
 
         # Get data from raw data batch and tokenize into corresponding tokens for *generation* task
         # The unnoised, tokenized data for the generation task.
-        gen_data_clean = self.get_data_and_condition(data_batch, iteration=iteration)
+        with pointflow_phase("step_data"):
+            gen_data_clean = self.get_data_and_condition(data_batch, iteration=iteration)
 
         gen_data_clean, memory_info = self.memory_init_training(gen_data_clean, data_batch, input_text_indexes)
 
@@ -906,6 +974,16 @@ class OmniMoTModel(ImaginaireModel):
         else:
             timesteps_action, sigmas_action = (None, None)
 
+        # Optional independent PointFlow schedule: a fresh draw from the same vision
+        # sampler keeps the marginal identical to the legacy shared sigma but decouples
+        # point tokens from the video noise level, so "clean video + noisy points" --
+        # the conditional-fit evaluation condition -- occurs in training.
+        sigmas_pointflow = None
+        if rf_cfg.independent_pointflow_schedule and gen_data_clean.pointflow is not None:
+            sigmas_pointflow = self._get_train_noise_level_pointflow(
+                batch_size=gen_data_clean.batch_size, iteration=iteration
+            )  # [B,1]
+
         # Optional independent sound schedule: sample a scalar sound sigma per batch
         # slot, then reindex to the dense audio-bearing subset.
         sound_sample_indices = [i for i, plan in enumerate(sequence_plans) if getattr(plan, "has_sound", False)]
@@ -953,14 +1031,15 @@ class OmniMoTModel(ImaginaireModel):
                 sigmas_vision,
             )  # [n_sound,T_vis] or None, [n_sound,T_vis] or None
 
-        packed_sequence = self._pack_input_sequence(
-            sequence_plans,
-            input_text_indexes,
-            gen_data_clean,
-            timesteps_vision.cpu(),
-            skip_text_tokens=memory_info["skip_text"],
-            initial_mrope_temporal_offset=memory_info["initial_temporal_offset"],
-        )
+        with pointflow_phase("step_pack"):
+            packed_sequence = self._pack_input_sequence(
+                sequence_plans,
+                input_text_indexes,
+                gen_data_clean,
+                timesteps_vision.cpu(),
+                skip_text_tokens=memory_info["skip_text"],
+                initial_mrope_temporal_offset=memory_info["initial_temporal_offset"],
+            )
 
         # Under independent_action_schedule, overwrite the vision-based action timestep the
         # packer injected with the action timestep, so the denoiser's action timestep embedding
@@ -1013,35 +1092,39 @@ class OmniMoTModel(ImaginaireModel):
         memory_info = self.pre_noise_memory_hook(packed_sequence, gen_data_clean, memory_info)
 
         # Flow matching/diffusion forward process: noise the input signal with the sampled noise level
-        gen_data_noised = self._add_noise_to_input(
-            gen_data_clean,
-            packed_sequence,
-            sigmas_vision,
-            sigmas_action=sigmas_action,
-            sigmas_sound=sigmas_sound,
-            iteration=iteration,
-        )
-        self._replace_clean_with_noised(packed_sequence, gen_data_noised)
+        with pointflow_phase("step_noise"):
+            gen_data_noised = self._add_noise_to_input(
+                gen_data_clean,
+                packed_sequence,
+                sigmas_vision,
+                sigmas_action=sigmas_action,
+                sigmas_sound=sigmas_sound,
+                sigmas_pointflow=sigmas_pointflow,
+                iteration=iteration,
+            )
+            self._replace_clean_with_noised(packed_sequence, gen_data_noised)
 
-        # Move packed sequence to CUDA
-        packed_sequence.to_cuda()
+            # Move packed sequence to CUDA
+            packed_sequence.to_cuda()
 
         # Network forward pass
-        memory = self.build_memory_state(packed_sequence, memory_info)  # pylint: disable=assignment-from-none
-        out_net = self.denoise(
-            data_batch_packed=packed_sequence,
-            memory=memory,
-        )
+        with pointflow_phase("step_forward"):
+            memory = self.build_memory_state(packed_sequence, memory_info)  # pylint: disable=assignment-from-none
+            out_net = self.denoise(
+                data_batch_packed=packed_sequence,
+                memory=memory,
+            )
 
-        loss, losses_dict = self._compute_losses(
-            out_net=out_net,
-            data_batch_packed=packed_sequence,
-            gen_data_noised=gen_data_noised,
-            timesteps=timesteps_vision,
-            is_image_batch=gen_data_clean.is_image_batch,
-            timesteps_action=timesteps_action,
-            timesteps_sound=timesteps_sound,
-        )
+        with pointflow_phase("step_loss"):
+            loss, losses_dict = self._compute_losses(
+                out_net=out_net,
+                data_batch_packed=packed_sequence,
+                gen_data_noised=gen_data_noised,
+                timesteps=timesteps_vision,
+                is_image_batch=gen_data_clean.is_image_batch,
+                timesteps_action=timesteps_action,
+                timesteps_sound=timesteps_sound,
+            )
 
         # Pixel-space video shapes for VAE FLOPs estimation in callbacks (e.g. MFU).
         _vae_pixel_shapes: list[tuple[int, int, int]] = []
@@ -1081,12 +1164,71 @@ class OmniMoTModel(ImaginaireModel):
             "vae_pixel_shapes": _vae_pixel_shapes,
             **losses_dict,
         }
+        if "preds_pointflow" in out_net:
+            output_batch["preds_pointflow"] = out_net["preds_pointflow"]
+            if not self.training and gen_data_noised.pointflow is not None:
+                # Cosmos v = epsilon - clean, xt = sigma*epsilon + (1-sigma)*clean.
+                state = gen_data_noised.pointflow
+                clean = packed_sequence.pointflow_data
+                sigma = state.sigma[clean.inputs["point_batch"]][None, :, None]
+                output_batch["pointflow_preview_displacement"] = (
+                    (state.xt.float() - sigma * out_net["preds_pointflow"].float())
+                    * rf_cfg.pointflow_displacement_scale
+                ).detach()
+                output_batch["pointflow_preview_sigma"] = state.sigma.detach()
         if sigmas_action is not None:
             output_batch["sigma_action"] = sigmas_action  # [n_action, 1] — dense over action-bearing samples
         if getattr(rf_cfg, "independent_sound_schedule", False) and sigmas_sound is not None:
             output_batch["sigma_sound"] = sigmas_sound  # [n_sound, 1] — dense over sound-bearing samples
 
+        # Validation reuses training_step and never runs a backward, so its
+        # window must stay closed or the marks would span the eval loop.
+        if self.training:
+            self._install_pointflow_backward_markers()
+            mark_pointflow_boundary("begin")
+        self._log_pointflow_phases(iteration)
         return output_batch, loss
+
+    def _install_pointflow_backward_markers(self) -> None:
+        """Attach the backward-pass marks once, before the first backward runs."""
+        if self._pointflow_markers_installed or not pointflow_profiling_enabled() or self.net is None:
+            return
+        self._pointflow_markers_installed = True
+        named_parameters = dict(self.net.named_parameters())
+        for mark_name, pattern in self.POINTFLOW_BACKWARD_MARKER_PARAMS:
+            matched = [parameter for name, parameter in named_parameters.items() if re.fullmatch(pattern, name)]
+            if len(matched) != 1:
+                log.warning(f"PointFlow phase markers: {len(matched)} parameters match {pattern!r}")
+                continue
+            matched[0].register_post_accumulate_grad_hook(
+                lambda _parameter, name=mark_name: mark_pointflow_boundary(name)
+            )
+        log.info(
+            f"PointFlow phase markers installed: {sorted(name for name, _ in self.POINTFLOW_BACKWARD_MARKER_PARAMS)}"
+        )
+
+    def on_after_backward(self, iteration: int = 0) -> None:
+        """Close the backward timing window opened at the end of ``training_step``.
+
+        The trainer calls this immediately after ``loss.backward()``, so the
+        marks collected inside the backward pass can be folded into the phase
+        report.  A no-op unless ``POINTFLOW_PROFILE=1``.
+        """
+        mark_pointflow_boundary("end")
+        flush_pointflow_marks()
+
+    def _log_pointflow_phases(self, iteration: int) -> None:
+        """Report the accumulated per-phase step time, then start a new window.
+
+        Only the phases instrumented with ``pointflow_profiling.phase`` appear;
+        a phase measured here never includes the optimizer step or backward,
+        which the trainer runs after ``training_step`` returns.
+        """
+        every = self.POINTFLOW_PHASE_LOG_EVERY
+        if every <= 0 or iteration % every or not distributed.is_rank0():
+            return
+        log.info(pointflow_phase_report(f"PointFlow phases (iter {iteration})"))
+        reset_pointflow_phases()
 
     def _compute_flow_matching_loss(
         self,
@@ -1221,6 +1363,25 @@ class OmniMoTModel(ImaginaireModel):
                 losses_dict["flow_matching_loss_action"] = dummy_loss
         else:
             losses_dict["flow_matching_loss_action"] = torch.tensor(0.0, **self.tensor_kwargs_fp32)
+
+        if data_batch_packed.pointflow_data is not None:
+            from cosmos_framework.model.generator.pointflow_training import pointflow_loss
+
+            if gen_data_noised.pointflow is None or "preds_pointflow" not in out_net:
+                raise ValueError("PointFlow labels require a noised state and network prediction")
+            with pointflow_phase("pf_loss"):
+                fm_point, point_metrics = pointflow_loss(
+                    out_net["preds_pointflow"],
+                    gen_data_noised.pointflow,
+                    data_batch_packed.pointflow_data,
+                    scale=rf_cfg.pointflow_displacement_scale,
+                )
+            total_loss += fm_point * rf_cfg.pointflow_loss_weight
+            losses_dict["flow_matching_loss_pointflow"] = fm_point
+            losses_dict.update(point_metrics)
+            if pointflow_profiling_enabled():
+                # First gradient of the point head, i.e. the start of its backward sweep.
+                out_net["preds_pointflow"].register_hook(lambda _grad: mark_pointflow_boundary("head"))
 
         if self.config.sound_gen:
             if data_batch_packed.sound is not None:
@@ -1483,6 +1644,27 @@ class OmniMoTModel(ImaginaireModel):
         timesteps = sigmas * max_timestep  # [B,1]
         return timesteps, sigmas
 
+    def _get_train_noise_level_pointflow(self, batch_size: int, iteration: int | None = None) -> torch.Tensor:
+        """Sample PointFlow sigmas of shape ``[batch_size, 1]`` from the vision RF sampler.
+
+        The marginal matches the legacy shared vision sigma (same train-time distribution
+        and resolution shift); only the coupling to the sample's video sigma is removed,
+        so "clean video + noisy points" -- the conditional-fit evaluation condition --
+        occurs in training.
+        """
+        rf_cfg = self.config.rectified_flow_training_config
+        shift_config = rf_cfg.shift
+        if isinstance(shift_config, int):
+            shift_val = float(shift_config)
+        else:
+            shift_val = float(dict(shift_config)[self.config.resolution])
+        shifts = torch.full((batch_size,), shift_val, dtype=torch.float32)
+        return (
+            self.rectified_flow_video.sample_train_time(batch_size, iteration=iteration, shifts=shifts)
+            .to(**self.tensor_kwargs_fp32)
+            .unsqueeze(1)
+        )  # [B,1]
+
     def _add_noise_to_input(
         self,
         gen_data_clean: GenerationDataClean,
@@ -1490,6 +1672,7 @@ class OmniMoTModel(ImaginaireModel):
         sigmas: torch.Tensor,
         sigmas_action: torch.Tensor | None = None,
         sigmas_sound: torch.Tensor | None = None,
+        sigmas_pointflow: torch.Tensor | None = None,
         iteration: int | None = None,
     ) -> GenerationDataNoised:
         """
@@ -1510,6 +1693,10 @@ class OmniMoTModel(ImaginaireModel):
                 ``independent_action_schedule=True``.
             sigmas_sound: Optional dense sound sigma tensor matching ``packed_sequence.sound.*``.
                 When None, sound reuses ``sigmas``.
+            sigmas_pointflow: Optional ``[B, 1]`` override for PointFlow noising — one scalar
+                per batch slot, matching ``pointflow.labeled``. When None, PointFlow reuses
+                ``sigmas`` (vision σ, legacy behavior). Set by ``training_step`` when
+                ``independent_pointflow_schedule=True``.
 
         Returns:
             GenerationDataNoised: A dataclass containing the noise, noisy data (xt), and velocity field (vt).
@@ -1663,9 +1850,24 @@ class OmniMoTModel(ImaginaireModel):
             xt_sound = None
             vt_sound = None
 
+        pointflow_noised = None
+        if gen_data_clean.pointflow is not None:
+            from cosmos_framework.model.generator.pointflow_training import pointflow_add_noise
+
+            if self.parallel_dims is not None and self.parallel_dims.cp_enabled:
+                raise ValueError("PointFlow training currently requires CP=1")
+            with pointflow_phase("pf_add_noise"):
+                pointflow_noised = pointflow_add_noise(
+                    gen_data_clean.pointflow,
+                    sigmas if sigmas_pointflow is None else sigmas_pointflow,
+                    scale=self.config.rectified_flow_training_config.pointflow_displacement_scale,
+                    generator=noise_gen,
+                )
+
         # create the GenerationDataNoised object
         gen_data_noised = GenerationDataNoised(
             batch_size=gen_data_clean.batch_size,
+            pointflow=pointflow_noised,
             # vision
             epsilon_vision=epsilon_vision,
             xt_tokens_vision=xt_vision,
@@ -1692,6 +1894,7 @@ class OmniMoTModel(ImaginaireModel):
         gen_data_noised: GenerationDataNoised,
     ) -> None:
         """Replace packed clean tokens with noised tokens."""
+        packed_sequence.pointflow_noised = gen_data_noised.pointflow
         if packed_sequence.vision is not None:
             packed_sequence.vision.tokens = gen_data_noised.xt_tokens_vision
         if packed_sequence.action is not None and gen_data_noised.xt_tokens_action is not None:
@@ -1805,6 +2008,17 @@ class OmniMoTModel(ImaginaireModel):
         # is encoded instead of the whole clip).
         vision_condition_indexes = [plan.condition_frame_indexes_vision for plan in sequence_plans]
         gen_data_clean = self.get_data_and_condition(data_batch, vision_condition_indexes=vision_condition_indexes)
+        if gen_data_clean.pointflow is not None:
+            from dataclasses import replace
+
+            # Never let GT future displacement/validity ride into inference packing:
+            # the branch input is anchor geometry only.  Mirrors sample_pointflow.
+            gen_data_clean.pointflow = replace(
+                gen_data_clean.pointflow,
+                displacement=torch.zeros_like(gen_data_clean.pointflow.displacement),
+                valid=torch.zeros_like(gen_data_clean.pointflow.valid),
+                labeled=torch.zeros_like(gen_data_clean.pointflow.labeled),
+            )
 
         num_items_per_sample = gen_data_clean.num_vision_items_per_sample  # None for standard T2I/T2V
 
@@ -1840,12 +2054,13 @@ class OmniMoTModel(ImaginaireModel):
 
         # For image2image, num_items_per_sample could be > 1 (multi-vision),
         # so we need to repeat the seed for each vision item.
-        seed_dict = {"vision": [], "action": [], "sound": []}
+        seed_dict = {"vision": [], "action": [], "sound": [], "pointflow": []}
         for sample_idx in range(n_sample):
             num_vision_items = num_items_per_sample[sample_idx] if num_items_per_sample is not None else 1
             seed_dict["vision"].extend([seed[sample_idx]] * num_vision_items)
             seed_dict["action"].append(seed[sample_idx])
             seed_dict["sound"].append(seed[sample_idx])
+            seed_dict["pointflow"].append(seed[sample_idx])
 
         # Generate noise and apply conditioning per vision item (supports variable shapes).
         # Noise and the conditioning blend are kept in fp32 so the sampler accumulates
@@ -1925,6 +2140,26 @@ class OmniMoTModel(ImaginaireModel):
                 )  # [sound_channels,T_sound]
                 noise_sound_list.append(noise_sound_i)
 
+        # 7b. PointFlow noise: every future displacement step is a denoising target
+        # (pure noise; the anchor block is clean input geometry, not part of the
+        # state).  Ragged per sample via point_spans; rides the same flat vector
+        # and the same loop timestep as vision/action.
+        noise_pointflow_list: list[torch.Tensor] | None = None
+        pointflow = gen_data_clean.pointflow
+        if pointflow is not None and bool(pointflow.has_point.any()):
+            noise_pointflow_list = []
+            horizon = pointflow.displacement.shape[0]
+            for i in range(n_sample):
+                start, end = pointflow.point_spans[i].tolist()
+                noise_pointflow_list.append(
+                    misc.arch_invariant_rand(
+                        (horizon, end - start, 3),
+                        self.tensor_kwargs_fp32["dtype"],
+                        self.tensor_kwargs_fp32["device"],
+                        seed_dict["pointflow"][i],
+                    )
+                )
+
         # 8. Concatenate vision, action, and sound noise per sample (flattened)
         # Order: [vision | action (if present) | sound (if present)]
         # noise_action_list and noise_sound_list are dense (only modality-having samples),
@@ -1935,6 +2170,7 @@ class OmniMoTModel(ImaginaireModel):
         idx_vision = 0
         idx_action = 0
         idx_sound = 0
+        idx_point = 0
 
         for i in range(n_sample):
             parts = []
@@ -1988,6 +2224,15 @@ class OmniMoTModel(ImaginaireModel):
                 condition_mask_parts.append((mask_sound * torch.ones_like(x0_sound)).reshape(-1))  # [N_sound]
                 idx_sound += 1
 
+            if noise_pointflow_list is not None and sequence_plans[i].has_point:
+                # Every point step is a denoising target: reference 0, mask 0.
+                point_noise = noise_pointflow_list[idx_point]
+                parts.append(point_noise.reshape(-1))
+                zeros = torch.zeros_like(point_noise)
+                condition_reference_parts.append(zeros.reshape(-1))
+                condition_mask_parts.append(zeros.reshape(-1))
+                idx_point += 1
+
             initial_noise.append(torch.cat(parts, dim=0))  # [N_tokens_flat]
             condition_reference.append(torch.cat(condition_reference_parts, dim=0))  # [N_tokens_flat]
             condition_mask.append(torch.cat(condition_mask_parts, dim=0))  # [N_tokens_flat]
@@ -2009,6 +2254,10 @@ class OmniMoTModel(ImaginaireModel):
         gen_data_clean: GenerationDataClean,
     ) -> bool:
         """Return whether denoising can reuse request-local packed metadata templates."""
+        if gen_data_clean.pointflow is not None and bool(gen_data_clean.pointflow.has_point.any()):
+            # The template path does not thread the point state (see _get_velocity);
+            # joint PointFlow sampling always takes the full re-pack path.
+            return False
         if gen_data_clean.num_vision_items_per_sample is not None:
             return False
         if self.config.video_temporal_causal:
@@ -2135,14 +2384,18 @@ class OmniMoTModel(ImaginaireModel):
         has_sound = self.config.sound_gen and any(plan.has_sound for plan in sequence_plans)
 
         # Split flattened noise_x into vision, action, and sound parts per sample
-        # Order must match _prepare_inference_data: [vision | action (if present) | sound (if present)]
+        # Order must match _prepare_inference_data: [vision | action (if present) | sound (if present) | pointflow (if present)]
         noise_x_vision: list[torch.Tensor] = []
         noise_x_action: list[torch.Tensor] | None = [] if has_noisy_actions else None
         noise_x_sound: list[torch.Tensor] | None = [] if has_sound else None
+        pointflow = gen_data_clean.pointflow
+        has_pointflow = pointflow is not None and bool(pointflow.has_point.any())
 
         vision_offset = 0  # tracks position in the flat x0_tokens_vision list
         idx_action = 0
         idx_sound = 0
+        idx_point = 0
+        noise_x_pointflow: list[torch.Tensor] = []
         for i in range(n_samples):
             n_vis = num_items[i] if num_items is not None else 1
             offset = 0
@@ -2172,6 +2425,14 @@ class OmniMoTModel(ImaginaireModel):
                 )  # [sound_channels,T_sound]
                 offset += sound_dim
                 idx_sound += 1
+
+            # Pointflow is the trailing segment: [H, N_i, 3] per sample.
+            if has_pointflow and sequence_plans[i].has_point:
+                start, end = pointflow.point_spans[i].tolist()
+                point_dim = pointflow.displacement.shape[0] * (end - start) * 3
+                noise_x_pointflow.append(noise_x[i][offset : offset + point_dim])
+                offset += point_dim
+                idx_point += 1
 
         if has_action:
             if has_noisy_actions:
@@ -2204,6 +2465,9 @@ class OmniMoTModel(ImaginaireModel):
             # sequence. Without this, multi_control_two_way_attention never runs
             # and all controls are blended equally (weights ignored).
             control_weights=gen_data_clean.control_weights,
+            # PointFlow clean data (anchor geometry) for the branch; targets were
+            # zeroed in _prepare_inference_data so no GT future leaks.
+            pointflow=gen_data_clean.pointflow,
         )
 
         if packed_sequence_template is None:
@@ -2229,8 +2493,28 @@ class OmniMoTModel(ImaginaireModel):
                 assert packed_sequence.sound is not None, "packed_sequence.sound must exist when has_sound is True"
                 packed_sequence.sound.tokens = [x.to(**self.tensor_kwargs) for x in noise_x_sound]  # list[[C_sound,T]]
 
+            if has_pointflow:
+                from cosmos_framework.data.pointflow_batch import PointFlowNoised
+
+                # The branch consumes the ragged [H, sum(N), 3] state plus one sigma
+                # per sample; same loop timestep as vision (sigma = t / num_train_timesteps,
+                # the mapping sample_pointflow uses).
+                state = torch.cat(
+                    [x.reshape(pointflow.displacement.shape[0], -1, 3) for x in noise_x_pointflow], dim=1
+                ).float()
+                ticks = float(self.config.rectified_flow_inference_config.num_train_timesteps)
+                sigma = (timestep.reshape(-1).float() / ticks).clamp(0.0, 1.0)  # [B]
+                packed_sequence.pointflow_noised = PointFlowNoised(
+                    xt=state.cuda(),
+                    epsilon=state.cuda(),
+                    velocity_target=state.cuda(),
+                    sigma=sigma.cuda(),
+                )
+
             packed_sequence.to_cuda()
         else:
+            if has_pointflow:
+                raise NotImplementedError("PointFlow joint sampling does not support pack templates yet")
             packed_sequence = self._update_inference_pack_template(
                 packed_sequence_template,
                 noise_x_vision,
@@ -2312,12 +2596,24 @@ class OmniMoTModel(ImaginaireModel):
                 else:
                     velocity_sound.append(torch.zeros_like(pred))  # [sound_channels,T_sound]
 
+        # PointFlow velocity: every step/point is a denoising target, no condition
+        # mask; preds are already per-original-point [H, sum(N), 3].
+        velocity_pointflow: list[torch.Tensor] | None = None
+        if has_pointflow:
+            assert "preds_pointflow" in out, "PointFlow branch must emit predictions when the state is supplied"
+            preds_pointflow = out["preds_pointflow"]  # [H, sum(N), 3]
+            velocity_pointflow = []
+            for i in range(n_samples):
+                start, end = pointflow.point_spans[i].tolist()
+                velocity_pointflow.append(preds_pointflow[:, start:end])  # [H, N_i, 3]
+
         # Concatenate vision, action, and sound velocities per sample (flattened)
-        # Order must match _prepare_inference_data: [vision | action | sound]
+        # Order must match _prepare_inference_data: [vision | action | sound | pointflow]
         velocity_output: list[torch.Tensor] = []
         vis_offset = 0
         idx_action = 0
         idx_sound = 0
+        idx_point = 0
         for i in range(n_samples):
             parts = []
             n_vis = num_items[i] if num_items is not None else 1
@@ -2333,6 +2629,10 @@ class OmniMoTModel(ImaginaireModel):
             if velocity_sound is not None and sequence_plans[i].has_sound:
                 parts.append(velocity_sound[idx_sound].reshape(-1))
                 idx_sound += 1
+
+            if velocity_pointflow is not None and sequence_plans[i].has_point:
+                parts.append(velocity_pointflow[idx_point].reshape(-1))
+                idx_point += 1
 
             velocity_output.append(torch.cat(parts, dim=0))  # [N_tokens_flat]
 
@@ -2948,15 +3248,19 @@ class OmniMoTModel(ImaginaireModel):
 
             # Split flattened latents back into vision latents, external actions, and sound latents
             # Mirror the per-sample logic from _prepare_inference_data:
-            # Order: [vision | action (if present) | sound (if present)]
+            # Order: [vision | action (if present) | sound (if present) | pointflow (if present)]
             # action/sound lists are dense (only modality-having samples), so use separate indexes.
             result_vision: list[torch.Tensor] = []
             result_action: list[torch.Tensor] = []
             result_sound: list[torch.Tensor] = []
+            result_pointflow: list[torch.Tensor] = []
+            pointflow = gen_data_clean.pointflow
+            has_pointflow = pointflow is not None and bool(pointflow.has_point.any())
             action_processing_records = get_action_processing_records(data_batch)
             idx_vision = 0
             idx_action = 0
             idx_sound = 0
+            idx_point = 0
             num_vision_items = gen_data_clean.num_vision_items_per_sample
 
             for i in range(n_sample):
@@ -3000,11 +3304,24 @@ class OmniMoTModel(ImaginaireModel):
                     offset += sound_dim
                     idx_sound += 1
 
+                # Extract PointFlow: the trailing [H, N_i, 3] segment, back to meters.
+                if has_pointflow and sequence_plans[i].has_point:
+                    start, end = pointflow.point_spans[i].tolist()
+                    horizon = pointflow.displacement.shape[0]
+                    point_dim = horizon * (end - start) * 3
+                    state = latents[i][offset : offset + point_dim].reshape(horizon, end - start, 3)
+                    scale = float(self.config.rectified_flow_training_config.pointflow_displacement_scale)
+                    result_pointflow.append(state.float() * scale)
+                    offset += point_dim
+                    idx_point += 1
+
             result: dict[str, list[torch.Tensor]] = {"vision": result_vision}
             if has_noisy_actions and result_action:
                 result["action"] = result_action
             if self.config.sound_gen and len(result_sound) > 0:
                 result["sound"] = result_sound
+            if result_pointflow:
+                result["pointflow"] = result_pointflow
             return result
         finally:
             if previous_attention_dispatch is not None:
@@ -3160,9 +3477,166 @@ class OmniMoTModel(ImaginaireModel):
             num_vision_items_per_sample=subset_num_items,
         )
 
+    # One-step clean estimate swept over sigma.  ``pointflow_ade`` reports this at the
+    # sigma the batch happened to draw (median 0.83), but the sampled trajectory *ends*
+    # at sigma = 0, so what matters is how the direct estimate degrades toward the clean
+    # end -- and a single sigma cannot show that.  Values are diagnostic only: this path
+    # reads the future labels to score itself.
+    POINTFLOW_SIGMA_SCAN = (0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9, 0.99)
+
+    @torch.no_grad()
+    def pointflow_sigma_scan(self, data_batch, *, sigmas=None, seed=42):
+        """``x0_hat = x_sigma - sigma * v_hat`` against the labels, for each sigma in the sweep.
+
+        The initial noise is drawn once and reused for every sigma, so the sweep isolates
+        the noise level rather than mixing in a different realisation per point.
+        """
+        from dataclasses import replace
+
+        from cosmos_framework.model.generator.pointflow_training import pointflow_add_noise
+
+        if self.training:
+            raise ValueError("PointFlow sigma scan requires model.eval()")
+        sigmas = self.POINTFLOW_SIGMA_SCAN if sigmas is None else tuple(sigmas)
+        text = self._load_and_tokenize_text_data(data_batch, 0)
+        plans = build_sequence_plans_from_data_batch(
+            data_batch=data_batch,
+            input_video_key=self.input_video_key,
+            input_image_key=self.input_image_key,
+        )
+        clean = self.get_data_and_condition(data_batch, iteration=0)
+        pf = clean.pointflow
+        if pf is None or not len(pf.inputs["point_ids"]):
+            raise ValueError("PointFlow sigma scan requires anchor geometry")
+        packed = self._pack_input_sequence(plans, text, clean, torch.zeros((clean.batch_size, 1)))
+        data = packed.pointflow_data
+        # Hide the labels from the forward, exactly as the sampling path does.
+        packed.pointflow_data = replace(
+            data,
+            displacement=torch.zeros_like(data.displacement),
+            valid=torch.zeros_like(data.valid),
+            labeled=torch.zeros_like(data.labeled),
+        )
+        packed.to_cuda()
+
+        scale = self.config.rectified_flow_training_config.pointflow_displacement_scale
+        device = data.inputs["anchor_xyz"].device
+        generator = torch.Generator(device=device).manual_seed(int(seed))
+        epsilon = torch.randn(pf.displacement.shape, generator=generator, device=device, dtype=torch.float32)
+        valid, target = pf.valid, pf.displacement.float()
+        baseline = float(target[valid].norm(dim=-1).mean() * 1000) if valid.any() else 0.0
+        per_point = pf.inputs["point_batch"]
+
+        metrics = {}
+        for sigma in sigmas:
+            levels = torch.full((clean.batch_size,), float(sigma), device=device, dtype=torch.float32)
+            state = pointflow_add_noise(pf, levels, scale=scale, epsilon=epsilon)
+            packed.pointflow_noised = state
+            velocity = self.denoise(data_batch_packed=packed)["preds_pointflow"]
+            broadcast = levels[per_point][None, :, None].float()
+            estimate = (state.xt.float() - broadcast * velocity.float()) * scale
+            ade = float((estimate - target)[valid].norm(dim=-1).mean() * 1000) if valid.any() else 0.0
+            metrics[f"pointflow_sigma_scan_ade_{sigma:g}"] = ade
+        metrics["pointflow_sigma_scan_zero"] = baseline
+        return metrics
+
+    @torch.no_grad()
+    def sample_pointflow(self, data_batch, *, steps=4, seed=42, sampler="unipc"):
+        """Conditional fitting diagnostic with clean GT video/action, not a rollout.
+
+        Keep the normal Cosmos packing/attention path; only PointFlow is sampled.
+        Future PointFlow labels and masks are removed before any model forward.
+        """
+        from dataclasses import replace
+
+        from cosmos_framework.data.pointflow_batch import PointFlowNoised
+        from cosmos_framework.model.generator.pointflow_sampling import sample_displacement, training_shift
+
+        if self.training:
+            raise ValueError("PointFlow sampling requires model.eval()")
+        text = self._load_and_tokenize_text_data(data_batch, 0)
+        plans = build_sequence_plans_from_data_batch(
+            data_batch=data_batch,
+            input_video_key=self.input_video_key,
+            input_image_key=self.input_image_key,
+        )
+        clean = self.get_data_and_condition(data_batch, iteration=0)
+        if clean.pointflow is None or not len(clean.pointflow.inputs["point_ids"]):
+            raise ValueError("PointFlow fitting evaluation requires anchor geometry")
+        # Pack clean conditioning modalities at sigma=0. Do not call the training
+        # noise path, which would initialize PointFlow using future GT labels.
+        packed = self._pack_input_sequence(
+            plans,
+            text,
+            clean,
+            torch.zeros((clean.batch_size, 1)),
+        )
+        data = packed.pointflow_data
+        packed.pointflow_data = replace(
+            data,
+            displacement=torch.zeros_like(data.displacement),
+            valid=torch.zeros_like(data.valid),
+            labeled=torch.zeros_like(data.labeled),
+        )
+        packed.to_cuda()
+
+        scale = self.config.rectified_flow_training_config.pointflow_displacement_scale
+        shift = training_shift(self.config.rectified_flow_training_config.shift, self.config.resolution)
+        device = packed.pointflow_data.inputs["anchor_xyz"].device
+        generator = torch.Generator(device=device).manual_seed(int(seed))
+        state = torch.randn(
+            (data.timing.steps, len(data.inputs["point_ids"]), 3),
+            generator=generator,
+            device=device,
+            dtype=torch.float32,
+        )
+
+        if sampler == "unipc":
+            # Same solver, step count and shift as the video/action path.  The point
+            # tokens are meant to be denoised *inside* that loop, so evaluating them with
+            # a different integrator measures a trajectory the deployed system never
+            # runs.  UniPC hands the callback a timestep in the scheduler's own space;
+            # ``_sigma_to_t`` makes that sigma * num_train_timesteps.
+            ticks = int(self.config.rectified_flow_inference_config.num_train_timesteps)
+
+            def unipc_velocity(latent, timestep):
+                sigma = (timestep.reshape(-1)[:1].float() / ticks).expand(clean.batch_size)
+                packed.pointflow_noised = PointFlowNoised(latent, latent, latent, sigma)
+                return self.denoise(data_batch_packed=packed)["preds_pointflow"]
+
+            return self.sampler(unipc_velocity, state, num_steps=int(steps), shift=float(shift), seed=int(seed)) * scale
+
+        sampling_step = 0
+
+        def velocity(state, sigma):
+            nonlocal sampling_step
+            sampling_step += 1
+            if sampling_step == 1 or sampling_step % 4 == 0 or sampling_step == steps:
+                log.info(f"PointFlow sampling step {sampling_step}/{steps}")
+            # Only xt and sigma are consumed by denoise; no loss is evaluated.
+            packed.pointflow_noised = PointFlowNoised(state, state, state, sigma)
+            return self.denoise(data_batch_packed=packed)["preds_pointflow"]
+
+        return sample_displacement(
+            velocity,
+            steps=int(steps),
+            seed=int(seed),
+            horizon=data.timing.steps,
+            num_points=len(data.inputs["point_ids"]),
+            batch_size=clean.batch_size,
+            device=device,
+            scale=scale,
+            # The branch is trained on the video's shifted sigma; sampling unshifted
+            # walks out of that distribution (see pointflow_sampling.shifted_sigmas).
+            shift=shift,
+        )
+
     @torch.no_grad()
     def validation_step(self, data_batch: dict[str, torch.Tensor], iteration: int):
-        pass
+        # Reuse the exact training data path so validation reports the PointFlow
+        # masked RF loss alongside video/action losses.  The trainer invokes this
+        # method under no_grad; no optimizer or EMA state is modified here.
+        return self.training_step(data_batch, iteration)
 
     @torch.no_grad()
     def forward(self, xt, t):
@@ -3483,13 +3957,36 @@ class OmniMoTModel(ImaginaireModel):
             num_vision_items_per_sample,
             batch_size,
         )
-        x0_tokens_vision = self._encode_vision_x0_tokens(
-            raw_state_vision,
-            num_vision_items_per_sample,
-            vision_condition_indexes,
-            num_views_per_vision_item,
-            frames_per_vision_item,
-        )
+        # Dataset-provided Wan2.2 latents avoid running the frozen VAE every
+        # iteration. The collator may return either a stacked tensor or a list.
+        cached_latents = data_batch.get("vae_latent_cache")
+        if cached_latents is not None and vision_condition_indexes is None:
+            if isinstance(cached_latents, torch.Tensor):
+                if cached_latents.ndim == 6:  # [B,1,C,T,H,W]
+                    x0_tokens_vision = [cached_latents[i].squeeze(0) for i in range(cached_latents.shape[0])]
+                elif cached_latents.ndim == 5:
+                    x0_tokens_vision = [cached_latents[i : i + 1] for i in range(cached_latents.shape[0])]
+                else:
+                    raise ValueError(f"Invalid cached VAE latent shape: {tuple(cached_latents.shape)}")
+            elif isinstance(cached_latents, (list, tuple)):
+                x0_tokens_vision = []
+                for item in cached_latents:
+                    value = item.get("latent", item) if isinstance(item, dict) else item
+                    while isinstance(value, torch.Tensor) and value.ndim > 5 and value.shape[0] == 1:
+                        value = value.squeeze(0)
+                    x0_tokens_vision.append(value)
+            else:
+                raise TypeError(f"Unsupported vae_latent_cache type: {type(cached_latents)!r}")
+            if len(x0_tokens_vision) != len(raw_state_vision):
+                raise ValueError("Cached VAE latent batch does not align with video batch")
+        else:
+            x0_tokens_vision = self._encode_vision_x0_tokens(
+                raw_state_vision,
+                num_vision_items_per_sample,
+                vision_condition_indexes,
+                num_views_per_vision_item,
+                frames_per_vision_item,
+            )
 
         frame_size = data_batch.get("image_size", None)
         if frame_size is not None:
@@ -3562,6 +4059,12 @@ class OmniMoTModel(ImaginaireModel):
                 },
                 step=iteration,
             )
+        from cosmos_framework.data.pointflow_batch import build_pointflow_batch
+
+        with pointflow_phase("pf_build_batch"):
+            pointflow = build_pointflow_batch(
+                data_batch.get("pointflow"), batch_size=batch_size, device=self.tensor_kwargs["device"]
+            )
         control_weights: list[list[float]] | None = data_batch.get("control_weights", None)
         return GenerationDataClean(
             batch_size=batch_size,
@@ -3580,6 +4083,7 @@ class OmniMoTModel(ImaginaireModel):
             num_vision_items_per_sample=num_vision_items_per_sample,
             raw_action_dim=raw_action_dim,
             control_weights=control_weights,
+            pointflow=pointflow,
         )
 
     def _normalize_video_databatch_inplace(
@@ -4289,13 +4793,22 @@ class OmniMoTModel(ImaginaireModel):
                 - "lbl_metadata_gen": Load balancing metadata for generation pathway (if present).
         """
         net = net or self.net
+        point_kwargs = {}
+        if data_batch_packed.pointflow_noised is not None:
+            point_kwargs = {
+                "pointflow_displacement": data_batch_packed.pointflow_noised.xt,
+                "pointflow_sigma": data_batch_packed.pointflow_noised.sigma,
+            }
         out_net = net(
+            **point_kwargs,
             packed_seq=data_batch_packed,
             memory=memory,
             video_temporal_causal=video_temporal_causal,
         )
         output_dict = dict()
         output_dict["preds_vision"] = out_net["preds_vision"]
+        if "preds_pointflow" in out_net:
+            output_dict["preds_pointflow"] = out_net["preds_pointflow"]
         if self.config.action_gen and "preds_action" in out_net:
             output_dict["preds_action"] = out_net["preds_action"]
         if self.config.sound_gen and "preds_sound" in out_net:

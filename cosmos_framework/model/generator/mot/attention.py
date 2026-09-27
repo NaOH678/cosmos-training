@@ -63,6 +63,8 @@ class SplitInfo:
         self.noisy_token_range: tuple[int, int] | None = None
         # Per-control scalar weights; parallel to control_stream_token_ranges.
         self.control_weights: list[float] | None = None
+        # Global token modalities for optional CP=1 pairwise PointFlow mRoPE.
+        self.pointflow_modalities: torch.Tensor | None = None
 
 
 AttentionMaskType = SplitInfo
@@ -95,7 +97,6 @@ def _is_split_info_compatible(attention_mask: object) -> bool:
 _dotproduct_attention_cache = {}
 
 
-from cosmos_framework.model.generator.mot.flex_attention import FlexMetadata, flex_attention_varlen
 from cosmos_framework.data.generator.sequence_packing.natten import (
     generate_natten_metadata,
     generate_temporal_causal_natten_metadata,
@@ -108,6 +109,7 @@ from cosmos_framework.data.generator.sequence_packing.runtime import (
     get_full_only_seq,
     sequence_pack_from_packed_sequence,
 )
+from cosmos_framework.model.generator.mot.flex_attention import FlexMetadata, flex_attention_varlen
 
 
 def two_way_attention(

@@ -11,6 +11,8 @@ from dataclasses import dataclass
 
 import torch
 
+from cosmos_framework.data.pointflow_batch import PointFlowBatch, PointFlowNoised
+
 
 @dataclass(slots=True)
 class GenerationDataClean:
@@ -46,6 +48,8 @@ class GenerationDataClean:
     action_domain_id: list[torch.Tensor] | None = None  # per-sample domain IDs, None when no action samples
     raw_action_dim: list[torch.Tensor] | None = None  # raw action dimension, used adding masks to loss calculation
 
+    pointflow: PointFlowBatch | None = None
+
     # Multi-control transfer: per-sample list of per-control weights.
     # Shape: [num_samples], each element is a list of floats (one per control stream).
     # None for non-transfer or single-control samples.
@@ -79,6 +83,8 @@ class GenerationDataNoised:
     vt_target_action: torch.Tensor | None = None
     sigmas_action: torch.Tensor | None = None
     raw_action_dim: list[torch.Tensor] | None = None  # raw action dimension, used adding masks to loss calculation
+
+    pointflow: PointFlowNoised | None = None
 
 
 def unwrap_and_densify(raw: list | torch.Tensor | None, to_kwargs: dict) -> list[torch.Tensor] | None:
