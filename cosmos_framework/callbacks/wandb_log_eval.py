@@ -88,8 +88,8 @@ class WandbCallback(Callback):
 
         # Handle case where dataset_name gets batched into a list
         if isinstance(dataset_name, list):
-            assert len(dataset_name) == 1, "dataset_name should be a list of 1"
-            dataset_name = dataset_name[0]
+            # Validation batches may contain several samples from the same dataset.
+            dataset_name = dataset_name[0] if dataset_name else "default"
 
         if dataset_name not in self.final_loss_log_per_dataset:
             self.final_loss_log_per_dataset[dataset_name] = _LossRecord()

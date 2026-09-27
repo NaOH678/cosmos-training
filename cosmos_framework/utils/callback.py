@@ -467,6 +467,9 @@ class WandBCallback(Callback):
             modality_loss_keys = {
                 "flow_matching_loss_vision": "train/video_loss",
                 "flow_matching_loss_action": "train/action_loss",
+                "flow_matching_loss_pointflow": "train/pointflow_loss",
+                "pointflow_ade_mm": "train/pointflow_ade_mm",
+                "pointflow_zero_ade_mm": "train/pointflow_zero_ade_mm",
             }
             for output_key, metric_name in modality_loss_keys.items():
                 if output_key in output_batch:
@@ -488,6 +491,13 @@ class WandBCallback(Callback):
                     loss_parts.append(f"Video Loss: {modality_losses['train/video_loss']:.4f}")
                 if "train/action_loss" in modality_losses:
                     loss_parts.append(f"Action Loss: {modality_losses['train/action_loss']:.4f}")
+                if "train/pointflow_loss" in modality_losses:
+                    loss_parts.append(f"PointFlow Loss: {modality_losses['train/pointflow_loss']:.4f}")
+                if "train/pointflow_ade_mm" in modality_losses:
+                    loss_parts.append(
+                        f"PointFlow ADE: {modality_losses['train/pointflow_ade_mm']:.2f}mm "
+                        f"(zero {modality_losses['train/pointflow_zero_ade_mm']:.2f}mm)"
+                    )
                 log.info(f"Iteration {iteration}: " + " | ".join(loss_parts))
 
                 wandb.log(

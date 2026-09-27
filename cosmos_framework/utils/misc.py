@@ -366,7 +366,8 @@ class TrainingTimer:
     def compute_average_results(self) -> dict[str, float]:
         results = dict()
         for key, value_list in self.results.items():
-            results[key] = sum(value_list) / len(value_list)
+            if value_list:
+                results[key] = sum(value_list) / len(value_list)
         return results
 
 
@@ -647,7 +648,11 @@ class StragglerDetectorV2:
 
                 import cosmos_framework.utils.launch
 
-                if cosmos_framework.utils.launch.S3_READY and (iteration % (5 * self.report_freq) == 0) and self.save_s3:
+                if (
+                    cosmos_framework.utils.launch.S3_READY
+                    and (iteration % (5 * self.report_freq) == 0)
+                    and self.save_s3
+                ):
                     easy_io.dump(
                         wandb_info,
                         f"s3://rundir/{self.__class__.__name__}/iter_{iteration:09d}.yaml",
