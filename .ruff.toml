@@ -3,6 +3,8 @@
 
 line-length = 120
 target-version = "py310"
+# Preserve the pinned Apache-2.0 upstream source without local reformatting.
+extend-exclude = ["cosmos_framework/auxiliary/sonata"]
 
 [lint]
 select = [
