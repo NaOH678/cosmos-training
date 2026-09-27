@@ -16,7 +16,7 @@ import torchvision.transforms.functional as transforms_F
 
 from cosmos_framework.data.generator.action.datasets.singlerighthand_raw_dataset import (
     SingleRightHandRawDataset,
-    _TorchCodecFrameReader,
+    _OpenCVFrameReader,
 )
 from cosmos_framework.data.generator.action.transforms import find_closest_target_size
 
@@ -34,7 +34,15 @@ class _EpisodeJob:
 
 
 def resize_to_resolution_content(video: torch.Tensor, resolution: str | int) -> tuple[torch.Tensor, list[int]]:
-    """Resize ``[T,C,H,W]`` exactly as VideoResize, but leave off deterministic padding."""
+    """Resize ``[T,C,H,W]`` exactly as VideoResize, but leave off deterministic padding.
+
+    The cache must be transparent to ``ActionTransformPipeline``: whatever this
+    returns, running it back through ``reflection_pad_to_target`` has to reproduce
+    the online path byte for byte (see the paired test).  That holds only while the
+    padding stays deferred and the target keeps the orientation
+    ``find_closest_target_size`` picks -- for the portrait 640x842 composite that is
+    ``target_w=544, target_h=736``, not its transpose.
+    """
     height, width = video.shape[-2:]
     target_w, target_h = find_closest_target_size(height, width, resolution)
     scaling_ratio = min(target_w / width, target_h / height, 1.0)
@@ -50,28 +58,35 @@ def resize_to_resolution_content(video: torch.Tensor, resolution: str | int) -> 
     return video, [target_h, target_w, content_h, content_w]
 
 
+def _npy_header(path: Path):
+    """Shape and dtype without mmap -- GPFS rejects memory maps (OSError 19)."""
+    with path.open("rb") as stream:
+        version = np.lib.format.read_magic(stream)
+        if version == (1, 0):
+            shape, fortran, dtype = np.lib.format.read_array_header_1_0(stream)
+        elif version == (2, 0):
+            shape, fortran, dtype = np.lib.format.read_array_header_2_0(stream)
+        else:
+            raise ValueError(f"Unsupported NPY version {version}: {path}")
+    return shape, dtype
+
+
 def _existing_cache_row(job: _EpisodeJob, output_path: Path) -> dict | None:
     if job.overwrite or not output_path.is_file():
         return None
-    array = np.load(output_path, mmap_mode="r", allow_pickle=False)
-    try:
-        if array.dtype != np.uint8 or array.ndim != 4 or array.shape[:2] != (job.num_frames, 3):
-            raise ValueError(
-                f"Invalid existing cache {output_path}: expected uint8 [{job.num_frames},3,H,W], "
-                f"got {array.dtype} {array.shape}"
-            )
-        content_h, content_w = (int(value) for value in array.shape[-2:])
-        target_w, target_h = find_closest_target_size(content_h, content_w, job.resolution)
-        return {
-            "name": job.name,
-            "path": str(output_path.relative_to(job.cache_root)),
-            "shape": list(array.shape),
-            "image_size": [target_h, target_w, content_h, content_w],
-        }
-    finally:
-        mmap = getattr(array, "_mmap", None)
-        if mmap is not None:
-            mmap.close()
+    shape, dtype = _npy_header(output_path)
+    if dtype != np.uint8 or len(shape) != 4 or shape[:2] != (job.num_frames, 3):
+        raise ValueError(
+            f"Invalid existing cache {output_path}: expected uint8 [{job.num_frames},3,H,W], got {dtype} {shape}"
+        )
+    content_h, content_w = (int(value) for value in shape[-2:])
+    target_w, target_h = find_closest_target_size(content_h, content_w, job.resolution)
+    return {
+        "name": job.name,
+        "path": str(output_path.relative_to(job.cache_root)),
+        "shape": list(shape),
+        "image_size": [target_h, target_w, content_h, content_w],
+    }
 
 
 def _prepare_episode(job: _EpisodeJob) -> dict:
@@ -84,8 +99,8 @@ def _prepare_episode(job: _EpisodeJob) -> dict:
         return existing
 
     video_dir = raw_root / job.name / "videos"
-    head_reader = _TorchCodecFrameReader(video_dir / "head.mp4")
-    wrist_reader = _TorchCodecFrameReader(video_dir / "right_wrist.mp4")
+    head_reader = _OpenCVFrameReader(video_dir / "head.mp4")
+    wrist_reader = _OpenCVFrameReader(video_dir / "right_wrist.mp4")
     temp_path = output_path.with_suffix(".npy.tmp")
     temp_path.unlink(missing_ok=True)
     try:
@@ -138,6 +153,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--torch-threads", type=int, default=2)
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument("--episode-allowlist", type=Path, default=None)
     return parser.parse_args()
 
 
@@ -153,6 +169,13 @@ def main() -> None:
     if int(state_manifest.get("schema_version", 0)) != 2:
         raise ValueError(f"Unsupported state cache schema in {state_manifest_path}")
 
+    selected_names = None
+    if args.episode_allowlist is not None:
+        selected_names = {
+            x.strip()
+            for x in args.episode_allowlist.read_text().splitlines()
+            if x.strip() and not x.lstrip().startswith("#")
+        }
     output_dir = cache_root / "video_frames"
     output_dir.mkdir(parents=True, exist_ok=True)
     jobs = [
@@ -167,6 +190,7 @@ def main() -> None:
             overwrite=args.overwrite,
         )
         for row in state_manifest["episodes"]
+        if selected_names is None or str(row["name"]) in selected_names
     ]
 
     rows_by_name: dict[str, dict] = {}
