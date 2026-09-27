@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING
 
 import torch
 
-from cosmos_framework.data.generator.sequence_packing.sequence import PackedSequence, PackedSequenceBuilder, SequencePlan
+from cosmos_framework.data.generator.sequence_packing.sequence import (
+    PackedSequence,
+    PackedSequenceBuilder,
+    SequencePlan,
+)
 from cosmos_framework.data.generator.sequence_packing.temporal_causal import pack_supertokens_temporal_causal
 
 if TYPE_CHECKING:
@@ -425,7 +429,17 @@ def pack_input_sequence(
         )
         seq_builder.null_action_supertokens = null_action_flags[0]
 
-    # Finalize and return packed data
-    return seq_builder.finalize(
+    # Preserve the raw ragged contract; learned point tokens attach in the model.
+    pointflow = gen_data_clean.pointflow
+    expected = [plan.has_point for plan in sequence_plans]
+    actual = pointflow.has_point.tolist() if pointflow is not None else [False] * len(expected)
+    if expected != actual:
+        raise ValueError("PointFlow batch slots do not match SequencePlan.has_point")
+    if pointflow is not None and video_temporal_causal:
+        raise ValueError("PointFlow currently supports two-way sequence packing only")
+    packed = seq_builder.finalize(
         gen_data_clean=gen_data_clean,
     )
+
+    packed.pointflow_data = pointflow
+    return packed

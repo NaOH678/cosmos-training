@@ -234,6 +234,7 @@ class SequentialPackingBatcher(SampleBatcher):
         #   - list of ints        → len(text_token_ids)
         #   - 2-D tensor [1,S]    → shape[1]  (mirrors original .shape[1] branch)
         import torch as _torch
+
         text_token_ids = sample["text_token_ids"]
         if isinstance(text_token_ids, list):
             if len(text_token_ids) > 0 and isinstance(text_token_ids[0], _torch.Tensor):
@@ -299,6 +300,9 @@ class SequentialPackingBatcher(SampleBatcher):
                 num_sound_tokens = int(audio_duration * self.sound_latent_fps)
                 num_tokens += num_sound_tokens
 
+        from cosmos_framework.data.pointflow_batch import pointflow_token_upper_bound
+
+        num_tokens += pointflow_token_upper_bound(sample.get("pointflow"))
         return num_tokens
 
     def batches(self, samples):

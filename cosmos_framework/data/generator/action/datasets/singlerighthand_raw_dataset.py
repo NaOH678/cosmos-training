@@ -50,6 +50,32 @@ class _TorchCodecFrameReader:
         self._decoder = None
 
 
+class _OpenCVFrameReader:
+    """Explicit CPU decoding option for environments without TorchCodec libraries."""
+
+    def __init__(self, path):
+        import cv2
+
+        self._capture = cv2.VideoCapture(str(path))
+        if not self._capture.isOpened():
+            raise ValueError(f"Cannot open video: {path}")
+
+    def get_frames(self, indices):
+        import cv2
+
+        frames = []
+        for index in indices:
+            self._capture.set(cv2.CAP_PROP_POS_FRAMES, int(index))
+            ok, frame = self._capture.read()
+            if not ok:
+                raise ValueError(f"Cannot decode video frame {index}")
+            frames.append(torch.from_numpy(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)).permute(2, 0, 1))
+        return torch.stack(frames)
+
+    def close(self):
+        self._capture.release()
+
+
 class SingleRightHandRawDataset(Dataset):
     """Read 30-fps single-right-hand episodes as official 15-fps policy windows."""
 
@@ -74,12 +100,32 @@ class SingleRightHandRawDataset(Dataset):
         use_precomputed_video: bool | str = False,
         video_cache_resolution: str | int | None = None,
         frame_cache_size: int | None = None,
+        video_decoder: str = "torchcodec",
+        episode_allowlist: str | None = None,
+        pointflow_manifest: str | None = None,
+        pointflow_max_points: int = 8192,
+        pointflow_voxel_size: float = 0.02,
+        pointflow_seed: int = 0,
+        pointflow_select_motion_fraction: float = 0.0,
+        pointflow_select_top_n: int = 0,
+        pointflow_min_voxel_members: int = 0,
+        pointflow_supervise_cluster_n: int = 0,
+        pointflow_select_regions=(),
+        pointflow_select_min_valid_steps: int = 0,
+        video_temporal_downsample: int = 4,
+        vae_latent_root: str | None = None,
+        vae_window_latent_root: str | None = None,
     ) -> None:
         super().__init__()
+        if video_decoder not in {"torchcodec", "opencv"}:
+            raise ValueError("video_decoder must be torchcodec or opencv")
+        self._video_decoder = video_decoder
+        self._vae_latent_root = Path(vae_latent_root) if vae_latent_root else None
         self._root = Path(root)
         self._cache_root = Path(cache_root)
         self._fps = float(fps)
         self._chunk_length = int(chunk_length)
+        self._video_temporal_downsample = int(video_temporal_downsample)
         self._sample_stride = int(sample_stride)
         if self._sample_stride < 1:
             raise ValueError(f"sample_stride must be >= 1, got {self._sample_stride}")
@@ -120,6 +166,15 @@ class SingleRightHandRawDataset(Dataset):
             )
             for row in manifest["episodes"]
         ]
+        if episode_allowlist:
+            allow_path = Path(episode_allowlist)
+            names = {line.strip() for line in allow_path.read_text().splitlines() if line.strip()}
+            if not names:
+                raise ValueError(f"Episode allowlist is empty: {allow_path}")
+            missing = sorted(names - {episode.name for episode in all_episodes})
+            if missing:
+                raise ValueError(f"Episode allowlist contains unknown episodes: {missing[:3]}")
+            all_episodes = [episode for episode in all_episodes if episode.name in names]
         if not all_episodes:
             raise ValueError(f"No episodes listed in {manifest_path}")
 
@@ -153,6 +208,65 @@ class SingleRightHandRawDataset(Dataset):
         selected = order[:num_val] if split_key == "val" else order[num_val:] if split_key == "train" else order
         self._episodes = [all_episodes[idx] for idx in selected]
 
+        self._pointflow_source = None
+        if pointflow_manifest is not None:
+            from cosmos_framework.data.generator.action.pointflow_source import PointFlowSource
+            from cosmos_framework.data.pointflow_window import PointFlowTiming
+
+            if use_image_augmentation:
+                raise ValueError(
+                    "PointFlow requires recorded spatial transforms; random image augmentation is unsupported"
+                )
+            self._pointflow_source = PointFlowSource(
+                pointflow_manifest,
+                timing=PointFlowTiming(self._fps, self._chunk_length, video_temporal_downsample),
+                max_points=pointflow_max_points,
+                voxel_size=pointflow_voxel_size,
+                seed=pointflow_seed,
+                # GT-ranked restriction to the most-moving voxels; a mechanism
+                # diagnostic, not a deployable conditioning rule (see prepare_window).
+                select_motion_fraction=pointflow_select_motion_fraction,
+                select_top_n=pointflow_select_top_n,
+                min_voxel_members=pointflow_min_voxel_members,
+                supervise_cluster_n=pointflow_supervise_cluster_n,
+                select_regions=pointflow_select_regions,
+                select_min_valid_steps=pointflow_select_min_valid_steps,
+            )
+            missing = [e.name for e in self._episodes if e.name not in self._pointflow_source.entries]
+            if missing:
+                raise ValueError(
+                    f"PointFlow manifest must explicitly list selected episodes, including unlabeled: {missing}"
+                )
+
+        self._vae_window_latent_root = Path(vae_window_latent_root) if vae_window_latent_root else None
+        self._vae_window_rows: dict[str, dict[str, Any]] = {}
+        if self._vae_window_latent_root is not None:
+            window_manifest_path = self._vae_window_latent_root / "window_manifest.json"
+            if not window_manifest_path.is_file():
+                raise FileNotFoundError(
+                    f"Missing {window_manifest_path}. Run tools/cache_window_vae_latents.py before training."
+                )
+            window_manifest = json.loads(window_manifest_path.read_text())
+            if int(window_manifest.get("schema_version", 0)) != 1:
+                raise ValueError(f"Unsupported window latent cache schema in {window_manifest_path}")
+            # The cache is keyed by window offset, so anything that changes the
+            # window enumeration invalidates it. Refuse rather than read the wrong
+            # window's latent.
+            for field, current in (
+                ("fps", self._fps),
+                ("chunk_length", self._chunk_length),
+                ("sample_stride", self._sample_stride),
+            ):
+                if float(window_manifest[field]) != float(current):
+                    raise ValueError(
+                        f"{window_manifest_path}: {field}={window_manifest[field]} but this dataset uses "
+                        f"{current}; regenerate the window latent cache"
+                    )
+            self._vae_window_rows = {str(row["name"]): row for row in window_manifest["episodes"]}
+            missing = [e.name for e in self._episodes if e.name not in self._vae_window_rows]
+            if missing:
+                raise ValueError(f"Window latent cache has no entry for selected episodes: {missing[:3]}")
+
         self._source_strides: list[int] = []
         self._valid_windows: list[int] = []
         self._cumulative_ends: list[int] = []
@@ -173,7 +287,7 @@ class SingleRightHandRawDataset(Dataset):
 
         self._array_cache: OrderedDict[int, tuple[np.ndarray, np.ndarray]] = OrderedDict()
         self._array_cache_size = 2
-        self._reader_cache: OrderedDict[tuple[int, str], _TorchCodecFrameReader] = OrderedDict()
+        self._reader_cache: OrderedDict[tuple[int, str], _TorchCodecFrameReader | _OpenCVFrameReader] = OrderedDict()
         self._reader_cache_size = 2
         self._video_array_cache: OrderedDict[int, np.ndarray] = OrderedDict()
         self._video_array_cache_size = 2
@@ -251,14 +365,14 @@ class SingleRightHandRawDataset(Dataset):
             self._array_cache.popitem(last=False)
         return cached
 
-    def _get_reader(self, episode_idx: int, camera: str) -> _TorchCodecFrameReader:
+    def _get_reader(self, episode_idx: int, camera: str) -> _TorchCodecFrameReader | _OpenCVFrameReader:
         key = (episode_idx, camera)
         reader = self._reader_cache.get(key)
         if reader is not None:
             self._reader_cache.move_to_end(key)
             return reader
         path = self._root / self._episodes[episode_idx].name / "videos" / f"{camera}.mp4"
-        reader = _TorchCodecFrameReader(path)
+        reader = (_TorchCodecFrameReader if self._video_decoder == "torchcodec" else _OpenCVFrameReader)(path)
         self._reader_cache[key] = reader
         while len(self._reader_cache) > self._reader_cache_size:
             _, old_reader = self._reader_cache.popitem(last=False)
@@ -321,6 +435,14 @@ class SingleRightHandRawDataset(Dataset):
         return torch.cat([wrist, head], dim=-2)  # [T,C,H_wrist+H_head,W]
 
     def _load_video(self, episode_idx: int, observation_indices: np.ndarray) -> torch.Tensor:
+        # Refresh recency of cache hits BEFORE inserting: the eviction below pops
+        # the oldest entries, and a needed-but-stale frame (loaded for an earlier
+        # window under shuffled iteration) would otherwise be evicted by this very
+        # call and surface as a KeyError in the read loop.
+        for frame_idx in observation_indices:
+            key = (episode_idx, int(frame_idx))
+            if key in self._composed_frame_cache:
+                self._composed_frame_cache.move_to_end(key)
         missing_indices = [
             int(frame_idx)
             for frame_idx in observation_indices
@@ -370,7 +492,7 @@ class SingleRightHandRawDataset(Dataset):
             raw_action = torch.cat([initial_state.unsqueeze(0), raw_action], dim=0)
 
         mode = random.choice(("forward_dynamics", "inverse_dynamics", "wam")) if self._mode == "joint" else self._mode
-        return {
+        sample = {
             "ai_caption": self._task_text,
             "video": self._load_video(episode_idx, observation_indices),
             "action": raw_action,
@@ -383,6 +505,70 @@ class SingleRightHandRawDataset(Dataset):
                 "The lower view is from the head-mounted third-person camera."
             ),
         }
+        if self._pointflow_source is not None:
+            episode = self._episodes[episode_idx]
+            sample["episode_name"] = episode.name
+            sample["raw_frame_ids"] = observation_indices.copy()
+            sample["action_frame_ids"] = action_indices.copy()
+            sample["timestamps_sec"] = observation_indices / episode.source_fps
+            canvas_size = (sample["video"].shape[-1], sample["video"].shape[-2])
+            if self._use_precomputed_video and episode.name in self._video_cache_rows:
+                target = self._video_cache_rows[episode.name].get("image_size")
+                if target and len(target) >= 2:
+                    canvas_size = (int(target[1]), int(target[0]))
+            sample["pointflow"] = self._pointflow_source.load(
+                episode.name,
+                observation_indices,
+                episode.source_fps,
+                canvas_size,
+            )
+        if self._vae_window_latent_root is not None:
+            # Preferred path: the window's own encode, bit-identical to what a
+            # cache-less run computes. See tools/cache_window_vae_latents.py.
+            sample["vae_latent_cache"] = self._read_window_latent(self._episodes[episode_idx].name, window_offset)
+        elif self._vae_latent_root is not None:
+            latent_path = self._vae_latent_root / f"{self._episodes[episode_idx].name}.pt"
+            if latent_path.is_file():
+                cached = torch.load(latent_path, map_location="cpu", weights_only=True)
+                latent = cached.get("latent", cached) if isinstance(cached, dict) else cached
+                # Legacy path: a whole-episode encode at source FPS, resampled onto
+                # the window's 15 Hz lattice. Measured against a fresh online encode
+                # this differs by about one frame of window shift, and the
+                # conditioning latent (index 0) becomes a source-frame block rather
+                # than the current frame. Keep it only for A/B; prefer the window
+                # cache above.
+                if isinstance(latent, torch.Tensor) and latent.ndim == 5:
+                    source_ids = observation_indices[:: self._video_temporal_downsample]
+                    latent_ids = np.floor(source_ids / 4.0).astype(np.int64)
+                    latent_ids = np.clip(latent_ids, 0, latent.shape[2] - 1)
+                    sample["vae_latent_cache"] = latent.index_select(2, torch.from_numpy(latent_ids))
+                else:
+                    sample["vae_latent_cache"] = latent
+        return sample
+
+    def _read_window_latent(self, name: str, window_offset: int):
+        """One window's latent from vae_window_latents/<name>.npy.
+
+        Stored as bfloat16 bit patterns in uint16; the manifest's ``storage`` field
+        is asserted so a layout change cannot be read back as numbers silently.
+        """
+        row = self._vae_window_rows[name]
+        with (self._vae_window_latent_root / row["path"]).open("rb") as stream:
+            version = np.lib.format.read_magic(stream)
+            if version == (2, 0):
+                shape, _, dtype = np.lib.format.read_array_header_2_0(stream)
+            else:
+                shape, _, dtype = np.lib.format.read_array_header_1_0(stream)
+            if tuple(shape[1:]) != tuple(row["shape"]) or dtype != np.uint16:
+                raise ValueError(f"{name}: window latent header {shape} {dtype} does not match the manifest")
+            if not 0 <= window_offset < shape[0]:
+                raise ValueError(f"{name}: window {window_offset} outside the cache's 0..{shape[0] - 1}")
+            header = stream.tell()
+            item = int(np.prod(shape[1:])) * dtype.itemsize
+            stream.seek(header + window_offset * item)
+            raw = np.frombuffer(stream.read(item), dtype=np.uint16).reshape(shape[1:])
+        # np.frombuffer is read-only and torch needs a writable buffer for a view.
+        return torch.from_numpy(raw.copy()).view(torch.bfloat16).unsqueeze(0)
 
     def __del__(self) -> None:
         for reader in getattr(self, "_reader_cache", {}).values():

@@ -19,7 +19,6 @@ from __future__ import annotations
 import torch
 import torchvision.transforms.functional as transforms_F
 
-from cosmos_framework.utils import log
 from cosmos_framework.data.generator.action.action_processing import (
     ActionNormalizer,
     ActionProcessor,
@@ -30,8 +29,9 @@ from cosmos_framework.data.generator.augmentors.duration_fps_text_timestamps imp
 from cosmos_framework.data.generator.augmentors.idle_frames_text_info import IdleFramesTextInfo
 from cosmos_framework.data.generator.augmentors.resolution_text_info import ResolutionTextInfo
 from cosmos_framework.data.generator.augmentors.text_tokenizer import TextTokenizerTransform
-from cosmos_framework.data.generator.utils import VIDEO_RES_SIZE_INFO
 from cosmos_framework.data.generator.sequence_packing import SequencePlan
+from cosmos_framework.data.generator.utils import VIDEO_RES_SIZE_INFO
+from cosmos_framework.utils import log
 from cosmos_framework.utils.generator.data_utils import get_vision_data_resolution
 
 
@@ -171,6 +171,16 @@ def reflection_pad_to_target(
                 tensor = transforms_F.pad(tensor, padding, padding_mode="edge")
             else:
                 tensor = transforms_F.pad(tensor, padding, padding_mode="reflect")
+
+        if key == "video" and data_dict.get("pointflow") is not None:
+            from cosmos_framework.data.generator.action.pointflow_source import resize_pointflow_metadata
+
+            resize_pointflow_metadata(
+                data_dict["pointflow"],
+                (orig_w, orig_h),
+                (orig_w_resized, orig_h_resized),
+                (target_w, target_h),
+            )
 
         data_dict[key] = tensor
 
@@ -692,6 +702,8 @@ class ActionTransformPipeline:
             video_temporal_downsample=self.video_temporal_downsample,
             num_history_actions=num_history_actions,
         )
+        pointflow = data_dict.get("pointflow")
+        sequence_plan.has_point = pointflow is not None and len(pointflow["inputs"]["point_ids"]) > 0
         data_dict["sequence_plan"] = sequence_plan
 
         assert isinstance(action, torch.Tensor), "action tensor is required for action modes"

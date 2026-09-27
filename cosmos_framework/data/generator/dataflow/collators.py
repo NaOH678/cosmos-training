@@ -51,6 +51,7 @@ def _vfm_inner_collate(batch):
     For "text_token_ids", "images", and "video" it simply returns them in a list, instead of stacking them as a tensor.
     """
     list_collate_keys = {
+        "pointflow",
         "text_token_ids",
         "images",
         "video",
@@ -70,7 +71,7 @@ def _vfm_inner_collate(batch):
     # remaining sound tensors mis-aligned with the plans whose ``has_sound``
     # flag was set BEFORE collation, causing ``sequence_packing`` to index
     # past the end of ``x0_tokens_sound``.
-    sparse_data_keys = {"sound"}
+    sparse_data_keys = {"sound", "pointflow"}
 
     # Handle the case where the batch is already a dictionary (e.g. column-wise batching)
     if isinstance(batch, dict):
@@ -79,7 +80,6 @@ def _vfm_inner_collate(batch):
     # Handle standard list of samples
     elem = batch[0]
     if isinstance(elem, dict):
-
         # Some Action datasets add optional metadata keys (for example
         # ``additional_view_description`` for concat-view captions) only for a
         # subset of samples.  PyTorch can batch such samples together when
@@ -204,8 +204,10 @@ class VFMListCollator(BatchCollator):
         # inner-collate at batch_size=1, split sample 0 per _MULTI_ITEM_KEYS /
         # list / tensor rules, then _update_output_batch-accumulate across the group.
         output_batch: dict = {}
+        if any("pointflow" in s for s in samples):
+            samples = [{**s, "pointflow": s.get("pointflow")} for s in samples]
         for s in samples:
-            collated = _vfm_inner_collate([s])      # verbatim custom_collate_fn copy
-            split = _split_one(collated)            # i=0 split (rules from _get_next_sample)
-            _accumulate(output_batch, split)        # _update_output_batch copy
+            collated = _vfm_inner_collate([s])  # verbatim custom_collate_fn copy
+            split = _split_one(collated)  # i=0 split (rules from _get_next_sample)
+            _accumulate(output_batch, split)  # _update_output_batch copy
         return output_batch

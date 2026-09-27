@@ -14,14 +14,14 @@ import torch
 import webdataset
 from torch.utils.data.dataloader import default_collate
 
-from cosmos_framework.utils.lazy_config import instantiate
-from cosmos_framework.utils import log
 from cosmos_framework.model.generator.tokenizers.uniae.frame_math import (
     get_uniae_chunk_frames,
     get_uniae_latent_num_frames,
     normalize_uniae_chunk_frames,
 )
+from cosmos_framework.utils import log
 from cosmos_framework.utils.generator.data_utils import read_positive_int_metadata
+from cosmos_framework.utils.lazy_config import instantiate
 
 _TIMING_KEYS = {"_sample_time", "_aug_time", "_pre_aug_time", "_aug_step_times"}
 _BATCH_TIMING_KEYS = {
@@ -39,6 +39,7 @@ def custom_collate_fn(batch):
     For "text_token_ids", "images", and "video" it simply returns them in a list, instead of stacking them as a tensor.
     """
     list_collate_keys = {
+        "pointflow",
         "text_token_ids",
         "images",
         "video",
@@ -60,7 +61,7 @@ def custom_collate_fn(batch):
     # remaining sound tensors mis-aligned with the plans whose ``has_sound``
     # flag was set BEFORE collation, causing ``sequence_packing`` to index
     # past the end of ``x0_tokens_sound``.
-    sparse_data_keys = {"sound"}
+    sparse_data_keys = {"sound", "pointflow"}
 
     # Handle the case where the batch is already a dictionary (e.g. column-wise batching)
     if isinstance(batch, dict):
@@ -594,12 +595,19 @@ class JointDataLoader(webdataset.WebLoader):
                     num_sound_tokens = int(audio_duration * self.sound_latent_fps)
                     num_tokens += num_sound_tokens
 
+        from cosmos_framework.data.pointflow_batch import pointflow_token_upper_bound
+
+        num_tokens += pointflow_token_upper_bound(data_batch.get("pointflow"))
         return num_tokens
 
     # Keys whose value per sample is a list of tensors to be flattened into one list in the batch
     _FLATTEN_LIST_KEYS = {"image_size"}
 
     def _update_output_batch(self, output_batch: dict, output: dict):
+        if "pointflow" in output_batch and "pointflow" not in output:
+            output = {**output, "pointflow": None}
+        if "pointflow" in output and "pointflow" not in output_batch:
+            output_batch["pointflow"] = [None] * len(output_batch.get("video", output_batch.get("images", [])))
         for key, value in output.items():
             if key in _BATCH_TIMING_KEYS:
                 if key not in output_batch:
@@ -901,6 +909,38 @@ class IterativeJointDataLoader(JointDataLoader):
                 return i
             data_id -= r
         raise ValueError("Invalid data_id")
+
+
+def limit_dataloader_worker_threads(worker_id: int) -> None:
+    """Pin DataLoader workers to one thread each and deprioritise them.
+
+    Every worker decodes video and windows point tracks, and OpenCV, FFmpeg and
+    the collator's tensor ops each start their own thread pool.  The default
+    team oversubscribes the rank's CPU partition, so the trainer gets
+    descheduled during the few milliseconds per step it spends marshalling the
+    batch: ``build_pointflow_batch`` measures ~2.5 ms with idle CPUs and ~265 ms
+    of wall clock with eight busy workers, and the GPU idles for the
+    difference.  One thread per worker keeps the pipeline's throughput while
+    letting the trainer run on time.
+    """
+    import os
+
+    try:
+        os.nice(5)
+    except OSError:  # pragma: no cover - depends on container privileges
+        pass
+    try:
+        import cv2
+
+        cv2.setNumThreads(1)
+    except ImportError:  # pragma: no cover - optional dependency
+        pass
+    try:
+        import torch
+
+        torch.set_num_threads(1)
+    except ImportError:  # pragma: no cover - torch is a hard dependency
+        pass
 
 
 class RankPartitionedDataLoader:

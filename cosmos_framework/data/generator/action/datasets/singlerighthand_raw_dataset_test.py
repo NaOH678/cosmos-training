@@ -164,6 +164,38 @@ def test_load_video_reuses_composed_frames_across_sliding_windows(tmp_path) -> N
     np.testing.assert_array_equal(readers["right_wrist"].calls[1], np.asarray([66]))
 
 
+def test_load_video_eviction_never_drops_frames_needed_now(tmp_path) -> None:
+    """Shuffled iteration regression: a frame still needed by the current window but
+    loaded long ago sits at the oldest end of the LRU; inserting this window's missing
+    frames must not evict it (that raced into KeyError: (episode, frame) at read time).
+    """
+    dataset, _ = _build_dataset(tmp_path)
+
+    class FakeReader:
+        def __init__(self, width: int, value: int) -> None:
+            self.width = width
+            self.value = value
+
+        def get_frames(self, indices: np.ndarray) -> torch.Tensor:
+            return torch.full((len(indices), 3, 4, self.width), self.value, dtype=torch.uint8)
+
+    readers = {"head": FakeReader(width=8, value=1), "right_wrist": FakeReader(width=16, value=2)}
+    dataset._get_reader = MethodType(lambda self, episode_idx, camera: readers[camera], dataset)
+
+    cache_size = dataset._composed_frame_cache_size  # 66 = 33 frames x stride 2
+    window = np.arange(0, 65, 2, dtype=np.int64)  # the window we will reload
+    SingleRightHandRawDataset._load_video(dataset, 0, window)
+    filler_a = np.arange(200, 266, 2, dtype=np.int64)  # 33 frames: cache now full
+    SingleRightHandRawDataset._load_video(dataset, 0, filler_a)
+    filler_b = np.arange(400, 446, 2, dtype=np.int64)  # 23 frames: evicts 23 oldest of `window`
+    SingleRightHandRawDataset._load_video(dataset, 0, filler_b)
+    assert len(dataset._composed_frame_cache) == cache_size
+
+    # Reloading the first window must refresh its stale survivors, not evict them.
+    reloaded = SingleRightHandRawDataset._load_video(dataset, 0, window)
+    assert reloaded.shape == (3, 33, 6, 8)
+
+
 def test_load_video_reads_precomputed_memmap_without_mp4(tmp_path) -> None:
     dataset, _ = _build_dataset(tmp_path, use_precomputed_video=True)
 

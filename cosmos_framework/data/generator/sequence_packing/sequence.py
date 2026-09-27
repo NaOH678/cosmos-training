@@ -18,6 +18,8 @@ from cosmos_framework.data.generator.sequence_packing.mrope import (
 )
 
 if TYPE_CHECKING:
+    from cosmos_framework.data.pointflow_batch import PointFlowBatch, PointFlowNoised
+    from cosmos_framework.model.generator.pointflow_sequence import PointTokenPayload
     from cosmos_framework.model.generator.utils.data_and_condition import GenerationDataClean
 
 
@@ -926,6 +928,9 @@ class PackedSequence:
     vision: ModalityData | None = None
     action: ModalityData | None = None
     sound: ModalityData | None = None
+    pointflow_noised: PointFlowNoised | None = None
+    pointflow_data: PointFlowBatch | None = None  # PointFlowBatch, before learned token encoding
+    point: PointTokenPayload | None = None
 
     # Multi-control transfer: per-sample list of per-vision-item token counts.
     # For a multi-control transfer sample with N controls + 1 noisy target,
@@ -956,6 +961,12 @@ class PackedSequence:
 
     def to_cuda(self) -> None:
         """Move all tensor fields to CUDA in-place."""
+        if self.pointflow_noised is not None:
+            self.pointflow_noised.to_cuda()
+        if self.pointflow_data is not None:
+            self.pointflow_data.to_cuda()
+        if self.point is not None:
+            self.point.to_cuda()
         self.text_ids = self.text_ids.cuda()
         self.text_indexes = self.text_indexes.cuda()
         self.position_ids = self.position_ids.cuda()
@@ -1023,6 +1034,7 @@ class SequencePlan:
     share_vision_temporal_positions: bool = False
 
     # -- action modality --
+    has_point: bool = False
     has_action: bool = False
     condition_frame_indexes_action: list[int] = field(default_factory=list)
     action_start_frame_offset: int = 1
@@ -1036,6 +1048,7 @@ class SequencePlan:
             "has_text": self.has_text,
             "has_vision": self.has_vision,
             "has_action": self.has_action,
+            "has_point": self.has_point,
             "has_sound": self.has_sound,
             "condition_frame_indexes_vision": self.condition_frame_indexes_vision,
             "condition_frame_indexes_action": self.condition_frame_indexes_action,
