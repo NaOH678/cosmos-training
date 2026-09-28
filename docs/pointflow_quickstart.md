@@ -25,6 +25,22 @@ cd WorldAct && git checkout WorldAct-cosmos3-edge-droid-sft-pointflow
 - 驱动 CUDA 13.2 兼容 cu130 wheel(驱动 ≥ 构建版本即可)。
 - **每次开 shell 必做**:`source .venv/bin/activate && export LD_LIBRARY_PATH=''`。
 
+**pointflow 追加依赖**(sonata 编码器需要,不在 base 环境/lock 里):
+
+```bash
+uv pip install --python .venv/bin/python --default-index https://pypi.org/simple \
+  --only-binary :all: 'addict==2.4.0' 'spconv-cu126==2.3.8'
+uv pip install --python .venv/bin/python --no-deps --no-index \
+  --find-links "https://data.pyg.org/whl/torch-$(python -c 'import torch;print(torch.__version__)').html" \
+  --only-binary :all: torch-scatter
+```
+
+- spconv 没有 cu130 构建,`spconv-cu126` 实测可在 torch 2.10.0+cu130 /
+  A800(sm80)上正常跑 GPU kernel(2026-09-28 验证);torch-scatter 按当前
+  torch 版本选 PyG 官方 wheel(本集群为 `2.1.2+pt210cu130`)。
+- 缺这三个包的典型症状:训练启动即 `ModuleNotFoundError: No module named
+  'addict'`(`pointflow_geometry.py` → `auxiliary/sonata`)。
+
 ## 2. 数据摆放
 
 以下都不在 git 里,需从旧集群拷贝(大小为参考值):
@@ -44,6 +60,39 @@ cd WorldAct && git checkout WorldAct-cosmos3-edge-droid-sft-pointflow
    全部支持同名环境变量覆盖,不用改脚本;
 2. pointflow manifest 里嵌了轨迹的绝对路径——挂载点变了就 sed 换前缀,或按
    [数据 pipeline 步骤 2](./pointflow_data_pipeline.md) 重建。
+
+### 本集群实例(2026-09-28 起,inspur / A800 sm80)
+
+- 仓库:`/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow`(pointflow 分支 checkout);
+- 共享 venv:`/mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv`(在 base checkout 下,
+  其 editable 安装指向 base 代码——**手动跑脚本必须 `cd` 到本仓库并用
+  `python -m cosmos_framework.scripts.xxx`**,否则 import 到 base 的旧代码;
+  训练启动脚本自身会 `cd` + `-m`,不受影响);
+- 数据根:`/data/shichaojian/`,布局与上表一致(`models/`、`checkpoints/ptv3/`、
+  `raw_data/`、`datasets/`、`pf_out/9.24/`、`runs/`);
+- 9.24 labeled 已转换:sandwich/dropper 各 101 集,`video` 字段已补;
+- manifest 已按新路径重建:`pointflow_outputs/sandwich_924_20260928/manifest.json`、
+  `pointflow_outputs/dropper_924_20260928/manifest.json`(含本机绝对路径,不入 git)。
+
+本集群启动训练前的 env 覆盖(复制即用):
+
+```bash
+export LD_LIBRARY_PATH=''
+export PYTHON_BIN=/mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv/bin/python
+export EDGE_DROID_MODEL_PATH=/data/shichaojian/models/cosmos3-edge-droid
+export BASE_CHECKPOINT_PATH=/data/shichaojian/models/cosmos3-edge-droid-dcp
+export POINTFLOW_SONATA_CHECKPOINT=/data/shichaojian/checkpoints/ptv3/sonata_small.pth
+# sandwich:
+export SINGLERIGHTHAND_RAW_ROOT=/data/shichaojian/raw_data/singlerighthand_sandwich_100
+export SINGLERIGHTHAND_CACHE_ROOT=/data/shichaojian/datasets/singlerighthand-sandwich-100-cosmos-cache
+export POINTFLOW_MANIFEST=$PWD/pointflow_outputs/sandwich_924_20260928/manifest.json
+export OUTPUT_ROOT=/data/shichaojian/runs/<每次必换>
+bash examples/launch_pointflow_labeled29_sandwich.sh
+# dropper 换:raw_data/singlerighthand_dropper_100、
+#   datasets/singlerighthand-dropper-100-cosmos-cache、
+#   pointflow_outputs/dropper_924_20260928/manifest.json,
+#   启动脚本换 launch_pointflow_dropper101.sh
+```
 
 ## 3. 启动训练
 
@@ -73,12 +122,15 @@ OUTPUT_ROOT=<新目录>           bash examples/launch_pointflow_dropper101.sh  
 (cache 骨架 → allowlist → **9.24 efep 转换(步骤 1b)** → manifest → window
 latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 
-## 6. 当前状态(2026-09-28)
+## 6. 当前状态(2026-09-28,新集群已贯通)
 
 - sandwich/dropper 的 cosmos 缓存(manifest/video/window latents)**已就绪**;
-- 9.24 新版轨迹的 flat labeled 转换**尚未跑**(`pf_out/9.24/*/efep_seg_v61/` 各
-  101 集待 `tools/convert_efep_labeled.py` 转换),旧 manifest 是死链——
-  **直接起训练会读不到轨迹而报错**,先按步骤 1b 转换再重建 manifest;
+- 9.24 labeled 转换**已完成**(sandwich/dropper 各 101 集,`video` 字段已补),
+  manifest 已按新路径重建(见第 2 节"本集群实例"),旧集群的 manifest 仅
+  供查历史扫描结论;
+- 冒烟已过:1×A800 3 步训练 loss 正常下降、点云数据路 8/8 样本各 300 点、
+  checkpoint 正常保存;sonata 依赖(addict/spconv-cu126/torch-scatter)已在
+  共享 venv 装好(第 1 节);
 - 主干文档 `docs/pointflow_per_point_tokens_20260919.md` 有全部实验结论与
   待办(幻影守卫、scale 重标定、位置编码、FK 模态)。
 
@@ -91,6 +143,9 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 | push 被 pre-push hook 拦 | 机器缺 git-lfs;conda base 里有,或确认无 LFS 文件后 `git push --no-verify` |
 | 训练报 labeled 目录不存在 | manifest 死链,见第 2/6 节 |
 | "labeled uv outside the tracker grid" | 相机 rig 变了,仿射常数重测(数据 pipeline 步骤 2) |
+| `No module named 'addict'` / `spconv` / `torch_scatter` | sonata 依赖没装,见第 1 节"pointflow 追加依赖" |
+| "Cannot open head video: None" | 转换时漏了 `--video`,补 labeled report.json 的 `video` 字段(数据 pipeline 步骤 1b) |
+| 手动跑脚本行为怪异/签名对不上 | 用了脚本路径直接跑,被 base checkout 的 editable 安装劫持;改 `python -m` 从本仓库根跑(第 2 节) |
 
 ## 文档地图
 

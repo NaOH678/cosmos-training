@@ -73,16 +73,24 @@ parked-value 语义一致,幻影守卫照常工作)。纯 CPU,逐帧 seek 读,�
 # 单集
 .venv/bin/python tools/convert_efep_labeled.py \
   --data-dir /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/efep_seg_v61/<episode> \
-  --output-dir /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/labeled/<episode>
+  --output-dir /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/labeled/<episode> \
+  --video /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/raw_data/<raw_dataset>/<episode>/videos/head.mp4
 
 # 批量(约 101 集/数据集,顺序跑即可)
 for ep in /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/efep_seg_v61/episode_*; do
   name=$(basename "$ep")
   out=/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/labeled/$name
   [[ -f "$out/report.json" ]] && continue   # 已转换的跳过,中断可续
-  .venv/bin/python tools/convert_efep_labeled.py --data-dir "$ep" --output-dir "$out"
+  .venv/bin/python tools/convert_efep_labeled.py --data-dir "$ep" --output-dir "$out" \
+    --video /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/raw_data/<raw_dataset>/$name/videos/head.mp4
 done
 ```
+
+⚠️ `--video` 必须显式给:efep 的 report.json 不记录视频路径,缺省会把
+labeled report.json 的 `video` 写成 `null`,而 `prepare_window` 训练时要用它
+打开 head 视频读锚点帧,直接报 "Cannot open head video: None"。已生成的
+labeled 可以不重转,把 report.json 里的 `video` 改成
+`<raw_root>/<episode>/videos/head.mp4` 即可。
 
 输出目录约定为与 `efep_seg_v61/` 平级的 `labeled/`。产物:position/uv_px/
 valid(流式 npy)+ region_labels/query_ids/frame_indices/timestamps_sec +
