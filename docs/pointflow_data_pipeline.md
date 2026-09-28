@@ -1,4 +1,4 @@
-# PointFlow 数据处理 Pipeline 操作手册 — 2026-09-24
+# PointFlow 数据处理 Pipeline 操作手册 — 2026-09-24(2026-09-28 修订:补 9.24 efep 转换步骤)
 
 每接入一批新数据(新任务/新集数/新导出的 flow)都按本文档走一遍。主线实验
 记录在 `docs/pointflow_per_point_tokens_20260919.md`,本文档只讲操作。
@@ -7,8 +7,12 @@
 
 ```
 raw_data/<dataset>/episode_*/          原始数据(lmdb + videos/{head,right_wrist}.mp4)
-pf_out/<export>/labeled/episode_*/     Track4World flow 交付(position/uv_px/valid/
-                                       region_labels/frame_indices/timestamps_sec/report.json)
+pf_out/9.24/<dataset>/efep_seg_v61/    9.24 起:Track4World 3d_efep + SAM2 逐帧导出
+episode_*/                             (ragged obs_*.npy + track_label + report.json)
+        │
+        ▼ 步骤 1b(9.24 起必做)
+pf_out/9.24/<dataset>/labeled/         flat labeled 交付(position/uv_px/valid/
+episode_*/                             region_labels/frame_indices/timestamps_sec/report.json)
         │
         ▼ 步骤 0(通常已备好,见步骤 0)
 datasets/<dataset>-cosmos-cache/       manifest.json + episodes/*.npz + video_frames/
@@ -19,6 +23,10 @@ allowlist + pointflow manifest + vae_window_latents + scale 标定 + 可视化�
         ▼ 步骤 5
 训练(launch 脚本,env 切换数据集)
 ```
+
+> 9.24 之前的旧导出(`pf_out/sandwich/labeled/`、`pf_out/dropper_new_9.9/labeled/`
+> 等)已随 pf_out 重构**删除**,指向它们的旧 manifest 均为死链,只能用于读
+> 历史扫描结论,不能再用于训练。
 
 ## 步骤 0:cache 骨架(一次性,通常已存在)
 
@@ -53,6 +61,34 @@ ls /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/raw_data/<datase
 `examples/pointflow_sandwich_labeled_29_episodes.txt`、`pointflow_sandwich_all_101_episodes.txt`、
 `pointflow_sandwich_10_episodes.txt`。
 
+## 步骤 1b:efep_seg_v61 → flat labeled 转换(9.24 起必做)
+
+9.24 的交付是 ragged efep 格式(每帧一串观测,靠 `obs_track` 串成持久轨迹),
+训练读的 flat labeled schema 由 `tools/convert_efep_labeled.py` 转出:按整集
+有效观测数过滤轨迹(默认 `--min-valid-obs 32`,任何窗口都凑不够有效步数的
+轨迹只浪费存储),无效帧用最后已知位置/uv 前填(valid=0,与旧交付的
+parked-value 语义一致,幻影守卫照常工作)。纯 CPU,逐帧 seek 读,内存占用小。
+
+```bash
+# 单集
+.venv/bin/python tools/convert_efep_labeled.py \
+  --data-dir /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/efep_seg_v61/<episode> \
+  --output-dir /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/labeled/<episode>
+
+# 批量(约 101 集/数据集,顺序跑即可)
+for ep in /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/efep_seg_v61/episode_*; do
+  name=$(basename "$ep")
+  out=/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/labeled/$name
+  [[ -f "$out/report.json" ]] && continue   # 已转换的跳过,中断可续
+  .venv/bin/python tools/convert_efep_labeled.py --data-dir "$ep" --output-dir "$out"
+done
+```
+
+输出目录约定为与 `efep_seg_v61/` 平级的 `labeled/`。产物:position/uv_px/
+valid(流式 npy)+ region_labels/query_ids/frame_indices/timestamps_sec +
+report.json(含 `native_pixel_queries=640*448`,供步骤 2 的仿射校验)。
+转换完成后接步骤 2 重建 manifest,再按 4a 重标 scale(选点分布变了)。
+
 ## 步骤 2:pointflow manifest
 
 把 flow 交付挂到 episode 名单上,并记录 tracker 画布 → 训练视频的仿射
@@ -61,12 +97,14 @@ ls /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/raw_data/<datase
 ```bash
 .venv/bin/python tools/build_pointflow_manifest.py \
   --raw-root /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/raw_data/<dataset> \
-  --labeled-root /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/<export>/labeled \
+  --labeled-root /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/labeled \
   --output pointflow_outputs/<tag>/manifest.json
 ```
 
-现有产物:`pointflow_outputs/dropper_101_20260923/dropper_manifest.json`、
-`pointflow_outputs/manifest_sandwich_labeled_20260921.json`。
+⚠️ 旧产物 `pointflow_outputs/dropper_101_20260923/dropper_manifest.json`、
+`pointflow_outputs/manifest_sandwich_labeled_20260921.json` 指向的 labeled
+目录已随 9.24 重构删除,**失效,仅供查历史扫描结论**;9.24 数据必须按
+步骤 1b 转换后重建 manifest。
 
 已知坑:老版 labeled 交付的 report.json 可能缺 `native_pixel_queries`
 (dropper episode_0001),`pointflow_window.py::_episode_metadata` 已回退为
@@ -121,7 +159,7 @@ labeled29+mvs16 0.0740 → dropper 101 集 top300+mvs16 0.0482。
 ```bash
 .venv/bin/python tools/scan_pointflow_phantom_raw.py \
   --allowlist <allowlist> \
-  --labeled-root /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/<export>/labeled \
+  --labeled-root /mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/pf_out/9.24/<dataset>/labeled \
   --output <scan.json>
 ```
 
