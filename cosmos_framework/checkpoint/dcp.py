@@ -1103,6 +1103,15 @@ class DistributedCheckpointer(AbstractCheckpointer):
         if self.async_mode == AsyncMode.ASYNC_WITH_PINNED_MEM:
             self._wait_for_previous_async_checkpoint()
 
+        # Free cached-but-unused blocks back to the driver before saving. DCP's
+        # collectives and write staging allocate device memory OUTSIDE the
+        # PyTorch caching allocator (NCCL scratch, pinned staging); on a
+        # near-full GPU those raw cudaMallocs can fail against cached blocks
+        # the allocator would happily reuse, surfacing as a flaky NCCL
+        # "unhandled cuda error" inside dcp.save.
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
         if self.callbacks is not None:
             self.callbacks.on_save_checkpoint_start(model, iteration)
 

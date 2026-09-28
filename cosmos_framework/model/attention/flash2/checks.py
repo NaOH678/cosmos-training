@@ -8,6 +8,7 @@ Unified implementation for all Attention implementations.
 Flash Attention v2 (flash2) backend checks
 """
 
+import os
 from functools import partial
 
 import torch
@@ -17,6 +18,16 @@ from cosmos_framework.model.attention.flash2 import FLASH2_SUPPORTED
 from cosmos_framework.model.attention.flash2.meta import get_bwd_dtypes, get_fwd_dtypes
 from cosmos_framework.model.attention.masks import CausalType
 from cosmos_framework.model.attention.utils import get_arch_tag, log_or_raise_error
+
+
+def _flash2_varlen_allowed() -> bool:
+    """Local escape hatch: COSMOS_FLASH2_VARLEN=1 lifts the upstream varlen ban.
+
+    Upstream bans flash2 varlen "due to instability"; on sm80 (A800) that leaves
+    natten as the ONLY varlen backend, which costs ~2x on attention-heavy packs.
+    Validate numerics against natten before training with the ban lifted.
+    """
+    return os.environ.get("COSMOS_FLASH2_VARLEN", "").strip().lower() in {"1", "true", "yes"}
 
 
 def flash2_attention_check(
@@ -75,7 +86,7 @@ def flash2_attention_check(
         )
         return False
 
-    if is_varlen:
+    if is_varlen and not _flash2_varlen_allowed():
         target_fn(
             "Flash Attention v2 (flash2) varlen is banned due to instability. Please choose another backend.",
             exception=ValueError,
