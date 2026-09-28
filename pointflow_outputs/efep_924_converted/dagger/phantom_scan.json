@@ -1,0 +1,947 @@
+{
+  "episode_0000_20260830_155455": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 69,
+    "per_label": {
+      "2": {
+        "n": 2247,
+        "phantom": 17
+      },
+      "3": {
+        "n": 46,
+        "phantom": 0
+      },
+      "4": {
+        "n": 107,
+        "phantom": 52
+      }
+    }
+  },
+  "episode_0001_20260830_155619": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 3,
+    "per_label": {
+      "3": {
+        "n": 11,
+        "phantom": 0
+      },
+      "4": {
+        "n": 595,
+        "phantom": 3
+      },
+      "2": {
+        "n": 1794,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0002_20260830_155725": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 80,
+    "per_label": {
+      "2": {
+        "n": 1946,
+        "phantom": 0
+      },
+      "3": {
+        "n": 170,
+        "phantom": 3
+      },
+      "4": {
+        "n": 284,
+        "phantom": 77
+      }
+    }
+  },
+  "episode_0007_20260830_160029": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 1,
+    "per_label": {
+      "2": {
+        "n": 2029,
+        "phantom": 0
+      },
+      "3": {
+        "n": 211,
+        "phantom": 1
+      },
+      "4": {
+        "n": 160,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0008_20260830_160108": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 334,
+    "per_label": {
+      "2": {
+        "n": 1825,
+        "phantom": 0
+      },
+      "3": {
+        "n": 24,
+        "phantom": 4
+      },
+      "4": {
+        "n": 551,
+        "phantom": 330
+      }
+    }
+  },
+  "episode_0009_20260830_160144": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 13,
+    "per_label": {
+      "2": {
+        "n": 2144,
+        "phantom": 9
+      },
+      "3": {
+        "n": 223,
+        "phantom": 3
+      },
+      "4": {
+        "n": 33,
+        "phantom": 1
+      }
+    }
+  },
+  "episode_0010_20260830_160737": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2072,
+        "phantom": 0
+      },
+      "3": {
+        "n": 61,
+        "phantom": 0
+      },
+      "4": {
+        "n": 267,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0011_20260830_160819": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 46,
+    "per_label": {
+      "2": {
+        "n": 2005,
+        "phantom": 0
+      },
+      "4": {
+        "n": 269,
+        "phantom": 46
+      },
+      "3": {
+        "n": 126,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0012_20260830_160906": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 242,
+    "per_label": {
+      "2": {
+        "n": 1902,
+        "phantom": 0
+      },
+      "3": {
+        "n": 257,
+        "phantom": 1
+      },
+      "4": {
+        "n": 241,
+        "phantom": 241
+      }
+    }
+  },
+  "episode_0013_20260830_160946": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 75,
+    "per_label": {
+      "2": {
+        "n": 1919,
+        "phantom": 3
+      },
+      "3": {
+        "n": 205,
+        "phantom": 17
+      },
+      "4": {
+        "n": 276,
+        "phantom": 55
+      }
+    }
+  },
+  "episode_0014_20260830_161022": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 4,
+    "per_label": {
+      "2": {
+        "n": 1982,
+        "phantom": 0
+      },
+      "3": {
+        "n": 111,
+        "phantom": 0
+      },
+      "4": {
+        "n": 307,
+        "phantom": 4
+      }
+    }
+  },
+  "episode_0015_20260830_161130": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 206,
+    "per_label": {
+      "2": {
+        "n": 2008,
+        "phantom": 0
+      },
+      "3": {
+        "n": 186,
+        "phantom": 0
+      },
+      "4": {
+        "n": 206,
+        "phantom": 206
+      }
+    }
+  },
+  "episode_0016_20260830_161213": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2332,
+        "phantom": 0
+      },
+      "3": {
+        "n": 68,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0017_20260830_161244": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2286,
+        "phantom": 0
+      },
+      "3": {
+        "n": 114,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0018_20260830_161322": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 70,
+    "per_label": {
+      "2": {
+        "n": 1999,
+        "phantom": 0
+      },
+      "3": {
+        "n": 351,
+        "phantom": 57
+      },
+      "4": {
+        "n": 50,
+        "phantom": 13
+      }
+    }
+  },
+  "episode_0019_20260830_161402": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2256,
+        "phantom": 0
+      },
+      "3": {
+        "n": 141,
+        "phantom": 0
+      },
+      "4": {
+        "n": 3,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0020_20260830_161437": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2135,
+        "phantom": 0
+      },
+      "3": {
+        "n": 265,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0021_20260830_161509": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 2,
+    "per_label": {
+      "2": {
+        "n": 1902,
+        "phantom": 0
+      },
+      "3": {
+        "n": 291,
+        "phantom": 0
+      },
+      "4": {
+        "n": 207,
+        "phantom": 2
+      }
+    }
+  },
+  "episode_0022_20260830_161538": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 1,
+    "per_label": {
+      "2": {
+        "n": 2334,
+        "phantom": 0
+      },
+      "3": {
+        "n": 65,
+        "phantom": 0
+      },
+      "4": {
+        "n": 1,
+        "phantom": 1
+      }
+    }
+  },
+  "episode_0023_20260830_161611": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 14,
+    "per_label": {
+      "2": {
+        "n": 2263,
+        "phantom": 3
+      },
+      "3": {
+        "n": 121,
+        "phantom": 0
+      },
+      "4": {
+        "n": 16,
+        "phantom": 11
+      }
+    }
+  },
+  "episode_0024_20260830_161646": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 6,
+    "per_label": {
+      "2": {
+        "n": 2018,
+        "phantom": 0
+      },
+      "3": {
+        "n": 179,
+        "phantom": 0
+      },
+      "4": {
+        "n": 203,
+        "phantom": 6
+      }
+    }
+  },
+  "episode_0026_20260830_162430": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 297,
+    "per_label": {
+      "2": {
+        "n": 1883,
+        "phantom": 0
+      },
+      "3": {
+        "n": 236,
+        "phantom": 16
+      },
+      "4": {
+        "n": 281,
+        "phantom": 281
+      }
+    }
+  },
+  "episode_0027_20260830_162514": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "3": {
+        "n": 303,
+        "phantom": 0
+      },
+      "4": {
+        "n": 89,
+        "phantom": 0
+      },
+      "2": {
+        "n": 2008,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0028_20260830_162554": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 125,
+    "per_label": {
+      "2": {
+        "n": 2207,
+        "phantom": 20
+      },
+      "3": {
+        "n": 191,
+        "phantom": 105
+      },
+      "4": {
+        "n": 2,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0029_20260830_162641": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 3,
+    "per_label": {
+      "2": {
+        "n": 2277,
+        "phantom": 0
+      },
+      "3": {
+        "n": 119,
+        "phantom": 0
+      },
+      "4": {
+        "n": 4,
+        "phantom": 3
+      }
+    }
+  },
+  "episode_0030_20260830_162715": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 3,
+    "per_label": {
+      "2": {
+        "n": 2263,
+        "phantom": 3
+      },
+      "3": {
+        "n": 115,
+        "phantom": 0
+      },
+      "4": {
+        "n": 22,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0031_20260830_162755": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 29,
+    "per_label": {
+      "2": {
+        "n": 2297,
+        "phantom": 29
+      },
+      "3": {
+        "n": 103,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0032_20260830_162838": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 2,
+    "per_label": {
+      "2": {
+        "n": 2320,
+        "phantom": 2
+      },
+      "3": {
+        "n": 80,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0033_20260830_163009": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 2,
+    "per_label": {
+      "2": {
+        "n": 2093,
+        "phantom": 1
+      },
+      "3": {
+        "n": 161,
+        "phantom": 1
+      },
+      "4": {
+        "n": 146,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0034_20260830_163052": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 1,
+    "per_label": {
+      "3": {
+        "n": 151,
+        "phantom": 1
+      },
+      "4": {
+        "n": 449,
+        "phantom": 0
+      },
+      "2": {
+        "n": 1800,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0036_20260830_163133": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 1827,
+        "phantom": 0
+      },
+      "3": {
+        "n": 82,
+        "phantom": 0
+      },
+      "4": {
+        "n": 491,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0037_20260830_163221": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 7,
+    "per_label": {
+      "2": {
+        "n": 2085,
+        "phantom": 0
+      },
+      "3": {
+        "n": 181,
+        "phantom": 7
+      },
+      "4": {
+        "n": 134,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0038_20260830_163308": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 5,
+    "per_label": {
+      "3": {
+        "n": 73,
+        "phantom": 0
+      },
+      "4": {
+        "n": 527,
+        "phantom": 5
+      },
+      "2": {
+        "n": 1800,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0039_20260830_163356": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 1,
+    "per_label": {
+      "3": {
+        "n": 18,
+        "phantom": 0
+      },
+      "4": {
+        "n": 599,
+        "phantom": 1
+      },
+      "2": {
+        "n": 1783,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0041_20260830_163452": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 1835,
+        "phantom": 0
+      },
+      "3": {
+        "n": 95,
+        "phantom": 0
+      },
+      "4": {
+        "n": 470,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0042_20260830_163531": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 14,
+    "per_label": {
+      "2": {
+        "n": 1860,
+        "phantom": 0
+      },
+      "3": {
+        "n": 125,
+        "phantom": 0
+      },
+      "4": {
+        "n": 415,
+        "phantom": 14
+      }
+    }
+  },
+  "episode_0043_20260830_163607": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2133,
+        "phantom": 0
+      },
+      "3": {
+        "n": 122,
+        "phantom": 0
+      },
+      "4": {
+        "n": 145,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0046_20260830_163732": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 1,
+    "per_label": {
+      "3": {
+        "n": 231,
+        "phantom": 1
+      },
+      "4": {
+        "n": 363,
+        "phantom": 0
+      },
+      "2": {
+        "n": 1806,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0047_20260830_165343": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2057,
+        "phantom": 0
+      },
+      "3": {
+        "n": 285,
+        "phantom": 0
+      },
+      "4": {
+        "n": 58,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0048_20260830_165425": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 1,
+    "per_label": {
+      "2": {
+        "n": 2075,
+        "phantom": 0
+      },
+      "4": {
+        "n": 130,
+        "phantom": 1
+      },
+      "3": {
+        "n": 195,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0050_20260830_165537": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 38,
+    "per_label": {
+      "2": {
+        "n": 2166,
+        "phantom": 37
+      },
+      "3": {
+        "n": 147,
+        "phantom": 1
+      },
+      "4": {
+        "n": 87,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0052_20260830_165628": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2223,
+        "phantom": 0
+      },
+      "3": {
+        "n": 121,
+        "phantom": 0
+      },
+      "4": {
+        "n": 56,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0053_20260830_165701": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 1984,
+        "phantom": 0
+      },
+      "3": {
+        "n": 369,
+        "phantom": 0
+      },
+      "4": {
+        "n": 47,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0054_20260830_165730": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 5,
+    "per_label": {
+      "2": {
+        "n": 2190,
+        "phantom": 0
+      },
+      "3": {
+        "n": 101,
+        "phantom": 5
+      },
+      "4": {
+        "n": 109,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0055_20260830_165806": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 17,
+    "per_label": {
+      "2": {
+        "n": 1955,
+        "phantom": 0
+      },
+      "3": {
+        "n": 274,
+        "phantom": 3
+      },
+      "4": {
+        "n": 171,
+        "phantom": 14
+      }
+    }
+  },
+  "episode_0056_20260830_165848": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 1924,
+        "phantom": 0
+      },
+      "3": {
+        "n": 270,
+        "phantom": 0
+      },
+      "4": {
+        "n": 206,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0057_20260830_165925": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2391,
+        "phantom": 0
+      },
+      "3": {
+        "n": 9,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0059_20260830_170243": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 73,
+    "per_label": {
+      "2": {
+        "n": 2235,
+        "phantom": 0
+      },
+      "4": {
+        "n": 76,
+        "phantom": 70
+      },
+      "3": {
+        "n": 89,
+        "phantom": 3
+      }
+    }
+  },
+  "episode_0060_20260830_170318": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 0,
+    "per_label": {
+      "2": {
+        "n": 2149,
+        "phantom": 0
+      },
+      "3": {
+        "n": 90,
+        "phantom": 0
+      },
+      "4": {
+        "n": 161,
+        "phantom": 0
+      }
+    }
+  },
+  "episode_0061_20260830_170355": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 88,
+    "per_label": {
+      "2": {
+        "n": 2090,
+        "phantom": 2
+      },
+      "3": {
+        "n": 76,
+        "phantom": 35
+      },
+      "4": {
+        "n": 234,
+        "phantom": 51
+      }
+    }
+  },
+  "episode_0062_20260830_170434": {
+    "windows": 8,
+    "selected": 2400,
+    "phantom": 1,
+    "per_label": {
+      "2": {
+        "n": 2150,
+        "phantom": 1
+      },
+      "3": {
+        "n": 103,
+        "phantom": 0
+      },
+      "4": {
+        "n": 147,
+        "phantom": 0
+      }
+    }
+  }
+}

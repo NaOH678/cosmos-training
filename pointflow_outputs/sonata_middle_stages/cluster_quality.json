@@ -1,0 +1,47 @@
+{
+  "definition": "GT displacement residual to per-frame valid cluster mean; diagnostic only, not model error or decoder lower bound",
+  "moving_threshold_m": 0.002,
+  "moving_min_valid_steps": 13,
+  "moving_points": 7903,
+  "stages": {
+    "2": {
+      "clusters": 1471,
+      "point_tokens_with_anchor": 13239,
+      "member_median": 2.0,
+      "member_p95": 22.5,
+      "member_max": 102,
+      "singleton_cluster_fraction": 0.3235893949694086,
+      "all_motion_residual_mean_mm": 7.016664190554629,
+      "all_motion_residual_p95_mm": 26.46958560191328,
+      "moving_motion_residual_mean_mm": 6.980543696427397,
+      "xyz_radius_p95": 0.04896868605513434,
+      "uv_radius_p95": 26.9259671006687
+    },
+    "3": {
+      "clusters": 454,
+      "point_tokens_with_anchor": 4086,
+      "member_median": 7.0,
+      "member_p95": 67.34999999999997,
+      "member_max": 346,
+      "singleton_cluster_fraction": 0.17841409691629956,
+      "all_motion_residual_mean_mm": 11.819608734407991,
+      "all_motion_residual_p95_mm": 43.06550240000581,
+      "moving_motion_residual_mean_mm": 11.803684881151035,
+      "xyz_radius_p95": 0.10053337320107694,
+      "uv_radius_p95": 54.07928134528151
+    },
+    "4": {
+      "clusters": 140,
+      "point_tokens_with_anchor": 1260,
+      "member_median": 15.0,
+      "member_p95": 232.94999999999933,
+      "member_max": 700,
+      "singleton_cluster_fraction": 0.15714285714285714,
+      "all_motion_residual_mean_mm": 15.124634009561822,
+      "all_motion_residual_p95_mm": 56.55932393797508,
+      "moving_motion_residual_mean_mm": 15.109973555994252,
+      "xyz_radius_p95": 0.1975171825445943,
+      "uv_radius_p95": 87.88050430848897
+    }
+  }
+}

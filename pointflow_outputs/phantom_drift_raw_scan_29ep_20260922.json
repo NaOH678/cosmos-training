@@ -1,0 +1,785 @@
+{
+  "episode_0013_20260731_133649": {
+    "frames": 1192,
+    "points": 55558,
+    "phantom_step_pct": 0.308,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.576,
+        "tracks_gt10pct_phantom": 12,
+        "tracks_total": 1433
+      },
+      "hand": {
+        "phantom_step_pct": 0.296,
+        "tracks_gt10pct_phantom": 134,
+        "tracks_total": 14500
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.515,
+        "tracks_gt10pct_phantom": 33,
+        "tracks_total": 6701
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.084,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 12428
+      }
+    }
+  },
+  "episode_0017_20260731_134058": {
+    "frames": 1459,
+    "points": 56297,
+    "phantom_step_pct": 0.798,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 1.24,
+        "tracks_gt10pct_phantom": 36,
+        "tracks_total": 1468
+      },
+      "hand": {
+        "phantom_step_pct": 0.782,
+        "tracks_gt10pct_phantom": 292,
+        "tracks_total": 14719
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.927,
+        "tracks_gt10pct_phantom": 187,
+        "tracks_total": 7674
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.603,
+        "tracks_gt10pct_phantom": 60,
+        "tracks_total": 11498
+      }
+    }
+  },
+  "episode_0019_20260730_171242": {
+    "frames": 1342,
+    "points": 55691,
+    "phantom_step_pct": 0.396,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.497,
+        "tracks_gt10pct_phantom": 9,
+        "tracks_total": 1362
+      },
+      "hand": {
+        "phantom_step_pct": 0.308,
+        "tracks_gt10pct_phantom": 97,
+        "tracks_total": 14200
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.583,
+        "tracks_gt10pct_phantom": 103,
+        "tracks_total": 13548
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.156,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 5860
+      }
+    }
+  },
+  "episode_0020_20260731_134410": {
+    "frames": 1354,
+    "points": 55385,
+    "phantom_step_pct": 0.597,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.545,
+        "tracks_gt10pct_phantom": 3,
+        "tracks_total": 1418
+      },
+      "hand": {
+        "phantom_step_pct": 0.407,
+        "tracks_gt10pct_phantom": 228,
+        "tracks_total": 13983
+      },
+      "lettuce": {
+        "phantom_step_pct": 1.328,
+        "tracks_gt10pct_phantom": 98,
+        "tracks_total": 3881
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.538,
+        "tracks_gt10pct_phantom": 29,
+        "tracks_total": 13047
+      }
+    }
+  },
+  "episode_0021_20260731_134516": {
+    "frames": 1112,
+    "points": 55650,
+    "phantom_step_pct": 0.552,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.637,
+        "tracks_gt10pct_phantom": 21,
+        "tracks_total": 1396
+      },
+      "hand": {
+        "phantom_step_pct": 0.603,
+        "tracks_gt10pct_phantom": 210,
+        "tracks_total": 13890
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.655,
+        "tracks_gt10pct_phantom": 90,
+        "tracks_total": 11707
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.263,
+        "tracks_gt10pct_phantom": 12,
+        "tracks_total": 9435
+      }
+    }
+  },
+  "episode_0022_20260730_171554": {
+    "frames": 1225,
+    "points": 55792,
+    "phantom_step_pct": 0.566,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.546,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1572
+      },
+      "hand": {
+        "phantom_step_pct": 0.402,
+        "tracks_gt10pct_phantom": 139,
+        "tracks_total": 14162
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.517,
+        "tracks_gt10pct_phantom": 18,
+        "tracks_total": 3162
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.863,
+        "tracks_gt10pct_phantom": 60,
+        "tracks_total": 11928
+      }
+    }
+  },
+  "episode_0026_20260731_135030": {
+    "frames": 999,
+    "points": 55322,
+    "phantom_step_pct": 0.515,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.13,
+        "tracks_gt10pct_phantom": 12,
+        "tracks_total": 1037
+      },
+      "hand": {
+        "phantom_step_pct": 0.333,
+        "tracks_gt10pct_phantom": 191,
+        "tracks_total": 13791
+      },
+      "lettuce": {
+        "phantom_step_pct": 1.17,
+        "tracks_gt10pct_phantom": 53,
+        "tracks_total": 5118
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.447,
+        "tracks_gt10pct_phantom": 36,
+        "tracks_total": 11077
+      }
+    }
+  },
+  "episode_0028_20260731_135141": {
+    "frames": 956,
+    "points": 55050,
+    "phantom_step_pct": 0.483,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 1.491,
+        "tracks_gt10pct_phantom": 76,
+        "tracks_total": 1348
+      },
+      "hand": {
+        "phantom_step_pct": 0.351,
+        "tracks_gt10pct_phantom": 233,
+        "tracks_total": 14151
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.947,
+        "tracks_gt10pct_phantom": 58,
+        "tracks_total": 4121
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.373,
+        "tracks_gt10pct_phantom": 15,
+        "tracks_total": 14458
+      }
+    }
+  },
+  "episode_0030_20260730_172520": {
+    "frames": 1025,
+    "points": 55512,
+    "phantom_step_pct": 0.492,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.267,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1525
+      },
+      "hand": {
+        "phantom_step_pct": 0.262,
+        "tracks_gt10pct_phantom": 103,
+        "tracks_total": 13073
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.544,
+        "tracks_gt10pct_phantom": 48,
+        "tracks_total": 7067
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.815,
+        "tracks_gt10pct_phantom": 70,
+        "tracks_total": 12632
+      }
+    }
+  },
+  "episode_0031_20260730_172634": {
+    "frames": 1232,
+    "points": 55164,
+    "phantom_step_pct": 0.486,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 1.023,
+        "tracks_gt10pct_phantom": 57,
+        "tracks_total": 1433
+      },
+      "hand": {
+        "phantom_step_pct": 0.547,
+        "tracks_gt10pct_phantom": 281,
+        "tracks_total": 14463
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.576,
+        "tracks_gt10pct_phantom": 59,
+        "tracks_total": 9211
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.208,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 12514
+      }
+    }
+  },
+  "episode_0032_20260730_172740": {
+    "frames": 1103,
+    "points": 55590,
+    "phantom_step_pct": 0.418,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.812,
+        "tracks_gt10pct_phantom": 56,
+        "tracks_total": 1475
+      },
+      "hand": {
+        "phantom_step_pct": 0.195,
+        "tracks_gt10pct_phantom": 57,
+        "tracks_total": 13937
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.667,
+        "tracks_gt10pct_phantom": 42,
+        "tracks_total": 11113
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.35,
+        "tracks_gt10pct_phantom": 9,
+        "tracks_total": 10435
+      }
+    }
+  },
+  "episode_0037_20260730_173227": {
+    "frames": 1004,
+    "points": 55563,
+    "phantom_step_pct": 0.338,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.069,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1541
+      },
+      "hand": {
+        "phantom_step_pct": 0.343,
+        "tracks_gt10pct_phantom": 48,
+        "tracks_total": 13461
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.614,
+        "tracks_gt10pct_phantom": 68,
+        "tracks_total": 8101
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.161,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 12177
+      }
+    }
+  },
+  "episode_0039_20260730_173437": {
+    "frames": 1039,
+    "points": 55548,
+    "phantom_step_pct": 0.466,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.465,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1447
+      },
+      "hand": {
+        "phantom_step_pct": 0.319,
+        "tracks_gt10pct_phantom": 81,
+        "tracks_total": 13716
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.742,
+        "tracks_gt10pct_phantom": 34,
+        "tracks_total": 6256
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.457,
+        "tracks_gt10pct_phantom": 10,
+        "tracks_total": 11268
+      }
+    }
+  },
+  "episode_0041_20260731_140244": {
+    "frames": 1042,
+    "points": 55535,
+    "phantom_step_pct": 0.315,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.12,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1456
+      },
+      "hand": {
+        "phantom_step_pct": 0.28,
+        "tracks_gt10pct_phantom": 38,
+        "tracks_total": 14491
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.459,
+        "tracks_gt10pct_phantom": 55,
+        "tracks_total": 10333
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.051,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 3389
+      }
+    }
+  },
+  "episode_0044_20260731_140508": {
+    "frames": 946,
+    "points": 55251,
+    "phantom_step_pct": 0.509,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.429,
+        "tracks_gt10pct_phantom": 5,
+        "tracks_total": 1301
+      },
+      "hand": {
+        "phantom_step_pct": 0.352,
+        "tracks_gt10pct_phantom": 166,
+        "tracks_total": 14334
+      },
+      "lettuce": {
+        "phantom_step_pct": 1.637,
+        "tracks_gt10pct_phantom": 164,
+        "tracks_total": 4319
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.154,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 10590
+      }
+    }
+  },
+  "episode_0045_20260731_140556": {
+    "frames": 854,
+    "points": 55089,
+    "phantom_step_pct": 0.273,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.609,
+        "tracks_gt10pct_phantom": 41,
+        "tracks_total": 1370
+      },
+      "hand": {
+        "phantom_step_pct": 0.182,
+        "tracks_gt10pct_phantom": 31,
+        "tracks_total": 14041
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.414,
+        "tracks_gt10pct_phantom": 37,
+        "tracks_total": 8663
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.22,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 10332
+      }
+    }
+  },
+  "episode_0055_20260731_141307": {
+    "frames": 996,
+    "points": 55505,
+    "phantom_step_pct": 0.259,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.479,
+        "tracks_gt10pct_phantom": 20,
+        "tracks_total": 1472
+      },
+      "hand": {
+        "phantom_step_pct": 0.223,
+        "tracks_gt10pct_phantom": 142,
+        "tracks_total": 13039
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.175,
+        "tracks_gt10pct_phantom": 1,
+        "tracks_total": 2128
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.321,
+        "tracks_gt10pct_phantom": 43,
+        "tracks_total": 9700
+      }
+    }
+  },
+  "episode_0056_20260731_141403": {
+    "frames": 847,
+    "points": 55357,
+    "phantom_step_pct": 0.41,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.278,
+        "tracks_gt10pct_phantom": 17,
+        "tracks_total": 1407
+      },
+      "hand": {
+        "phantom_step_pct": 0.257,
+        "tracks_gt10pct_phantom": 54,
+        "tracks_total": 13952
+      },
+      "lettuce": {
+        "phantom_step_pct": 1.282,
+        "tracks_gt10pct_phantom": 51,
+        "tracks_total": 2549
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.397,
+        "tracks_gt10pct_phantom": 20,
+        "tracks_total": 5912
+      }
+    }
+  },
+  "episode_0059_20260731_141621": {
+    "frames": 848,
+    "points": 55599,
+    "phantom_step_pct": 0.307,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.15,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1430
+      },
+      "hand": {
+        "phantom_step_pct": 0.246,
+        "tracks_gt10pct_phantom": 86,
+        "tracks_total": 12865
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.653,
+        "tracks_gt10pct_phantom": 38,
+        "tracks_total": 3506
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.216,
+        "tracks_gt10pct_phantom": 2,
+        "tracks_total": 9967
+      }
+    }
+  },
+  "episode_0063_20260731_141938": {
+    "frames": 722,
+    "points": 55094,
+    "phantom_step_pct": 0.509,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.475,
+        "tracks_gt10pct_phantom": 16,
+        "tracks_total": 794
+      },
+      "hand": {
+        "phantom_step_pct": 0.543,
+        "tracks_gt10pct_phantom": 184,
+        "tracks_total": 13525
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.716,
+        "tracks_gt10pct_phantom": 28,
+        "tracks_total": 4808
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.276,
+        "tracks_gt10pct_phantom": 51,
+        "tracks_total": 8037
+      }
+    }
+  },
+  "episode_0065_20260731_142119": {
+    "frames": 752,
+    "points": 54814,
+    "phantom_step_pct": 0.328,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.761,
+        "tracks_gt10pct_phantom": 71,
+        "tracks_total": 1274
+      },
+      "hand": {
+        "phantom_step_pct": 0.244,
+        "tracks_gt10pct_phantom": 98,
+        "tracks_total": 13457
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.474,
+        "tracks_gt10pct_phantom": 27,
+        "tracks_total": 5906
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.258,
+        "tracks_gt10pct_phantom": 13,
+        "tracks_total": 6359
+      }
+    }
+  },
+  "episode_0066_20260731_142157": {
+    "frames": 813,
+    "points": 55482,
+    "phantom_step_pct": 0.147,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.01,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1355
+      },
+      "hand": {
+        "phantom_step_pct": 0.096,
+        "tracks_gt10pct_phantom": 32,
+        "tracks_total": 13860
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.214,
+        "tracks_gt10pct_phantom": 1,
+        "tracks_total": 3472
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.261,
+        "tracks_gt10pct_phantom": 9,
+        "tracks_total": 7705
+      }
+    }
+  },
+  "episode_0077_20260731_142933": {
+    "frames": 824,
+    "points": 55409,
+    "phantom_step_pct": 0.564,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 2.033,
+        "tracks_gt10pct_phantom": 93,
+        "tracks_total": 1417
+      },
+      "hand": {
+        "phantom_step_pct": 0.585,
+        "tracks_gt10pct_phantom": 288,
+        "tracks_total": 14580
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.568,
+        "tracks_gt10pct_phantom": 13,
+        "tracks_total": 2725
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.251,
+        "tracks_gt10pct_phantom": 10,
+        "tracks_total": 9378
+      }
+    }
+  },
+  "episode_0078_20260731_143016": {
+    "frames": 705,
+    "points": 55809,
+    "phantom_step_pct": 0.546,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.859,
+        "tracks_gt10pct_phantom": 69,
+        "tracks_total": 1396
+      },
+      "hand": {
+        "phantom_step_pct": 0.554,
+        "tracks_gt10pct_phantom": 355,
+        "tracks_total": 14777
+      },
+      "lettuce": {
+        "phantom_step_pct": 1.01,
+        "tracks_gt10pct_phantom": 22,
+        "tracks_total": 1657
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.172,
+        "tracks_gt10pct_phantom": 13,
+        "tracks_total": 5161
+      }
+    }
+  },
+  "episode_0080_20260731_143133": {
+    "frames": 732,
+    "points": 55203,
+    "phantom_step_pct": 0.243,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.205,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1401
+      },
+      "hand": {
+        "phantom_step_pct": 0.232,
+        "tracks_gt10pct_phantom": 56,
+        "tracks_total": 14279
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.486,
+        "tracks_gt10pct_phantom": 13,
+        "tracks_total": 3067
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.065,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 4934
+      }
+    }
+  },
+  "episode_0085_20260731_143441": {
+    "frames": 831,
+    "points": 55094,
+    "phantom_step_pct": 0.332,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.044,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1383
+      },
+      "hand": {
+        "phantom_step_pct": 0.253,
+        "tracks_gt10pct_phantom": 75,
+        "tracks_total": 13666
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.682,
+        "tracks_gt10pct_phantom": 18,
+        "tracks_total": 3228
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.354,
+        "tracks_gt10pct_phantom": 13,
+        "tracks_total": 8495
+      }
+    }
+  },
+  "episode_0089_20260731_143658": {
+    "frames": 856,
+    "points": 55117,
+    "phantom_step_pct": 0.351,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.868,
+        "tracks_gt10pct_phantom": 34,
+        "tracks_total": 1382
+      },
+      "hand": {
+        "phantom_step_pct": 0.428,
+        "tracks_gt10pct_phantom": 181,
+        "tracks_total": 14331
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.1,
+        "tracks_gt10pct_phantom": 3,
+        "tracks_total": 3096
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.17,
+        "tracks_gt10pct_phantom": 20,
+        "tracks_total": 5880
+      }
+    }
+  },
+  "episode_0090_20260731_143742": {
+    "frames": 683,
+    "points": 55531,
+    "phantom_step_pct": 0.292,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 0.0,
+        "tracks_gt10pct_phantom": 0,
+        "tracks_total": 1509
+      },
+      "hand": {
+        "phantom_step_pct": 0.27,
+        "tracks_gt10pct_phantom": 113,
+        "tracks_total": 12425
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.612,
+        "tracks_gt10pct_phantom": 6,
+        "tracks_total": 1858
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.305,
+        "tracks_gt10pct_phantom": 8,
+        "tracks_total": 7768
+      }
+    }
+  },
+  "episode_0099_20260731_144354": {
+    "frames": 761,
+    "points": 54801,
+    "phantom_step_pct": 0.459,
+    "per_label": {
+      "fingertip": {
+        "phantom_step_pct": 2.451,
+        "tracks_gt10pct_phantom": 95,
+        "tracks_total": 1364
+      },
+      "hand": {
+        "phantom_step_pct": 0.523,
+        "tracks_gt10pct_phantom": 239,
+        "tracks_total": 13322
+      },
+      "lettuce": {
+        "phantom_step_pct": 0.115,
+        "tracks_gt10pct_phantom": 6,
+        "tracks_total": 3290
+      },
+      "bread/cheese": {
+        "phantom_step_pct": 0.189,
+        "tracks_gt10pct_phantom": 2,
+        "tracks_total": 11057
+      }
+    }
+  }
+}

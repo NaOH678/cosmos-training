@@ -1,0 +1,31 @@
+{
+  "task": 3,
+  "status": "PASS",
+  "gpu": "NVIDIA H200",
+  "point_offsets": [
+    512,
+    512,
+    768
+  ],
+  "cluster_offsets": [
+    187,
+    187,
+    296
+  ],
+  "anchor_shape": [
+    296,
+    2048
+  ],
+  "noisy_token_shape": [
+    8,
+    296,
+    2048
+  ],
+  "velocity_shape": [
+    32,
+    768,
+    3
+  ],
+  "cosmos_attention": "NOT_IMPLEMENTED",
+  "loss": "synthetic gradient probe, not training loss"
+}

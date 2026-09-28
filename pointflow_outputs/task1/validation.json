@@ -1,0 +1,42 @@
+{
+  "task": 1,
+  "real_windows": [
+    {
+      "episode": "episode_0013_20260731_133649",
+      "start_frame": 596,
+      "points": 512,
+      "voxels": 480,
+      "empty": false
+    },
+    {
+      "episode": "episode_0015_20260730_170501",
+      "start_frame": 1120,
+      "points": 0,
+      "voxels": 0,
+      "empty": true
+    },
+    {
+      "episode": "episode_0014_20260731_133743",
+      "start_frame": 596,
+      "points": 256,
+      "voxels": 247,
+      "empty": false
+    }
+  ],
+  "point_offsets": [
+    512,
+    512,
+    768
+  ],
+  "voxel_offsets": [
+    480,
+    480,
+    727
+  ],
+  "target_shape": [
+    32,
+    768,
+    3
+  ],
+  "status": "PASS"
+}

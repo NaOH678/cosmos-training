@@ -1,0 +1,18 @@
+{
+  "source": "offline Track4World labels, not model predictions",
+  "point_id": 164387,
+  "selection_frame": 596,
+  "selection_uv": [
+    450.0,
+    380.0
+  ],
+  "selection_distance_px": 0.40019526483955303,
+  "explicit_point_id": false,
+  "frames": 1192,
+  "first_frame": 0,
+  "last_frame": 1191,
+  "fps": 30.0,
+  "visible_frames": 1120,
+  "valid_frames": 1120,
+  "output": "pointflow_outputs/full_track"
+}

@@ -1,0 +1,15 @@
+{
+  "stage": 3,
+  "strict_load": "PASS",
+  "empty_batch_backward": "PASS",
+  "gpu_mixed_batch": "PASS",
+  "cluster_offsets": [
+    187,
+    187,
+    296
+  ],
+  "feature_shape": [
+    296,
+    256
+  ]
+}

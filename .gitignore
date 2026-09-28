@@ -219,5 +219,13 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-# Local PointFlow validation artifacts
-/pointflow_outputs/
+# Local PointFlow validation artifacts (videos/npz/html), but keep the small
+# JSON manifests/reports: launch scripts and docs reference them by path.
+/pointflow_outputs/*
+!/pointflow_outputs/*.json
+!/pointflow_outputs/*/
+/pointflow_outputs/*/*
+!/pointflow_outputs/*/*.json
+!/pointflow_outputs/*/*/
+/pointflow_outputs/*/*/*
+!/pointflow_outputs/*/*/*.json

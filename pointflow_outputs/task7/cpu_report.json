@@ -1,0 +1,15 @@
+{
+  "task": 7,
+  "status": "CPU_PASS",
+  "tests_passed": 13,
+  "cuda_available": false,
+  "geometry": "differentiable surrogate in CPU tests; pretrained Sonata GPU validation pending",
+  "network": "real Cosmos3VFMNetwork and one-layer PackedAttentionMoT, random weights",
+  "verified": [
+    "gradient to geometry/codec/attention/video/action inputs",
+    "future target and valid mask isolation",
+    "empty batch",
+    "pixel-center mapping",
+    "existing sequence and batch regression"
+  ]
+}

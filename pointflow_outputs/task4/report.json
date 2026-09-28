@@ -1,0 +1,43 @@
+{
+  "task": 4,
+  "status": "PASS",
+  "gpu": "NVIDIA H200",
+  "point_offsets": [
+    512,
+    512,
+    768
+  ],
+  "cluster_offsets": [
+    187,
+    187,
+    296
+  ],
+  "anchor_shape": [
+    296,
+    2048
+  ],
+  "noisy_token_shape": [
+    8,
+    296,
+    2048
+  ],
+  "velocity_shape": [
+    32,
+    768,
+    3
+  ],
+  "cosmos_attention": "PASS: real PackedAttentionMoT, random one-layer weights",
+  "sample_lens": [
+    1726,
+    43,
+    1024
+  ],
+  "point_hidden_shape": [
+    8,
+    296,
+    2048
+  ],
+  "video_action": "synthetic tokens; no base checkpoint or joint training",
+  "position_transform": "explicit synthetic affine, not dataset transform validation",
+  "loss": "synthetic gradient probe, not training loss"
+}

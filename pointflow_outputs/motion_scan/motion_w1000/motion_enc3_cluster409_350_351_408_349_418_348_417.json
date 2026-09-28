@@ -1,0 +1,105 @@
+{
+  "source": "offline Track4World labels, not model predictions",
+  "stage": 3,
+  "cluster_ids": [
+    409,
+    350,
+    351,
+    408,
+    349,
+    418,
+    348,
+    417
+  ],
+  "anchor_frame": 1000,
+  "full_sequence": false,
+  "highlight_colors_bgr": {
+    "409": [
+      25,
+      25,
+      255
+    ],
+    "350": [
+      25,
+      198,
+      255
+    ],
+    "351": [
+      25,
+      255,
+      140
+    ],
+    "408": [
+      83,
+      255,
+      25
+    ],
+    "349": [
+      255,
+      255,
+      25
+    ],
+    "418": [
+      255,
+      83,
+      25
+    ],
+    "348": [
+      255,
+      25,
+      140
+    ],
+    "417": [
+      198,
+      25,
+      255
+    ]
+  },
+  "cluster_members": 184,
+  "frames": 33,
+  "fps": 15.000000000000853,
+  "raw_frame_ids": [
+    1000,
+    1002,
+    1004,
+    1006,
+    1008,
+    1010,
+    1012,
+    1014,
+    1016,
+    1018,
+    1020,
+    1022,
+    1024,
+    1026,
+    1028,
+    1030,
+    1032,
+    1034,
+    1036,
+    1038,
+    1040,
+    1042,
+    1044,
+    1046,
+    1048,
+    1050,
+    1052,
+    1054,
+    1056,
+    1058,
+    1060,
+    1062,
+    1064
+  ],
+  "display_points": 2048,
+  "selection": "top 8 by ground-truth motion, >= 8 members",
+  "focus_uv": [
+    400,
+    320
+  ],
+  "seed": 0,
+  "mp4": "/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft/pointflow_outputs/motion_scan/motion_w1000/motion_enc3_cluster409_350_351_408_349_418_348_417.mp4",
+  "gif": "/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft/pointflow_outputs/motion_scan/motion_w1000/motion_enc3_cluster409_350_351_408_349_418_348_417.gif"
+}

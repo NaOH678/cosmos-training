@@ -1,0 +1,25 @@
+{
+  "task": 7,
+  "status": "PASS",
+  "gpu": "NVIDIA H200",
+  "velocity_shape": [
+    32,
+    512,
+    3
+  ],
+  "point_hidden_shape": [
+    8,
+    190,
+    2048
+  ],
+  "cluster_offsets": [
+    95,
+    95,
+    190
+  ],
+  "video_outputs": 3,
+  "action_outputs": 3,
+  "base_weight_preserved": true,
+  "gradient": "point prediction reaches Sonata, Codec, attention, video/action inputs",
+  "scope": "real Cosmos3VFMNetwork + real one-layer attention + pretrained Sonata; synthetic video/action latents; no Cosmos base checkpoint, joint loss or FSDP"
+}

@@ -1,0 +1,105 @@
+{
+  "source": "offline Track4World labels, not model predictions",
+  "stage": 3,
+  "cluster_ids": [
+    98,
+    97,
+    123,
+    124,
+    102,
+    159,
+    64,
+    127
+  ],
+  "anchor_frame": 0,
+  "full_sequence": false,
+  "highlight_colors_bgr": {
+    "98": [
+      25,
+      25,
+      255
+    ],
+    "97": [
+      25,
+      198,
+      255
+    ],
+    "123": [
+      25,
+      255,
+      140
+    ],
+    "124": [
+      83,
+      255,
+      25
+    ],
+    "102": [
+      255,
+      255,
+      25
+    ],
+    "159": [
+      255,
+      83,
+      25
+    ],
+    "64": [
+      255,
+      25,
+      140
+    ],
+    "127": [
+      198,
+      25,
+      255
+    ]
+  },
+  "cluster_members": 745,
+  "frames": 33,
+  "fps": 15.0,
+  "raw_frame_ids": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10,
+    12,
+    14,
+    16,
+    18,
+    20,
+    22,
+    24,
+    26,
+    28,
+    30,
+    32,
+    34,
+    36,
+    38,
+    40,
+    42,
+    44,
+    46,
+    48,
+    50,
+    52,
+    54,
+    56,
+    58,
+    60,
+    62,
+    64
+  ],
+  "display_points": 2048,
+  "selection": "top 8 by ground-truth motion, >= 8 members",
+  "focus_uv": [
+    400,
+    320
+  ],
+  "seed": 0,
+  "mp4": "/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft/pointflow_outputs/motion_scan/motion_w0/motion_enc3_cluster98_97_123_124_102_159_64_127.mp4",
+  "gif": "/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft/pointflow_outputs/motion_scan/motion_w0/motion_enc3_cluster98_97_123_124_102_159_64_127.gif"
+}

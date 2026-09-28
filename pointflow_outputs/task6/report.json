@@ -1,0 +1,47 @@
+{
+  "task": 6,
+  "status": "PASS",
+  "gpu": "NVIDIA H200",
+  "point_offsets": [
+    256,
+    256,
+    256,
+    512
+  ],
+  "voxel_offsets": [
+    245,
+    245,
+    245,
+    491
+  ],
+  "has_point": [
+    true,
+    false,
+    false,
+    true
+  ],
+  "labeled": [
+    true,
+    false,
+    true,
+    true
+  ],
+  "displacement_shape": [
+    32,
+    512,
+    3
+  ],
+  "reserved_point_tokens": [
+    2205,
+    0,
+    0,
+    2214
+  ],
+  "base_sample_lens": [
+    72,
+    72,
+    72,
+    72
+  ],
+  "validation": "real dense windows, synthetic video/action latents and noised state; no learned point insertion or joint loss"
+}

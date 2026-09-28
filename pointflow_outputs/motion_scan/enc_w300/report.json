@@ -1,0 +1,63 @@
+{
+  "seed": 0,
+  "fps": 15,
+  "future_steps": 32,
+  "samples": [
+    {
+      "episode": "episode_0013_20260731_133649",
+      "original_points": 8192,
+      "voxel_points": 4712,
+      "frame_ids": [
+        300,
+        302,
+        304,
+        306,
+        308,
+        310,
+        312,
+        314,
+        316,
+        318,
+        320,
+        322,
+        324,
+        326,
+        328,
+        330,
+        332,
+        334,
+        336,
+        338,
+        340,
+        342,
+        344,
+        346,
+        348,
+        350,
+        352,
+        354,
+        356,
+        358,
+        360,
+        362,
+        364
+      ],
+      "label_valid_fraction": 0.9935111999511719,
+      "projection_median_px": 0.08176906921226883,
+      "projection_p95_px": 0.1716027147203782,
+      "prepare_seconds": 1.8638469567522407,
+      "stages": {
+        "enc3": {
+          "clusters": 312,
+          "feature_dim": 256
+        }
+      }
+    }
+  ],
+  "gpu_forward": "PASS",
+  "gpu_backward": "NOT_RUN",
+  "strict_load": "PASS",
+  "forward_seconds": 0.5596973858773708,
+  "peak_allocated_gib": 0.1878371238708496,
+  "gpu": "NVIDIA H200"
+}
