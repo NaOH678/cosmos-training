@@ -813,3 +813,37 @@ f300/f800 全部精准落在手套上(vis/fk_dropper_f300.jpg / f800.jpg)——
 **dropper 与 sandwich 同一 rig**,外参和 tracker 内参常数(fx=0.813/
 fy=1.162)都直接迁移。dagger 批(20260830 录制,晚 ~3 周)投影残差
 ~5-8cm,rig 被动过,外参需按批次重拟合或找机器人侧要标定。
+
+## 迁集群 + 性能/数据管线大修(2026-09-28/29)
+
+集群迁移到 inspur A800(sm80)/SenseCore。代码、依赖、数据的调试记录全部
+在 [pointflow_quickstart.md](./pointflow_quickstart.md)(第 1/2/6/7 节)和
+[pointflow_multinode_training.md](./pointflow_multinode_training.md)。要点:
+
+**性能**(labeled29 recipe,batch 32/卡基准):
+
+| 改动 | 效果 |
+| ---- | ---- |
+| FSDP 全分片(shard=8,替代纯 DDP) | 修 80GB 卡 OOM,语义不变,全局 batch 不变 |
+| flash2 varlen 解禁(`COSMOS_FLASH2_VARLEN=1`) | kernel 4.76x,端到端 35.2→16s/step;数值验证 `tools/check_flash2_varlen.py`(MHA/GQA×causal/full 全过);上游禁令是策略性保守,FA2 varlen 在 Ampere 上成熟 |
+| `prepare_window` import 提升到模块级 | 窗口准备 4x(每次调用重 import cv2/scipy 在网络 FS 上是 1700 次 stat 风暴) |
+| DCP save 前 `empty_cache()` | 修偶发 NCCL "unhandled cuda error"(裸 cudaMalloc 撞上 PyTorch 缓存预留) |
+
+**HSDP 多机**:SenseCore 注入 `NNODES/MASTER_ADDR/MASTER_PORT/RANK/WORLD_SIZE`
+(不给 NODE_RANK;WORLD_SIZE 是节点数),launcher 按"显式 > SenseCore > pod 名
+兜底(master-0/worker-N)"解析;wrapper 自动推 shard=每节点卡数、replicate=
+节点数。16 卡(2 节点)world_size 16 组网验证通过。教训:交互 pod 上起"多机"
+会各自独立成 8 卡任务且共享 OUTPUT_ROOT,日志双份交错,务必走任务系统。
+
+**数据管线**(101 集 sandwich):
+
+| 改动 | 效果 |
+| ---- | ---- |
+| 9.24 efep→labeled 转换(`--video` 必填,漏了会在训练时报 "Cannot open head video: None") | sandwich/dropper 各 101 集 |
+| 分层语义选点 `select_region_quotas`(组内 GT 运动排名+缺额回补,总数恒定) | 扁平 top-500 实为 92% 手+8% 物+0% 台面;分层后精确 200/225/75(40/45/15) |
+| 幻影守卫接线(`POINTFLOW_SELECT_PHANTOM_GUARD`) | 选中点幻影占比 7.5%→0.7%;幻影集中在物体区(label 3 无守卫时 13.9%)——深度噪声最坏恰在核心监督目标上 |
+| 窗口预计算缓存(`tools/build_pointflow_window_cache.py`,流式单遍:轨迹每集读一遍+视频一遍解码) | 训练每样本读 205MB→120KB;101 集构建 473s;与在线逐位一致;miss 回退在线;配置不一致拒绝读取 |
+| scale 重扫(101 集分层 500+守卫) | **0.0528**(扁平 top-300 的 0.0753 不再适用;中位位移 21mm→4.8mm) |
+
+注意:选点配置(点数/配额/守卫)变化 → 窗口缓存要重建、scale 要重扫、
+训练要新 OUTPUT_ROOT。

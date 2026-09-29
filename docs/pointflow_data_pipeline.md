@@ -18,7 +18,8 @@ episode_*/                             region_labels/frame_indices/timestamps_se
 datasets/<dataset>-cosmos-cache/       manifest.json + episodes/*.npz + video_frames/
         │
         ▼ 步骤 1-4(本文档主体)
-allowlist + pointflow manifest + vae_window_latents + scale 标定 + 可视化验证
+allowlist + pointflow manifest + vae_window_latents + pointflow_windows(3b)
++ scale 标定 + 可视化验证
         │
         ▼ 步骤 5
 训练(launch 脚本,env 切换数据集)
@@ -133,6 +134,29 @@ VIDEO_CACHE_ROOT=<cache路径> ALLOWLIST=<allowlist> bash examples/cache_singler
 脚本内 env:`WORKERS`(默认 8)、`DEVICES`、`BATCH_SIZE`(默认 1,不要调大,
 batch>1 在该 VAE 下结果不逐位一致)、`OVERWRITE`。已处理的集会跳过,中断后
 重跑同一条命令即可续。
+
+## 步骤 3b:pointflow 窗口缓存(9.29 起,CPU,~8 分钟/101 集)
+
+`prepare_window` 在线计算每窗口要读 ~205MB 全量轨迹 + 每窗口一次视频 seek,
+大规模训练时数据 I/O 会顶穿共享存储(101 集实测 step 8s/20s 冷热交替)。
+窗口缓存把选点结果预计算成小文件(~120KB/窗口,101 集约 23GB),训练时
+直接读;miss 自动回退在线计算(结果逐位一致)。
+
+```bash
+PYTHONPATH=. .venv/bin/python tools/build_pointflow_window_cache.py \
+  --manifest pointflow_outputs/<tag>/manifest.json \
+  --output <cache路径>/pointflow_windows \
+  --episode-allowlist <allowlist> \
+  --top-n 500 --region-quotas 2:0.40,3:0.45,4:0.15 \
+  --min-voxel-members 3 --min-valid-steps 16 --phantom-guard \
+  --workers 32
+```
+
+- 流式单遍构建(轨迹每集读一遍 + 视频一遍前向解码),与在线逐窗口逐位一致;
+- `cache_manifest.json` 记录枚举+选点全部配置,训练侧校验不一致直接拒绝——
+  **选点配置变了要重建**(改目录或 `--overwrite`);
+- 训练侧开关:`POINTFLOW_WINDOW_CACHE_ROOT=<cache路径>/pointflow_windows`;
+- scale 扫描加 `--window-cache-root` 后从缓存读,秒级完成。
 
 ## 步骤 4:选点相关的四件套
 
