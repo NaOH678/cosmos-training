@@ -44,6 +44,8 @@ def scan_window(episode: Path, start: int, args, timing) -> dict | None:
             select_top_n=args.select_top_n,
             min_voxel_members=args.min_voxel_members,
             select_min_valid_steps=args.select_min_valid_steps,
+            select_region_quotas=args.region_quotas,
+            select_phantom_guard=args.phantom_guard,
         )
     except ValueError:
         return None
@@ -85,9 +87,16 @@ def main() -> None:
     p.add_argument("--select-top-n", type=int, default=300)
     p.add_argument("--min-voxel-members", type=int, default=3)
     p.add_argument("--select-min-valid-steps", type=int, default=16)
+    p.add_argument("--region-quotas", default="", help="e.g. 2:0.40,3:0.45,4:0.15")
+    p.add_argument("--phantom-guard", action="store_true", help="demote phantoms during selection (the guard itself)")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--output", type=Path, default=None)
     args = p.parse_args()
+    # prepare_window takes quota pairs, not the CLI string.
+    args.region_quotas = tuple(
+        (int(label), float(fraction))
+        for label, fraction in (part.split(":") for part in args.region_quotas.split(",") if part.strip())
+    )
 
     manifest = json.loads(args.manifest.read_text())
     entries = {r["name"]: r["pointflow_source"] for r in manifest["episodes"]}

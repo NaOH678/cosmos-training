@@ -149,12 +149,24 @@ def main() -> None:
         help="comma-separated region labels for anchor candidates (1=fingertip, 2=hand, 3+=objects); empty = all",
     )
     parser.add_argument("--min-valid-steps", type=int, default=0)
+    parser.add_argument(
+        "--region-quotas",
+        default="",
+        help="comma-separated label:fraction pairs splitting the top-N budget (e.g. 2:0.40,3:0.45,4:0.15)",
+    )
+    parser.add_argument("--phantom-guard", action="store_true", help="demote uv-frozen 3D drifters in the ranking")
     parser.add_argument("--windows-per-episode", type=int, default=8)
     parser.add_argument("--fps", type=float, default=15.0)
     parser.add_argument("--chunk-length", type=int, default=32)
     parser.add_argument("--max-points", type=int, default=8192)
     parser.add_argument("--voxel-size", type=float, default=0.02)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--window-cache-root",
+        type=Path,
+        default=None,
+        help="precomputed window cache (tools/build_pointflow_window_cache.py); skips online preparation",
+    )
     parser.add_argument("--output", type=Path, default=None, help="optional JSON dump of every row")
     args = parser.parse_args()
 
@@ -202,7 +214,10 @@ def main() -> None:
                     select_top_n=top_n,
                     min_voxel_members=args.min_voxel_members,
                     select_regions=args.regions,
+                    select_region_quotas=args.region_quotas,
                     select_min_valid_steps=args.min_valid_steps,
+                    select_phantom_guard=args.phantom_guard,
+                    window_cache_root=args.window_cache_root,
                 )
                 sample = source.load(name, frame_ids, source_fps, (544, 736))
                 row, values = summarize(sample, timing, source_fps)
