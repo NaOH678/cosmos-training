@@ -3,14 +3,21 @@
 import hashlib
 import json
 import logging
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
 
 from cosmos_framework.data.pointflow_dataset import pointflow_sample
 from cosmos_framework.data.pointflow_window import PointFlowTiming, prepare_window
+from cosmos_framework.data.pointflow_window_cache import SELECTION_KEYS, read_cached_window, validate_manifest
 
 logger = logging.getLogger(__name__)
+
+
+def window_seed(seed, episode, start_frame):
+    """Per-window deterministic seed; the cache builder must reproduce this exactly."""
+    return int.from_bytes(hashlib.sha256(f"{seed}:{episode}:{int(start_frame)}".encode()).digest()[:8], "little")
 
 
 class PointFlowSource:
@@ -33,8 +40,12 @@ class PointFlowSource:
         min_voxel_members=0,
         supervise_cluster_n=0,
         select_regions=(),
+        select_region_quotas=(),
         select_min_valid_steps=0,
         select_phantom_guard=False,
+        window_cache_root=None,
+        phantom_guard_disp_mm=30.0,
+        phantom_guard_uv_px=2.0,
     ):
         path = Path(manifest).resolve()
         document = json.loads(path.read_text())
@@ -94,10 +105,68 @@ class PointFlowSource:
         if any(region < 1 or region > 255 for region in regions):
             raise ValueError(f"select_regions labels must be in [1, 255], got {regions}")
         self.select_regions = regions
+        # `${oc.env:POINTFLOW_SELECT_REGION_QUOTAS,}` arrives as "2:0.40,3:0.45,4:0.15".
+        if isinstance(select_region_quotas, str):
+            parts = [part.strip() for part in select_region_quotas.split(",") if part.strip()]
+            try:
+                select_region_quotas = tuple(
+                    (int(label), float(fraction)) for label, fraction in (part.split(":") for part in parts)
+                )
+            except (TypeError, ValueError) as error:
+                raise ValueError(
+                    f"select_region_quotas must be comma-separated label:fraction pairs, got {select_region_quotas!r}"
+                ) from error
+        self.select_region_quotas = tuple(select_region_quotas)
         # Bool arriving as a string through `${oc.env:...}`.
         if isinstance(select_phantom_guard, str):
             select_phantom_guard = select_phantom_guard.strip().lower() in {"1", "true", "yes"}
         self.select_phantom_guard = bool(select_phantom_guard)
+        self.phantom_guard_disp_mm = float(phantom_guard_disp_mm)
+        self.phantom_guard_uv_px = float(phantom_guard_uv_px)
+        # Per-window selection cache (cosmos_framework/data/pointflow_window_cache.py).
+        # The cache is keyed by (episode, start_frame); a miss replays the online
+        # path with an identical result.  Handles are LRU-capped: one open npz holds
+        # one fd, and hundreds of dataloader workers otherwise exhaust ulimit.
+        self.window_cache_root = Path(window_cache_root) if window_cache_root else None
+        self._archives: OrderedDict[str, tuple[np.lib.npyio.NpzFile, int]] = OrderedDict()
+        self._archive_cache_size = 4
+        self.cache_misses = 0
+        if self.window_cache_root is not None:
+            validate_manifest(self.window_cache_root, self.selection_config(), SELECTION_KEYS)
+
+    def selection_config(self):
+        """The selection knobs recorded in the window cache manifest."""
+        return {
+            "max_points": self.max_points,
+            "voxel_size": self.voxel_size,
+            "seed": self.seed,
+            "select_motion_fraction": self.select_motion_fraction,
+            "select_top_n": self.select_top_n,
+            "min_voxel_members": self.min_voxel_members,
+            "supervise_cluster_n": self.supervise_cluster_n,
+            "select_regions": self.select_regions,
+            "select_region_quotas": self.select_region_quotas,
+            "select_min_valid_steps": self.select_min_valid_steps,
+            "select_phantom_guard": self.select_phantom_guard,
+            "phantom_guard_disp_mm": self.phantom_guard_disp_mm,
+            "phantom_guard_uv_px": self.phantom_guard_uv_px,
+        }
+
+    def _cached_window(self, episode, start):
+        archive_path = self.window_cache_root / f"{episode}.npz"
+        if not archive_path.is_file():
+            return None
+        cached = self._archives.get(episode)
+        if cached is None:
+            archive = np.load(archive_path)
+            self._archives[episode] = (archive, 0)
+            while len(self._archives) > self._archive_cache_size:
+                _, (evicted, _) = self._archives.popitem(last=False)
+                evicted.close()
+            cached = self._archives[episode]
+        else:
+            self._archives.move_to_end(episode)
+        return read_cached_window(cached[0], start, self.timing)
 
     def load(self, episode, frame_ids, source_fps, video_size_wh):
         # A missing entry is a configuration error, not a silently missing label.
@@ -106,9 +175,7 @@ class PointFlowSource:
             return None
         # The source canvas and Cosmos output canvas are intentionally different;
         # resize_pointflow_metadata composes the affine after video preprocessing.
-        seed = int.from_bytes(
-            hashlib.sha256(f"{self.seed}:{episode}:{int(frame_ids[0])}".encode()).digest()[:8], "little"
-        )
+        seed = window_seed(self.seed, episode, frame_ids[0])
         # ``uv_to_video`` is authored for the tracker canvas recorded in the
         # manifest, and ``resize_pointflow_metadata`` reads ``video_size_wh`` as
         # exactly that: the canvas the affine currently maps into, which it rebases
@@ -122,22 +189,36 @@ class PointFlowSource:
         reported = np.asarray(video_size_wh, dtype=np.int64)
         if reported.shape != (2,):
             raise ValueError(f"{episode}: returned video canvas must be (width, height), got {reported.shape}")
-        window = prepare_window(
-            source["path"],
-            int(frame_ids[0]),
-            self.max_points,
-            self.voxel_size,
-            seed,
-            timing=self.timing,
-            allow_empty=True,
-            select_motion_fraction=self.select_motion_fraction,
-            select_top_n=self.select_top_n,
-            min_voxel_members=self.min_voxel_members,
-            supervise_cluster_n=self.supervise_cluster_n,
-            select_regions=self.select_regions,
-            select_min_valid_steps=self.select_min_valid_steps,
-            select_phantom_guard=self.select_phantom_guard,
-        )
+        window = self._cached_window(episode, int(frame_ids[0])) if self.window_cache_root else None
+        if window is None:
+            if self.window_cache_root is not None:
+                self.cache_misses += 1
+                if self.cache_misses <= 3 or self.cache_misses % 1000 == 0:
+                    logger.warning(
+                        "PointFlow window cache miss #%d: %s@%s (falling back to online preparation)",
+                        self.cache_misses,
+                        episode,
+                        int(frame_ids[0]),
+                    )
+            window = prepare_window(
+                source["path"],
+                int(frame_ids[0]),
+                self.max_points,
+                self.voxel_size,
+                seed,
+                timing=self.timing,
+                allow_empty=True,
+                select_motion_fraction=self.select_motion_fraction,
+                select_top_n=self.select_top_n,
+                min_voxel_members=self.min_voxel_members,
+                supervise_cluster_n=self.supervise_cluster_n,
+                select_regions=self.select_regions,
+                select_region_quotas=self.select_region_quotas,
+                select_min_valid_steps=self.select_min_valid_steps,
+                select_phantom_guard=self.select_phantom_guard,
+                phantom_guard_disp_mm=self.phantom_guard_disp_mm,
+                phantom_guard_uv_px=self.phantom_guard_uv_px,
+            )
         if not np.array_equal(window["raw_frame_ids"], frame_ids):
             raise ValueError(f"{episode}: video and PointFlow frame IDs differ")
         if not np.allclose(window["timestamps_sec"], np.asarray(frame_ids) / source_fps, atol=1e-4, rtol=0):

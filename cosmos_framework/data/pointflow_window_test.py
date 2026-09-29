@@ -244,6 +244,104 @@ class WindowTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     prepare_window(root, max_points=64)
 
+    def _write_quota_episode(self, root):
+        """64 tracks: 16 hand (fast), 32 object (medium), 16 surface (slow)."""
+        x, y = np.meshgrid(np.arange(8), np.arange(8))
+        anchor = np.stack((x.ravel() * 0.03 + 0.3, y.ravel() * 0.03 + 0.3, np.ones(64)), axis=-1).astype(np.float32)
+        speed = np.where(np.arange(64) < 16, 0.01, np.where(np.arange(64) < 48, 0.001, 0.0001)).astype(np.float32)
+        positions = anchor[None] + (
+            np.arange(65, dtype=np.float32)[:, None, None]
+            * speed[None, :, None]
+            * np.array([[[1.0, 0, 0]]], dtype=np.float32)
+        )
+        uv = np.stack((x.ravel() + 320.5, y.ravel() + 224.5), axis=-1).astype(np.float32)
+        labels = np.where(np.arange(64) < 16, 2, np.where(np.arange(64) < 48, 3, 4)).astype(np.uint8)
+        for key, value in {
+            "position": positions,
+            "uv_px": np.repeat(uv[None], 65, axis=0),
+            "valid": np.ones((65, 64), dtype=bool),
+            "frame_indices": np.arange(65),
+            "timestamps_sec": np.arange(65) / 30,
+            "region_labels": labels,
+        }.items():
+            np.save(root / f"{key}.npy", value)
+        (root / "report.json").write_text(json.dumps({"video": "mock.mp4", "native_pixel_queries": 640 * 448}))
+        capture = MagicMock()
+        capture.isOpened.return_value = True
+        capture.read.return_value = (True, np.zeros((448, 640, 3), dtype=np.uint8))
+        return capture
+
+    def test_region_quotas_stratify_the_top_n_budget(self):
+        """Flat top-N would take only hand points; quotas guarantee region coverage."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = self._write_quota_episode(root)
+            with patch("cv2.VideoCapture", return_value=capture):
+                flat = prepare_window(root, max_points=64, select_top_n=16)
+                self.assertTrue((flat["point_ids"] < 16).all(), "flat top-16 is all hand (fastest)")
+                window = prepare_window(
+                    root,
+                    max_points=64,
+                    select_top_n=16,
+                    select_region_quotas=((2, 0.25), (3, 0.5), (4, 0.25)),
+                )
+                ids = window["point_ids"]
+                self.assertEqual(len(ids), 16)
+                self.assertEqual((ids < 16).sum(), 4, "hand quota 0.25x16")
+                self.assertEqual(((ids >= 16) & (ids < 48)).sum(), 8, "object quota 0.5x16")
+                self.assertEqual((ids >= 48).sum(), 4, "surface quota 0.25x16")
+                # float32 displacement magnitudes carry last-ulp noise, so ties are
+                # not guaranteed; the contract is deterministic under a fixed seed.
+                again = prepare_window(
+                    root,
+                    max_points=64,
+                    select_top_n=16,
+                    select_region_quotas=((2, 0.25), (3, 0.5), (4, 0.25)),
+                )
+                self.assertTrue(np.array_equal(ids, again["point_ids"]), "same seed, same selection")
+
+    def test_region_quotas_refill_shortfall_globally(self):
+        """A region with fewer points than its quota yields the budget to the others."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = self._write_quota_episode(root)
+            labels = np.load(root / "region_labels.npy")
+            labels[2:16] = 3  # only tracks 0,1 stay hand-labeled
+            np.save(root / "region_labels.npy", labels)
+            # keep speeds consistent with the new labels: only tracks 0,1 move fast
+            positions = np.load(root / "position.npy")
+            speed = np.where(np.arange(64) < 2, 0.01, np.where(np.arange(64) < 48, 0.001, 0.0001)).astype(np.float32)
+            positions = positions[0:1] + (
+                np.arange(65, dtype=np.float32)[:, None, None]
+                * speed[None, :, None]
+                * np.array([[[1.0, 0, 0]]], dtype=np.float32)
+            )
+            np.save(root / "position.npy", positions)
+            with patch("cv2.VideoCapture", return_value=capture):
+                window = prepare_window(
+                    root,
+                    max_points=64,
+                    select_top_n=16,
+                    select_region_quotas=((2, 0.5), (3, 0.25), (4, 0.25)),
+                )
+                ids = window["point_ids"]
+                self.assertEqual(len(ids), 16, "shortfall is redistributed, total stays 16")
+                hand_labels = np.load(root / "region_labels.npy")[ids]
+                self.assertEqual((hand_labels == 2).sum(), 2, "only two hands exist")
+                self.assertTrue((ids[:2] == np.array([0, 1])).all(), "the two hands are the fastest overall")
+
+    def test_region_quotas_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = self._write_quota_episode(root)
+            with patch("cv2.VideoCapture", return_value=capture):
+                with self.assertRaises(ValueError, msg="quotas need the top_n budget"):
+                    prepare_window(root, max_points=64, select_region_quotas=((2, 0.5),))
+                with self.assertRaises(ValueError, msg="fractions must sum to <= 1"):
+                    prepare_window(root, max_points=64, select_top_n=16, select_region_quotas=((2, 0.7), (3, 0.7)))
+                with self.assertRaises(ValueError, msg="duplicate labels"):
+                    prepare_window(root, max_points=64, select_top_n=16, select_region_quotas=((2, 0.3), (2, 0.3)))
+
     def test_select_min_valid_steps_demotes_unreliable_tracks(self):
         """A track that dies mid-window must lose the motion ranking to a slower survivor."""
         with tempfile.TemporaryDirectory() as directory:

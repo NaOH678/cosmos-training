@@ -4,7 +4,9 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+import cv2
 import numpy as np
+from scipy.spatial import cKDTree
 
 
 @dataclass(frozen=True)
@@ -116,6 +118,29 @@ def window_rows(frame_ids, timestamps, start_frame, fps=15.0, steps=32):
     return rows
 
 
+def _stratified_top_n(rank_score, labels, budget, quotas):
+    """Split the top-N budget across semantic regions, rank within each region.
+
+    ``quotas`` is a tuple of ``(label, fraction)``; each region takes its
+    ``round(budget * fraction)`` best-ranked points.  Any shortfall (a region
+    with too few candidates) is redistributed globally by rank score, so the
+    total stays at ``budget`` whenever enough points exist.  Deterministic.
+    """
+    order = np.argsort(-rank_score, kind="stable")
+    keep = np.zeros(len(rank_score), dtype=bool)
+    for label, fraction in quotas:
+        quota = int(round(budget * fraction))
+        if quota <= 0:
+            continue
+        region_idx = np.flatnonzero(labels == label)
+        region_sorted = region_idx[np.argsort(-rank_score[region_idx], kind="stable")]
+        keep[region_sorted[:quota]] = True
+    missing = budget - int(keep.sum())
+    if missing > 0:
+        keep[order[~keep[order]][:missing]] = True
+    return keep
+
+
 def prepare_window(
     episode: Path,
     start_frame=0,
@@ -129,10 +154,13 @@ def prepare_window(
     min_voxel_members=0,
     supervise_cluster_n=0,
     select_regions=(),
+    select_region_quotas=(),
     select_min_valid_steps=0,
     select_phantom_guard=False,
     phantom_guard_disp_mm=30.0,
     phantom_guard_uv_px=2.0,
+    frame_provider=None,
+    anchor_frame_bgr=None,
 ):
     """Prepare a Cosmos-timed window, selecting input IDs using only the anchor.
 
@@ -167,6 +195,12 @@ def prepare_window(
     anchor-time information, so unlike the motion ranking it stays a deployable
     conditioning rule.  It requires region_labels.npy; ``()`` keeps every region.
 
+    ``select_region_quotas`` stratifies the ``select_top_n`` budget across semantic
+    regions: a tuple of ``(label, fraction)``, each region keeps its quota of
+    best-ranked points (same guards, same motion ranking), and any shortfall is
+    redistributed globally so the total stays at N.  Requires ``select_top_n > 0``
+    and region_labels.npy; ``()`` falls back to the flat global ranking.
+
     ``select_min_valid_steps`` demotes points whose future label is valid for fewer
     than this many steps in motion-ranked selection -- a track that dies mid-window
     cannot be the anchor of a full-window prediction.  Like the motion ranking it
@@ -181,15 +215,29 @@ def prepare_window(
     dropped from the cloud outright.  It reads the labels, so like the motion
     ranking it is a training-time rule; measurement lives in
     tools/scan_pointflow_phantom_drift.py (same thresholds).
+    ``frame_provider`` / ``anchor_frame_bgr`` let batch builders serve frames from
+    memory: the provider is called as ``frame_provider(name, labeled_row)`` with
+    name in {"position", "uv_px", "valid"} in place of the per-frame seek-read,
+    and a pre-decoded anchor frame skips the per-window video open/seek entirely.
+    Both default to the standalone on-disk behavior.
     """
-    import cv2
-    from scipy.spatial import cKDTree
-
     timing = timing or PointFlowTiming()
     episode = Path(episode)
     if max_points < 3 or not np.isfinite(voxel_size) or voxel_size <= 0:
         raise ValueError("max_points must be >=3 and voxel_size positive")
     select_regions = tuple(int(region) for region in select_regions)
+    quotas = tuple((int(label), float(fraction)) for label, fraction in select_region_quotas)
+    if quotas:
+        if select_top_n <= 0:
+            raise ValueError("select_region_quotas requires select_top_n > 0 (the total budget)")
+        if any(fraction <= 0 or not np.isfinite(fraction) for _, fraction in quotas):
+            raise ValueError(f"select_region_quotas fractions must be positive: {quotas}")
+        total = sum(fraction for _, fraction in quotas)
+        if total > 1.0 + 1e-6:
+            raise ValueError(f"select_region_quotas fractions sum to {total} > 1: {quotas}")
+        labels_seen = [label for label, _ in quotas]
+        if len(set(labels_seen)) != len(labels_seen):
+            raise ValueError(f"select_region_quotas has duplicate labels: {quotas}")
     if type(select_min_valid_steps) is not int or select_min_valid_steps < 0:
         raise ValueError("select_min_valid_steps must be an integer >= 0")
     if select_phantom_guard:
@@ -201,19 +249,27 @@ def prepare_window(
     frame_ids = np.load(episode / "frame_indices.npy", allow_pickle=False)
     timestamps = np.load(episode / "timestamps_sec.npy", allow_pickle=False)
     rows = window_rows(frame_ids, timestamps, start_frame, timing.fps, timing.steps)
-    xyz = read_frame(episode / "position.npy", int(rows[0])).reshape(-1, 3)
-    uv = read_frame(episode / "uv_px.npy", int(rows[0])).reshape(-1, 2)
-    valid = read_frame(episode / "valid.npy", int(rows[0])).reshape(-1)
+
+    def _frame(name, index):
+        if frame_provider is not None:
+            return frame_provider(name, int(index))
+        return read_frame(episode / f"{name}.npy", int(index))
+
+    xyz = _frame("position", rows[0]).reshape(-1, 3)
+    uv = _frame("uv_px", rows[0]).reshape(-1, 2)
+    valid = _frame("valid", rows[0]).reshape(-1)
     good = valid & np.isfinite(xyz).all(1) & (xyz[:, 2] > 0) & np.isfinite(uv).all(1)
     good &= (uv[:, 0] >= 0) & (uv[:, 0] <= width - 1) & (uv[:, 1] >= 0) & (uv[:, 1] <= height - 1)
-    if select_regions:
+    region_labels = None
+    if select_regions or quotas:
         labels_path = episode / "region_labels.npy"
         if not labels_path.is_file():
-            raise ValueError(f"{episode}: select_regions={select_regions} requires region_labels.npy")
+            raise ValueError(f"{episode}: region selection requires region_labels.npy")
         region_labels = np.load(labels_path, allow_pickle=False).reshape(-1)
         if region_labels.shape != (xyz.shape[0],):
             raise ValueError(f"{episode}: region_labels does not match the point count")
-        good &= np.isin(region_labels, np.asarray(select_regions))
+        if select_regions:
+            good &= np.isin(region_labels, np.asarray(select_regions))
     candidates = np.flatnonzero(good)
     if len(candidates) < 3 and not allow_empty:
         raise ValueError("Fewer than 3 valid observed anchor points")
@@ -237,16 +293,19 @@ def prepare_window(
     if len(ids) < 3 and not allow_empty:
         raise ValueError("Degenerate anchor neighbourhoods: cannot estimate normals")
 
-    capture = cv2.VideoCapture(video)
-    try:
-        if not capture.isOpened():
-            raise ValueError(f"Cannot open head video: {video}")
-        capture.set(cv2.CAP_PROP_POS_FRAMES, int(frame_ids[rows[0]]))
-        ok, bgr = capture.read()
-        if not ok:
-            raise ValueError("Cannot decode anchor head frame")
-    finally:
-        capture.release()
+    if anchor_frame_bgr is None:
+        capture = cv2.VideoCapture(video)
+        try:
+            if not capture.isOpened():
+                raise ValueError(f"Cannot open head video: {video}")
+            capture.set(cv2.CAP_PROP_POS_FRAMES, int(frame_ids[rows[0]]))
+            ok, bgr = capture.read()
+            if not ok:
+                raise ValueError("Cannot decode anchor head frame")
+        finally:
+            capture.release()
+    else:
+        bgr = anchor_frame_bgr
     # The exporter directly resizes head RGB to the tracker inference resolution.
     rgb = cv2.cvtColor(cv2.resize(bgr, (width, height), interpolation=cv2.INTER_LINEAR), cv2.COLOR_BGR2RGB)
     anchor_xyz, anchor_uv = xyz[ids], uv[ids]
@@ -275,8 +334,8 @@ def prepare_window(
     target = np.zeros((timing.steps, len(ids), 3), dtype=np.float32)
     target_valid = np.zeros((timing.steps, len(ids)), dtype=bool)
     for k, row in enumerate(rows[1:]):
-        future = read_frame(episode / "position.npy", int(row)).reshape(-1, 3)[ids]
-        mask = read_frame(episode / "valid.npy", int(row)).reshape(-1)[ids]
+        future = _frame("position", row).reshape(-1, 3)[ids]
+        mask = _frame("valid", row).reshape(-1)[ids]
         mask &= np.isfinite(future).all(1) & (future[:, 2] > 0)
         target_valid[k] = mask
         target[k, mask] = future[mask] - anchor_xyz[mask]
@@ -300,7 +359,7 @@ def prepare_window(
     if select_min_valid_steps > 0 and len(ids):
         rank_score = np.where(counts >= select_min_valid_steps, rank_score, -np.inf)
     if select_phantom_guard and len(ids):
-        uv_last = read_frame(episode / "uv_px.npy", int(rows[-1])).reshape(-1, 2)[ids]
+        uv_last = _frame("uv_px", rows[-1]).reshape(-1, 2)[ids]
         uv_move = np.linalg.norm(uv_last - anchor_uv, axis=1)
         last = np.where(counts > 0, timing.steps - 1 - np.argmax(target_valid[::-1], axis=0), -1)
         final = np.array([magnitude[last[i], i] if last[i] >= 0 else 0.0 for i in range(len(ids))])
@@ -340,9 +399,15 @@ def prepare_window(
         #
         # ``select_top_n`` deliberately uses a floor of 1 instead of 3: it exists to go
         # below the fraction's floor, down to a single point.
-        order = np.argsort(-rank_score, kind="stable")
-        keep_point = np.zeros(len(ids), dtype=bool)
-        keep_point[order[:keep_count]] = True
+        if quotas:
+            # Stratified: per-region quota of best-ranked points, shortfall refilled
+            # globally, so region coverage survives windows where the hand dominates
+            # the global motion ranking.
+            keep_point = _stratified_top_n(rank_score, region_labels[ids], keep_count, quotas)
+        else:
+            order = np.argsort(-rank_score, kind="stable")
+            keep_point = np.zeros(len(ids), dtype=bool)
+            keep_point[order[:keep_count]] = True
         if keep_point.sum() >= keep_floor and (~keep_point).any():
             # Subset the points, then re-derive the voxels on what is left: cheaper
             # and less error-prone than renumbering the existing mapping.

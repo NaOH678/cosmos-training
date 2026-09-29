@@ -111,7 +111,10 @@ class SingleRightHandRawDataset(Dataset):
         pointflow_min_voxel_members: int = 0,
         pointflow_supervise_cluster_n: int = 0,
         pointflow_select_regions=(),
+        pointflow_select_region_quotas=(),
         pointflow_select_min_valid_steps: int = 0,
+        pointflow_select_phantom_guard: bool = False,
+        pointflow_window_cache_root: str | None = None,
         video_temporal_downsample: int = 4,
         vae_latent_root: str | None = None,
         vae_window_latent_root: str | None = None,
@@ -230,8 +233,26 @@ class SingleRightHandRawDataset(Dataset):
                 min_voxel_members=pointflow_min_voxel_members,
                 supervise_cluster_n=pointflow_supervise_cluster_n,
                 select_regions=pointflow_select_regions,
+                select_region_quotas=pointflow_select_region_quotas,
                 select_min_valid_steps=pointflow_select_min_valid_steps,
+                select_phantom_guard=pointflow_select_phantom_guard,
+                window_cache_root=pointflow_window_cache_root,
             )
+            if self._pointflow_source.window_cache_root is not None:
+                # Same contract as the VAE window-latent cache below: the cache is
+                # keyed by window offset, so anything that changes the enumeration
+                # invalidates it.  Refuse rather than read the wrong window.
+                from cosmos_framework.data.pointflow_window_cache import ENUMERATION_KEYS, validate_manifest
+
+                validate_manifest(
+                    self._pointflow_source.window_cache_root,
+                    {
+                        "fps": self._fps,
+                        "chunk_length": self._chunk_length,
+                        "sample_stride": self._sample_stride,
+                    },
+                    ENUMERATION_KEYS,
+                )
             missing = [e.name for e in self._episodes if e.name not in self._pointflow_source.entries]
             if missing:
                 raise ValueError(

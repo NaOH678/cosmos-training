@@ -277,11 +277,24 @@ dataloader["datasets"] = {
             # the motion ranking this stays a deployable conditioning rule.  Comma-
             # separated; empty keeps every region.
             pointflow_select_regions="${oc.env:POINTFLOW_SELECT_REGIONS,}",
+            # Stratified semantic quotas for the top-N budget: "2:0.40,3:0.45,4:0.15"
+            # splits N across hand/object/surface (best-ranked within each region,
+            # shortfall refilled globally).  Requires POINTFLOW_SELECT_TOP_N > 0;
+            # empty keeps the flat global ranking.
+            pointflow_select_region_quotas="${oc.env:POINTFLOW_SELECT_REGION_QUOTAS,}",
             # Demote points whose future label is valid for fewer than this many steps
             # in motion-ranked selection: a track that dies mid-window (late-stage
             # points leave the frame) cannot anchor a full-window prediction.  Reads
             # labels, so it is training-time only.  0 = off.
             pointflow_select_min_valid_steps="${oc.env:POINTFLOW_SELECT_MIN_VALID_STEPS,0}",
+            # Demote phantom-drift points (uv frozen but 3D drifts; a depth-estimation
+            # failure, not real motion) to the bottom of the motion ranking.
+            # true/false; default off.
+            pointflow_select_phantom_guard="${oc.env:POINTFLOW_SELECT_PHANTOM_GUARD,false}",
+            # Precomputed per-window selection cache (tools/build_pointflow_window_cache.py):
+            # replaces the ~200 MB full-track reads and the whole selection pipeline
+            # per window with a few-hundred-KB npz entry.  Empty = compute online.
+            pointflow_window_cache_root="${oc.env:POINTFLOW_WINDOW_CACHE_ROOT,}",
             video_temporal_downsample=4,
             viewpoint="concat_view",
             resolution="480",
