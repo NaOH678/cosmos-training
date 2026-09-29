@@ -11,7 +11,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 export WANDB_MODE="${WANDB_MODE:-offline}"
-export NPROC_PER_NODE="${NPROC_PER_NODE:-8}"
+export NPROC_PER_NODE="${NPROC_PER_NODE:-${SENSECORE_ACCELERATE_DEVICE_COUNT:-8}}"
 export OUTPUT_ROOT="${OUTPUT_ROOT:-/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/runs/cosmos/pointflow_labeled29_300_mvs16_20260922}"
 export POINTFLOW_MANIFEST="${POINTFLOW_MANIFEST:-$ROOT/pointflow_outputs/manifest_sandwich_labeled_20260921.json}"
 export POINTFLOW_EPISODE_ALLOWLIST="${POINTFLOW_EPISODE_ALLOWLIST:-$ROOT/examples/pointflow_sandwich_labeled_29_episodes.txt}"

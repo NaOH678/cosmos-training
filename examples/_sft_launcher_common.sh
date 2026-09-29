@@ -90,7 +90,26 @@ fi
 # torchrun topology. Single-node by default; a SLURM/Lepton wrapper sets NNODES /
 # NODE_RANK / MASTER_ADDR for multi-node. Each is appended only when set, so with all
 # three unset the invocation is identical to the single-node case.
-TORCHRUN_ARGS=(--nproc_per_node="${NPROC_PER_NODE:-8}" --master_port="${MASTER_PORT:-50012}")
+#
+# SenseCore injects its own topology env (SENSECORE_PYTORCH_NNODES /
+# SENSECORE_PYTORCH_NODE_RANK / SENSECORE_ACCELERATE_DEVICE_COUNT, plus MASTER_ADDR /
+# MASTER_PORT); treat them as defaults, below any explicit NNODES / NODE_RANK.
+: "${NNODES:=${SENSECORE_PYTORCH_NNODES:-}}"
+: "${NODE_RANK:=${SENSECORE_PYTORCH_NODE_RANK:-}}"
+# Fallback for job types that inject nothing: with NNODES set explicitly, derive
+# NODE_RANK / MASTER_ADDR from Kubeflow-style pod names (<job>-master-0 is rank 0
+# and the rendezvous host; <job>-worker-N is rank N+1).
+if [[ -n "${NNODES:-}" && -z "${NODE_RANK:-}" && "${HOSTNAME:-}" =~ ^(.+)-(master|worker)-([0-9]+)$ ]]; then
+    if [[ "${BASH_REMATCH[2]}" == "master" ]]; then
+        NODE_RANK=0
+        : "${MASTER_ADDR:=$HOSTNAME}"
+    else
+        NODE_RANK=$((BASH_REMATCH[3] + 1))
+        : "${MASTER_ADDR:=${BASH_REMATCH[1]}-master-0}"
+    fi
+    echo ">>> topology fallback: HOSTNAME=$HOSTNAME -> NODE_RANK=$NODE_RANK MASTER_ADDR=$MASTER_ADDR"
+fi
+TORCHRUN_ARGS=(--nproc_per_node="${NPROC_PER_NODE:-${SENSECORE_ACCELERATE_DEVICE_COUNT:-8}}" --master_port="${MASTER_PORT:-50012}")
 [[ -n "${NNODES:-}" ]]      && TORCHRUN_ARGS+=(--nnodes="$NNODES")
 [[ -n "${NODE_RANK:-}" ]]   && TORCHRUN_ARGS+=(--node_rank="$NODE_RANK")
 [[ -n "${MASTER_ADDR:-}" ]] && TORCHRUN_ARGS+=(--master_addr="$MASTER_ADDR")
