@@ -4,6 +4,16 @@ import torch
 from torch import nn
 
 
+def voxel_level_features(levels, k):
+    """Per-voxel features of hierarchy level k (0 = the finest voxel resolution)."""
+    level = levels[k]
+    mapping = torch.arange(len(level.feat), device=level.feat.device)
+    while "pooling_parent" in level:
+        mapping = mapping[level.pooling_inverse]
+        level = level.pooling_parent
+    return levels[k].feat[mapping]
+
+
 def summarize_geometry(inputs, features, voxel_to_cluster, cluster_batch):
     """Aggregate original members, not unweighted intermediate voxel centroids."""
     mapping = voxel_to_cluster[inputs["original_to_voxel"]]
@@ -80,10 +90,13 @@ class SonataGeometryEncoder(nn.Module):
 
     channels = (32, 64, 128, 256, 512)
 
-    def __init__(self, checkpoint, *, stage=3, freeze=False, per_point=False):
+    def __init__(self, checkpoint, *, stage=3, freeze=False, per_point=False, skip_levels=()):
         super().__init__()
         if stage not in range(5):
             raise ValueError("stage must be in 0..4")
+        if any(k not in range(1, 5) for k in skip_levels):
+            raise ValueError("skip_levels must be in 1..4")
+        self.skip_levels = tuple(skip_levels)
         from cosmos_framework.auxiliary.sonata.model import PointTransformerV3
 
         data = torch.load(checkpoint, map_location="cpu", weights_only=True)
@@ -120,6 +133,10 @@ class SonataGeometryEncoder(nn.Module):
             else:
                 result = summarize_geometry(inputs, features, empty, empty)
             result["voxel_features"] = inputs["feat"].new_empty((0, self.channels[0])) + zero
+            if self.skip_levels:
+                result["voxel_skip_features"] = [
+                    inputs["feat"].new_empty((0, self.channels[k])) + zero for k in self.skip_levels
+                ]
             return result
         if inputs["feat"].device != next(self.parameters()).device:
             raise ValueError("Move encoder and packed inputs to the same device")
@@ -139,6 +156,8 @@ class SonataGeometryEncoder(nn.Module):
         if self.per_point:
             result = summarize_per_point_geometry(inputs, levels[0].feat)
             result["voxel_features"] = levels[0].feat
+            if self.skip_levels:
+                result["voxel_skip_features"] = [voxel_level_features(levels, k) for k in self.skip_levels]
             return result
         selected = levels[self.stage]
         mapping = torch.arange(len(selected.feat), device=selected.feat.device)
@@ -150,4 +169,6 @@ class SonataGeometryEncoder(nn.Module):
             raise ValueError("Incomplete voxel-to-cluster mapping")
         result = summarize_geometry(inputs, selected.feat, mapping, active[selected.batch.long()])
         result["voxel_features"] = levels[0].feat
+        if self.skip_levels:
+            result["voxel_skip_features"] = [voxel_level_features(levels, k) for k in self.skip_levels]
         return result

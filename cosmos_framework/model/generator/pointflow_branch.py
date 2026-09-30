@@ -1,5 +1,7 @@
 """Learned PointFlow branch owned by the Cosmos generation network."""
 
+import os
+
 import torch
 from torch import nn
 
@@ -114,8 +116,18 @@ class PointFlowBranch(nn.Module):
         super().__init__()
         if token_mode not in ("cluster", "per_point"):
             raise ValueError(f"Unknown PointFlow token mode: {token_mode}")
+        # Optional decode-side upgrades, both off by default (POINTFLOW_DECODE_*):
+        # multi-resolution Sonata skip features and per-point transformer blocks.
+        skip_levels = tuple(int(v) for v in os.environ.get("POINTFLOW_DECODE_SKIP_LEVELS", "").split(",") if v.strip())
+        point_blocks = int(os.environ.get("POINTFLOW_DECODE_POINT_BLOCKS", "0"))
+        point_block_dim = int(os.environ.get("POINTFLOW_DECODE_POINT_DIM", "256"))
+        point_block_heads = int(os.environ.get("POINTFLOW_DECODE_POINT_HEADS", "4"))
         self.geometry = SonataGeometryEncoder(
-            checkpoint, stage=stage, freeze=freeze_geometry, per_point=token_mode == "per_point"
+            checkpoint,
+            stage=stage,
+            freeze=freeze_geometry,
+            per_point=token_mode == "per_point",
+            skip_levels=skip_levels,
         )
         self.codec = PointFlowCodec(
             timing=timing,
@@ -123,6 +135,10 @@ class PointFlowBranch(nn.Module):
             hidden_dim=hidden_dim,
             content_dim=content_dim,
             decoder_dim=decoder_dim,
+            skip_dims=tuple(SonataGeometryEncoder.channels[k] for k in skip_levels),
+            point_blocks=point_blocks,
+            point_block_dim=point_block_dim,
+            point_block_heads=point_block_heads,
         )
         self.timing = timing
 
@@ -140,6 +156,8 @@ class PointFlowBranch(nn.Module):
             key: value.to(dtype) if key in ("cluster_features", "voxel_features") else value
             for key, value in geometry.items()
         }
+        if "voxel_skip_features" in geometry:
+            geometry["voxel_skip_features"] = [value.to(dtype) for value in geometry["voxel_skip_features"]]
         noisy = noisy_displacement.to(dtype)
         with pointflow_phase("pf_codec_encode"):
             encoded = self.codec(geometry, noisy, sigma)

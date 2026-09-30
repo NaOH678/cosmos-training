@@ -1,4 +1,8 @@
-"""PointFlow content tokens and original-point velocity decoding, without attention."""
+"""PointFlow content tokens and original-point velocity decoding.
+
+Decode is broadcast + static local features + a per-point MLP by default; an
+optional PointDecoder (point_blocks > 0) inserts per-sample transformer blocks
+so points re-differentiate with task context before the velocity head."""
 
 import math
 
@@ -6,6 +10,7 @@ import torch
 from torch import nn
 
 from cosmos_framework.data.pointflow_window import PointFlowTiming
+from cosmos_framework.model.generator.pointflow_point_decoder import PointDecoder
 from cosmos_framework.model.generator.pointflow_profiling import phase as pointflow_phase
 
 
@@ -53,20 +58,27 @@ class PointFlowCodec(nn.Module):
         timing=None,
         geometry_dim=256,
         local_dim=32,
+        skip_dims=(),
         hidden_dim=2048,
         content_dim=256,
         decoder_dim=256,
         xyz_scale=1.0,
         include_anchor=True,
+        point_blocks=0,
+        point_block_dim=256,
+        point_block_heads=4,
     ):
         super().__init__()
         if not math.isfinite(xyz_scale) or xyz_scale <= 0:
             raise ValueError("xyz_scale must be finite and positive")
         if min(geometry_dim, local_dim, hidden_dim, content_dim, decoder_dim) < 1:
             raise ValueError("Feature dimensions must be positive")
+        if any(d < 1 for d in skip_dims):
+            raise ValueError("skip_dims must be positive")
         self.timing = timing or PointFlowTiming()
         self.hidden_dim, self.include_anchor = hidden_dim, include_anchor
         self.local_dim = local_dim
+        self.skip_dims = tuple(skip_dims)
         self.register_buffer("xyz_scale", torch.tensor(float(xyz_scale)))
         self.register_buffer("sigma_frequencies", torch.exp(-math.log(10000) * torch.arange(32) / 32))
         self.geometry_projection = nn.Linear(geometry_dim, content_dim)
@@ -76,11 +88,20 @@ class PointFlowCodec(nn.Module):
         self.anchor_projection = nn.Sequential(nn.LayerNorm(content_dim), nn.Linear(content_dim, hidden_dim))
         self.modality_embedding = nn.Parameter(torch.zeros(hidden_dim))
         self.sigma_encoder = mlp(64, content_dim, hidden_dim)
-        self.decoder = mlp(
-            hidden_dim * 2 + local_dim + 5 + 3 * self.timing.steps_per_token,
-            decoder_dim,
-            3 * self.timing.steps_per_token,
-        )
+        fused_dim = hidden_dim * 2 + local_dim + sum(self.skip_dims) + 5 + 3 * self.timing.steps_per_token
+        if point_blocks > 0:
+            self.decoder = None
+            self.point_decoder = PointDecoder(
+                fused_dim,
+                3,
+                3 * self.timing.steps_per_token,
+                dim=point_block_dim,
+                heads=point_block_heads,
+                blocks=point_blocks,
+            )
+        else:
+            self.decoder = mlp(fused_dim, decoder_dim, 3 * self.timing.steps_per_token)
+            self.point_decoder = None
 
     def _sigma(self, sigma, batch_size):
         if sigma.shape != (batch_size,) or not torch.isfinite(sigma).all() or torch.any((sigma < 0) | (sigma > 1)):
@@ -127,7 +148,13 @@ class PointFlowCodec(nn.Module):
                 raise ValueError(f"Expected point_hidden shape {expected}")
             sigma_features = self._sigma(sigma, len(geometry["has_geometry"]))[geometry["point_batch"]]
             local = geometry["voxel_features"][inputs["original_to_voxel"]]
-            if local.shape != (len(geometry["point_ids"]), self.local_dim):
+            if self.skip_dims:
+                skips = geometry.get("voxel_skip_features")
+                if skips is None or len(skips) != len(self.skip_dims):
+                    raise ValueError("Geometry skip features do not match codec skip_dims")
+                local = torch.cat([local] + [s[inputs["original_to_voxel"]] for s in skips], dim=-1)
+            expected_local = self.local_dim + sum(self.skip_dims)
+            if local.shape != (len(geometry["point_ids"]), expected_local):
                 raise ValueError("Local point features have an unexpected shape")
             image_size = inputs["image_size_wh"][geometry["point_batch"]]
             if torch.any(image_size <= 0):
@@ -135,14 +162,21 @@ class PointFlowCodec(nn.Module):
             relative = torch.cat(
                 (geometry["relative_xyz"] / self.xyz_scale, geometry["relative_uv"] / image_size), dim=-1
             ).to(local.dtype)
-        # One serial MLP per motion block: len(blocks) = timing.steps/ steps_per_token.
+            anchor = None
+            point_offsets = None
+            if self.point_decoder is not None:
+                anchor = (inputs["anchor_xyz"] / self.xyz_scale).to(local.dtype)
+                point_offsets = geometry["point_offsets"].tolist()
+        # One serial pass per motion block: len(blocks) = timing.steps/ steps_per_token.
         with pointflow_phase("pf_dec_blocks"):
             outputs = []
             for block in range(len(blocks)):
                 hidden = point_hidden[block, geometry["original_to_cluster"]]
-                outputs.append(
-                    self.decoder(torch.cat((hidden, local, relative, blocks[block], sigma_features), dim=-1))
-                )
+                fused = torch.cat((hidden, local, relative, blocks[block], sigma_features), dim=-1)
+                if self.point_decoder is not None:
+                    outputs.append(self.point_decoder(fused, anchor, point_offsets))
+                else:
+                    outputs.append(self.decoder(fused))
         return restore_motion(torch.stack(outputs), self.timing)
 
     def forward(self, geometry, noisy_displacement, sigma):
