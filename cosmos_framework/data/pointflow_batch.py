@@ -1,5 +1,6 @@
 """Training data contract for mixed, ragged PointFlow samples (no learned modules)."""
 
+import os
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -55,13 +56,21 @@ class PointFlowBatch:
 def pointflow_token_upper_bound(sample):
     """Reserve one anchor + H/q motion tokens per input point.
 
-    Per-point tokens make N tokens where the cluster mode made V, and N >= V,
-    so the point count is a safe upper bound for both token modes.
+    Per-point tokens make N tokens where the cluster mode makes V, and N >= V,
+    so the point count is a safe upper bound for both token modes.  With dense
+    selections (thousands of points) the N-based bound inflates the packing
+    budget one to two orders of magnitude and collapses the batch, so under
+    POINTFLOW_TOKEN_MODE=cluster the reservation is capped at
+    POINTFLOW_CLUSTER_TOKEN_CAP (default 1024, comfortably above the stage-3
+    cluster count of any window we have scanned).
     """
     if sample is None:
         return 0
+    n = len(sample["inputs"]["point_ids"])
+    if os.environ.get("POINTFLOW_TOKEN_MODE", "cluster") == "cluster":
+        n = min(n, int(os.environ.get("POINTFLOW_CLUSTER_TOKEN_CAP", "1024")))
     timing = sample["metadata"]["timing"]
-    return len(sample["inputs"]["point_ids"]) * (1 + timing.steps // timing.steps_per_token)
+    return n * (1 + timing.steps // timing.steps_per_token)
 
 
 _REUSED_BUFFERS: dict[tuple, torch.Tensor] = {}

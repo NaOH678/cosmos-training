@@ -135,6 +135,14 @@ def test_empty_and_upper_bound():
         build_pointflow_batch([bad])
 
 
+def test_upper_bound_cluster_mode_caps_at_env(monkeypatch):
+    monkeypatch.setenv("POINTFLOW_TOKEN_MODE", "cluster")
+    monkeypatch.setenv("POINTFLOW_CLUSTER_TOKEN_CAP", "2")
+    assert pointflow_token_upper_bound(point_sample(3)) == 18  # min(3, 2) * 9
+    monkeypatch.setenv("POINTFLOW_TOKEN_MODE", "per_point")
+    assert pointflow_token_upper_bound(point_sample(3)) == 27  # uncapped
+
+
 def test_future_mask_does_not_change_topology_or_budget():
     sample = point_sample(3)
     before = build_pointflow_batch([sample])
