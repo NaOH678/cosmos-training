@@ -847,3 +847,39 @@ fy=1.162)都直接迁移。dagger 批(20260830 录制,晚 ~3 周)投影残差
 
 注意:选点配置(点数/配额/守卫)变化 → 窗口缓存要重建、scale 要重扫、
 训练要新 OUTPUT_ROOT。
+
+## A/B:per_point vs cluster + 误差三分解 + per-frame scale(2026-09-29/30)
+
+**A/B 对比**(同数据同选点同 eval case,唯一变量 token 形态;判据 ADE/zero):
+
+| | per_point-500 | cluster-origin(stage1) |
+| ---- | ---- | ---- |
+| 等 iter @5900:平均 ADE / 比值 | **14.74mm / 0.229** | 17.79mm / 0.280 |
+| 等 wall-clock ~12h | **15.61 / 0.254**(@3900) | 17.53 / 0.270(@9400) |
+| validation loss @5900 | **1.40** | 1.63 |
+| 速度 | 11s/iter | 4.65s/iter(2.4x) |
+
+cluster 五个 val case 全败,且 5900→9400 基本 plateau;train ADE 两者相当(~6.7mm),
+差距全在泛化 —— 池化丢信息、靠记忆训练集。静态点漂移 cluster 明显更糟(val_00 静态
+ADE 7.6 vs 4.2)。结论:500 点规模 per_point 全面占优;cluster 的价值在几千点、
+per_point 放不下的场景,其病灶由 skip+点级 block 方案治
+([pointflow_cluster_decode_20260929.md](./pointflow_cluster_decode_20260929.md))。
+
+**"误差随时间涨"三分解**(逐帧误差曲线 + gt-cond/joint 对照):
+
+| 成分 | 机制 | 证据 | 对策 |
+| ---- | ---- | ---- | ---- |
+| 机械量纲 | 目标是累计位移,GT 幅度 6.7→140mm,绝对误差同比涨 | gt-cond 比值 0.62→0.11 其实在变好 | 不用治,看比值 |
+| 归一化/SNR | 全局单一 scale+共享 σ,前段帧信号被噪声淹没、loss 不扣分 | gt-cond t=0 比值 0.62,前段几乎没学 | **per-frame scale**(本节) |
+| 条件漂移 | joint dream 视频偏快/偏离 GT,点自洽跟随 | joint 比 gt-cond 后段差 +20~33mm(t≥7) | video 主干问题,点侧治不了 |
+
+条件漂移的另一面是好消息:点在 dream 里与视频自洽,说明 point-video 桥接是 work 的。
+gt-cond 指标才是点分支自身的干净信号;joint 指标衡量的是整个系统。
+
+**per-frame scale**(照搬 PointWorld per-timestep 归一化,目标参数化不变、不积分):
+`POINTFLOW_DISPLACEMENT_FRAME_SCALES` = 逐帧 32 值向量,覆盖标量;7 个 scale 使用点
+全部接入(train/eval/joint 一致);101 集实测 std 向量 0.00506→0.07583(15 倍),
+全局 0.0528 对前 8 帧高估 3~10 倍。实现与向量见
+[pointflow_displacement_scale_20260914.md](./pointflow_displacement_scale_20260914.md) §14。
+注意:改目标参数化 → 从头训 + 新 OUTPUT_ROOT + resume 必须带同一 env;loss 读数跨
+参数化不可比,看 ADE/zero。

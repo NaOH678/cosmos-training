@@ -1,4 +1,4 @@
-# PointFlow 数据处理 Pipeline 操作手册 — 2026-09-24(2026-09-28 修订:补 9.24 efep 转换步骤)
+# PointFlow 数据处理 Pipeline 操作手册 — 2026-09-24(2026-09-28 修订:补 9.24 efep 转换步骤;2026-09-30 修订:4a scan 工具并行化 + per-frame 向量)
 
 每接入一批新数据(新任务/新集数/新导出的 flow)都按本文档走一遍。主线实验
 记录在 `docs/pointflow_per_point_tokens_20260919.md`,本文档只讲操作。
@@ -160,23 +160,54 @@ PYTHONPATH=. .venv/bin/python tools/build_pointflow_window_cache.py \
 
 ## 步骤 4:选点相关的四件套
 
-### 4a. scale 标定(选点规则每变一次就必须重测)
+### 4a. scale 标定:`scan_pointflow_selection.py`(选点规则每变一次就必须重测)
 
 `pointflow_displacement_scale` = 米/模型单位,意图是让监督位移的 std ≈ 1
 与单位噪声匹配。**选点规则、数据集、点数任一变化都要重测;跨 scale 不可
 resume,必须新 OUTPUT_ROOT。**
 
+工具同时产出**标量**候选和 **per-frame per-channel 向量**(96 值,供
+`POINTFLOW_DISPLACEMENT_FRAME_SCALES_FILE`,原理见
+`pointflow_displacement_scale_20260914.md` §14):
+
 ```bash
-.venv/bin/python tools/scan_pointflow_selection.py \
+PYTHONPATH=. .venv/bin/python tools/scan_pointflow_selection.py \
   --manifest <manifest.json> \
   --cache-root <cache路径> \
   --episode-allowlist <allowlist> \
-  --top-n 300 --min-voxel-members 3 --min-valid-steps 16 \
-  --windows-per-episode 8 --output <scan.json>
+  --top-n 500 --min-voxel-members 3 --min-valid-steps 16 \
+  --region-quotas 2:0.40,3:0.45,4:0.15 --phantom-guard \
+  --windows-per-episode 256 --workers 64 \
+  --window-cache-root <cache路径>/pointflow_windows \
+  --output <scan.json>
 ```
 
-取输出里 `std` 候选。历史标定点:sandwich 旧 manifest 0.0432 → sandwich
-labeled29+mvs16 0.0740 → dropper 101 集 top300+mvs16 0.0482。
+**并行设计(2026-09-30 重写)**:按 episode 分片 + `ProcessPoolExecutor`;
+统计不保留原始值,改为**直方图(0.5mm 桶,+0.6m 量程)+ (n, sum, sumsq)
+累加**,worker 合并只是数组相加。因此:
+
+- std **精确**且与 worker 数无关(32-worker vs 串行逐值差 = 0,已验证);
+- 分位数(q01/q99/尾部)从 0.5mm 桶读,误差远低于下游噪声;
+- 内存恒定(每 worker 几 MB 直方图),不随窗口数增长;
+- 速度:101 集 × 64 窗口 19 分钟 → **32 秒**(32 workers);× 256 窗口 51 秒。
+
+**三个输出文件**(`--output <scan.json>` 时):
+
+| 文件 | 内容 |
+| ---- | ---- |
+| `<scan.json>` | 每窗口一行(点数/体素/运动/间距/退化等),供表格与排查 |
+| `<stem>_frame_scales.json` | per-frame per-channel 的 std/robust/样本数,供分析 |
+| `<stem>_frame_scales_env.json` | **模型直接读取的规范文件**(`steps/channels/stat/scales` 96 值),多选点配置时按 label 分文件;打印里给出 `POINTFLOW_DISPLACEMENT_FRAME_SCALES_FILE=<绝对路径>` |
+
+**采样密度与收敛协议**:窗口是训练语义的真窗口(同一 `PointFlowSource`),
+用 linspace 等距抽样,**不要**用训练那种 stride=1 的全重叠集合。密度按
+**收敛序列**判定而不是拍脑袋:两档密度对比,逐值偏差进 1% 即收敛。
+基准数据(101 集 strat500):w64/w8 偏差 max 13%(8 不够),w256/w64 偏差
+mean 0.4%(64 已收敛)——**以后一律 `--windows-per-episode 256 --workers 64`**。
+
+历史标定点:sandwich 旧 manifest 0.0432 → sandwich labeled29+mvs16 0.0740 →
+dropper 101 集 top300+mvs16 0.0482 → sandwich 101 集 strat500+守卫 **0.0528**
+(per-frame 向量见 scale 文档 §14)。
 
 ### 4b. 幻影漂移扫描(数据质量体检,两个工具是一对)
 
@@ -262,8 +293,9 @@ WANDB 默认 offline。
 
 ## 运维规则速查
 
-1. 选点规则/数据集/点数任一变化 → 重测 scale(4a)+ 新 OUTPUT_ROOT;
+1. 选点规则/数据集/点数任一变化 → 重测 scale(4a,`--windows-per-episode 256 --workers 64`)+ 新 OUTPUT_ROOT;
 2. 跨 scale 的 loss 读数不可比,判据只看 eval ADE/zero;
 3. eval case 跟随 OUTPUT_ROOT 生成(fixed_cases),换数据集后旧 case 不可比;
 4. 换相机 rig → 仿射常数重测 + 4d 投影验证;
-5. eval 产物在 `<OUTPUT_ROOT>/cosmos3_action/action_sft/action_policy_singlerighthand_edge/pointflow_eval/step_*/`,缺失的拼接视频用 `tools/stitch_pointflow_canvas.py --eval-dir <该目录>` 离线补。
+5. eval 产物在 `<OUTPUT_ROOT>/cosmos3_action/action_sft/action_policy_singlerighthand_edge/pointflow_eval/step_*/`,缺失的拼接视频用 `tools/stitch_pointflow_canvas.py --eval-dir <该目录>` 离线补;
+6. per-frame 向量文件(`*_frame_scales_env.json`)与训练绑定,resume 必须同一路径;重扫写新文件名,别原地覆盖。

@@ -98,7 +98,7 @@ bash examples/launch_pointflow_labeled29_sandwich.sh
 
 ```bash
 # 本集群(A800/SenseCore)全量 101 集:一切配置已固化,只给 OUTPUT_ROOT
-OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash examples/launch_pointflow_sandwich101.sh
+OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow/examples/launch_pointflow_sandwich101.sh
 ```
 
 `launch_pointflow_sandwich101.sh` 固化了两层默认,均可从外部同名 env 覆盖:
@@ -168,6 +168,17 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 - 主干文档 `docs/pointflow_per_point_tokens_20260919.md` 有全部实验结论与
   待办(幻影守卫、scale 重标定、位置编码、FK 模态)。
 
+### 6.1 最新实验状态(2026-09-30)
+
+- **在跑**:per_point-500(`pointflow_sandwich101_strat500_v2_20260929`)与
+  cluster-origin baseline(`cluster_500p_origin_baseline`);A/B 结论 per_point 全胜,
+  cluster 已 plateau(主线文档 9-30 节);
+- **per-frame scale 已落地**:`POINTFLOW_DISPLACEMENT_FRAME_SCALES`(32 值向量,
+  101 集实测 0.00506→0.07583)治"前段帧学不出来";启用需从头训 + 新 OUTPUT_ROOT,
+  用法见 scale 文档 §14;
+- **待启动**:cluster+skip+点级 block(方案 C,先单卡 smoke)、per-frame scale 版
+  per_point run、密集版 N=4000(需先重建窗口缓存 + 重扫 scale)。
+
 ## 7. 排障速查
 
 | 症状 | 看哪里 |
@@ -189,7 +200,11 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 | [docs/setup.md](./setup.md) / [setup_offline.md](./setup_offline.md) | 在线 / 离线(内网预下载)环境安装 |
 | [docs/pointflow_data_pipeline.md](./pointflow_data_pipeline.md) | 数据处理操作手册(接新数据必读) |
 | [docs/pointflow_multinode_training.md](./pointflow_multinode_training.md) | 多机训练:SenseCore 注入兼容、HSDP 配置、提交命令、排障 |
-| [docs/pointflow_per_point_tokens_20260919.md](./pointflow_per_point_tokens_20260919.md) | 主线实验记录与结论(最长最全) |
+| [docs/pointflow_per_point_tokens_20260919.md](./pointflow_per_point_tokens_20260919.md) | 主线实验记录与结论(最长最全,含 9-30 A/B 对比与误差三分解) |
+| [docs/pointflow_experiment_queue_20260930.md](./pointflow_experiment_queue_20260930.md) | **实验队列**:状态(进行中/等待中/已完成)+ 各实验启动命令 |
+| [docs/pointflow_displacement_scale_20260914.md](./pointflow_displacement_scale_20260914.md) | scale 根因与标定;§14 per-frame scale(逐帧归一化,env 向量) |
+| [docs/pointflow_cluster_decode_20260929.md](./pointflow_cluster_decode_20260929.md) | 簇 token + 点级 decode:方案、实现、env 清单、实验计划 |
+| [docs/pointworld_implementation_20260929.md](./pointworld_implementation_20260929.md) | PointWorld/EgoWAM 点处理机制调研(方案对照) |
 | [docs/pointflow_eval_visualization.md](./pointflow_eval_visualization.md) | eval 可视化与 stage viewer 用法 |
 | [docs/pointflow_position_encoding.md](./pointflow_position_encoding.md) | 位置编码分析((t,h,w,z) 方案) |
 | [docs/training.md](./training.md) / [docs/inference.md](./inference.md) | 通用训练 / 推理 |
