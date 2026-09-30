@@ -96,8 +96,13 @@ def make_preview(
                 # The dream canvas is the COMPOSED view (wrist strip on top + head
                 # below), not the head-only tracker frame: route uv through the
                 # recorded tracker->video affine, then scale canvas -> panel.
+                # The affine maps into the model's TRUE canvas, which is the decoded
+                # dream frame itself: _remove_padding_from_latent floors the padded
+                # video (e.g. 736 = 716 content + 20 pad) to whole latent rows
+                # (44*16 = 704), so metadata["video_size_wh"] overshoots the dream
+                # frame and scaling by it lifts every point ~2.5% of y upward.
                 affine = _numpy(metadata["uv_to_video"]).astype(np.float64)
-                canvas_wh = _numpy(metadata["video_size_wh"]).astype(np.float64)
+                canvas_wh = np.array([bgr.shape[1], bgr.shape[0]], dtype=np.float64)
                 panel_scale = panel_wh / canvas_wh
                 gt_uv.append(((uv + 0.5) @ affine[:, :2].T + affine[:, 2]) * panel_scale - 0.5)
                 pred_canvas = (pixels * tracker_wh + 0.5) @ affine[:, :2].T + affine[:, 2]
