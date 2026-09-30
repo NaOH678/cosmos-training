@@ -5,22 +5,22 @@
 # Direct torchrun launcher for the current CUDA 12.8 cluster. No Slurm or
 # Apptainer is used. Export NPROC_PER_NODE to match the visible GPU count.
 
-TOML_FILE="examples/toml/sft_config/action_policy_singlerighthand_edge.toml"
+TOML_FILE="/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow/examples/toml/sft_config/action_policy_singlerighthand_edge.toml"
 
-: "${SINGLERIGHTHAND_RAW_ROOT:=/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/raw_data/singlerighthand_sandwich_100}"
-: "${SINGLERIGHTHAND_CACHE_ROOT:=/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/datasets/singlerighthand-sandwich-100-cosmos-cache}"
-: "${EDGE_DROID_MODEL_PATH:=/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/models/cosmos3-edge-droid}"
-: "${BASE_CHECKPOINT_PATH:=/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/models/cosmos3-edge-droid-dcp}"
+: "${SINGLERIGHTHAND_RAW_ROOT:=/data/shichaojian/raw_data/singlerighthand_sandwich_100}"
+: "${SINGLERIGHTHAND_CACHE_ROOT:=/data/shichaojian/datasets/singlerighthand-sandwich-100-cosmos-cache}"
+: "${EDGE_DROID_MODEL_PATH:=/data/shichaojian/models/cosmos3-edge-droid}"
+: "${BASE_CHECKPOINT_PATH:=/data/shichaojian/models/cosmos3-edge-droid-dcp}"
 : "${WAN_VAE_PATH:=$EDGE_DROID_MODEL_PATH/vae/Wan2.2_VAE.pth}"
 : "${SINGLERIGHTHAND_VAE_LATENT_ROOT:=$SINGLERIGHTHAND_CACHE_ROOT/vae_latents}"
-: "${OUTPUT_ROOT:=/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/runs/cosmos/pointflow_test}"
+: "${OUTPUT_ROOT:=/data/shichaojian/runs/pointflow_test}"
 : "${NPROC_PER_NODE:=${SENSECORE_ACCELERATE_DEVICE_COUNT:-1}}"
 : "${COSMOS_GPU_VIDEO_AUGMENTATION:=false}"
-: "${POINTFLOW_SONATA_CHECKPOINT:=/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/checkpoints/ptv3/sonata_small.pth}"
-: "${POINTFLOW_MANIFEST:=/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft/pointflow_outputs/task5/mixed_manifest.json}"
+: "${POINTFLOW_SONATA_CHECKPOINT:=/data/shichaojian/checkpoints/ptv3/sonata_small.pth}"
+: "${POINTFLOW_MANIFEST:=/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow/pointflow_outputs/sandwich_924_20260928/manifest.json}"
 : "${POINTFLOW_VIDEO_DECODER:=torchcodec}"
 : "${SINGLERIGHTHAND_VIDEO_DECODER:=opencv}"
-: "${POINTFLOW_EPISODE_ALLOWLIST:=$PWD/examples/pointflow_sandwich_10_episodes.txt}"
+: "${POINTFLOW_EPISODE_ALLOWLIST:=/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow/examples/pointflow_sandwich_all_101_episodes.txt}"
 # GT-ranked restriction to the fastest-moving fraction of anchor points (0 = off,
 # keep the full cloud). Diagnostic only: the ranking reads future labels, so a model
 # trained this way cannot be conditioned the same way at inference. Use it to check
@@ -58,7 +58,7 @@ if [[ -z "${SINGLERIGHTHAND_USE_VIDEO_CACHE:-}" ]]; then
         || SINGLERIGHTHAND_USE_VIDEO_CACHE=false
 fi
 
-PYTHON_BIN="${PYTHON_BIN:-$PWD/.venv/bin/python}"
+PYTHON_BIN="${PYTHON_BIN:-/mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv/bin/python}"
 [[ -x "$PYTHON_BIN" ]] || PYTHON_BIN="$(command -v python)"
 export PATH="$(dirname "$PYTHON_BIN"):$PATH"
 

@@ -13,7 +13,7 @@
 # Env overrides: OUTPUT_ROOT (required, fresh per run) and every export below.
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="${COSMOS_REPO_ROOT:-/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow}"
 
 # Cluster layout (shared venv lives in the base checkout). LD_LIBRARY_PATH must be
 # EMPTY for this stack (docs/setup.md#pytorch-import-issue) — force it here so the
@@ -40,6 +40,23 @@ export POINTFLOW_WINDOW_CACHE_ROOT="${POINTFLOW_WINDOW_CACHE_ROOT:-$SINGLERIGHTH
 export POINTFLOW_SUPERVISE_CLUSTER_N="${POINTFLOW_SUPERVISE_CLUSTER_N:-0}"
 export POINTFLOW_SELECT_MOTION_FRACTION="${POINTFLOW_SELECT_MOTION_FRACTION:-0}"
 
+# Per-frame displacement scale (off by default): a per-frame (per-channel)
+# vector overriding the scalar POINTFLOW_DISPLACEMENT_SCALE.  Prefer the file
+# form: point FRAME_SCALES_FILE at the <stem>_frame_scales_env.json written by
+# tools/scan_pointflow_selection.py; the comma-string form (32 or 96 values)
+# remains for ad-hoc overrides.  Either way the target parameterisation
+# changes, so train from scratch.
+export POINTFLOW_DISPLACEMENT_FRAME_SCALES_FILE="${POINTFLOW_DISPLACEMENT_FRAME_SCALES_FILE:-}"
+export POINTFLOW_DISPLACEMENT_FRAME_SCALES="${POINTFLOW_DISPLACEMENT_FRAME_SCALES:-}"
+
+# Decode-side upgrades (off by default): multi-resolution Sonata skip features
+# ("1,2" adds level-1/2 per-point features) and per-point transformer blocks
+# between broadcast and the velocity head.
+export POINTFLOW_DECODE_SKIP_LEVELS="${POINTFLOW_DECODE_SKIP_LEVELS:-}"
+export POINTFLOW_DECODE_POINT_BLOCKS="${POINTFLOW_DECODE_POINT_BLOCKS:-0}"
+export POINTFLOW_DECODE_POINT_DIM="${POINTFLOW_DECODE_POINT_DIM:-256}"
+export POINTFLOW_DECODE_POINT_HEADS="${POINTFLOW_DECODE_POINT_HEADS:-4}"
+
 # Eval: deployment-shaped joint rollout (video/action/point dream canvas).
 export POINTFLOW_EVAL_JOINT="${POINTFLOW_EVAL_JOINT:-true}"
 
@@ -48,6 +65,18 @@ export COSMOS_FLASH2_VARLEN="${COSMOS_FLASH2_VARLEN:-1}"
 export PYTORCH_ALLOC_CONF="${PYTORCH_ALLOC_CONF:-expandable_segments:True}"
 export WANDB_MODE="${WANDB_MODE:-offline}"
 export NPROC_PER_NODE="${NPROC_PER_NODE:-${SENSECORE_ACCELERATE_DEVICE_COUNT:-8}}"
+
+# Per-node log file: with NNODES>1 every node's torchrun tees to the same
+# $OUTPUT_ROOT/logs/<file>, and the two streams carry independent file offsets
+# so they overwrite (not append) each other — the rank-0 startup section (model
+# build, scale loading) gets clobbered. Give each node its own log. NODE_RANK is
+# not injected yet on Kubeflow-style pods, so mirror the hostname fallback from
+# _sft_launcher_common.sh.
+_NODE_RANK="${SENSECORE_PYTORCH_NODE_RANK:-${NODE_RANK:-}}"
+if [[ -z "$_NODE_RANK" && "${HOSTNAME:-}" =~ ^(.+)-(master|worker)-([0-9]+)$ ]]; then
+    if [[ "${BASH_REMATCH[2]}" == "master" ]]; then _NODE_RANK=0; else _NODE_RANK=$((BASH_REMATCH[3] + 1)); fi
+fi
+export LOG_FILENAME="${LOG_FILENAME:-action_policy_singlerighthand_edge_sft_node${_NODE_RANK:-0}.log}"
 
 # HSDP: shard within the node (NVLink), replicate across nodes. The launcher
 # enforces shard x replicate == world size.
@@ -59,6 +88,7 @@ echo "OUTPUT_ROOT: ${OUTPUT_ROOT:?set OUTPUT_ROOT to a fresh directory}"
 echo "manifest:    $POINTFLOW_MANIFEST"
 echo "allowlist:   $POINTFLOW_EPISODE_ALLOWLIST"
 echo "topology:    shard=$_GPUS_PER_NODE replicate=$_NODES"
+echo "log:         $LOG_FILENAME"
 echo "overrides:   $EXTRA_TAIL_OVERRIDES"
 # Surface the injected topology env so multi-node misconfiguration is visible in
 # the job console (scheduled jobs inject SENSECORE_* / MASTER_* / WORLD_SIZE ...;
