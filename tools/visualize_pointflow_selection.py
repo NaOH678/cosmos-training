@@ -176,6 +176,11 @@ def main() -> None:
     parser.add_argument("--min-valid-steps", type=int, default=16, help="the recipe's select_min_valid_steps")
     parser.add_argument("--regions", default="", help="comma-separated region filter, empty = off (as in training)")
     parser.add_argument(
+        "--region-quotas",
+        default="",
+        help="comma-separated label:fraction pairs splitting the top-N budget (e.g. 2:0.40,3:0.45,4:0.15)",
+    )
+    parser.add_argument(
         "--phantom-guard",
         action="store_true",
         help="demote phantom-drift points (uv glued <2px while 3D drifts >30mm) in the motion ranking",
@@ -184,6 +189,12 @@ def main() -> None:
     parser.add_argument("--voxel-size", type=float, default=0.02)
     parser.add_argument("--seed", type=int, default=42, help="the recipe's pointflow_seed")
     parser.add_argument("--trail-steps", type=int, default=5)
+    parser.add_argument(
+        "--window-cache-root",
+        type=Path,
+        default=None,
+        help="precomputed window cache; config must match the selection flags (validated)",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.select_top_n < 0 or args.trail_steps < 0:
@@ -199,7 +210,9 @@ def main() -> None:
         min_voxel_members=args.min_voxel_members,
         select_min_valid_steps=args.min_valid_steps,
         select_regions=tuple(r for r in args.regions.split(",") if r),
+        select_region_quotas=args.region_quotas,
         select_phantom_guard=args.phantom_guard,
+        window_cache_root=args.window_cache_root,
     )
     for start in args.start_frames:
         try:
