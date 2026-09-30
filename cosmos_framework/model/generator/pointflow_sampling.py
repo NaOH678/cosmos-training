@@ -1,8 +1,8 @@
 """Label-free Euler sampling for the Cosmos v = epsilon - clean convention."""
 
-import math
-
 import torch
+
+from cosmos_framework.model.generator.pointflow_scale import validate_scale
 
 
 def training_shift(shift_config, resolution):
@@ -52,8 +52,7 @@ def sample_displacement(
     """
     if steps < 1 or horizon < 1 or num_points < 1 or batch_size < 1:
         raise ValueError("PointFlow sampling sizes must be positive")
-    if not math.isfinite(scale) or scale <= 0:
-        raise ValueError("PointFlow displacement scale must be positive and finite")
+    validate_scale(scale)
     generator = torch.Generator(device=device).manual_seed(int(seed))
     state = torch.randn((horizon, num_points, 3), generator=generator, device=device, dtype=torch.float32)
     sigmas = shifted_sigmas(steps, shift, device)

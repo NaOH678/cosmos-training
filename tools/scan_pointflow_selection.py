@@ -15,12 +15,19 @@ choosing ``POINTFLOW_SELECT_MOTION_FRACTION``:
         --manifest pointflow_outputs/task5/mixed_manifest.json \
         --episode-allowlist examples/pointflow_sandwich_10_episodes.txt \
         --fractions 0,0.02,0.05,0.10 --windows-per-episode 8
+
+Statistics are accumulated as fixed-bin histograms plus (n, sum, sumsq) per
+(setting, frame, channel) bucket, so episodes can be scanned in parallel
+(``--workers``) with exact, worker-count-independent merges: std is exact,
+quantiles come from 0.5 mm bins.  Raw displacement values are never kept, so
+memory stays flat no matter how dense ``--windows-per-episode`` gets.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +39,13 @@ from cosmos_framework.data.pointflow_window import PointFlowTiming
 # Below this many kept voxels PointTransformerV3 has no neighbourhood to pool, so a
 # selection that leaves fewer is reported as degenerate rather than merely small.
 DEGENERATE_VOXELS = 8
+
+# 0.5 mm bins over ±0.6 m; observed displacement |max| is ~0.37 m.  Quantiles read
+# from these bins are far below the noise floor of any downstream use.
+DISPLACEMENT_BINS = np.linspace(-0.6, 0.6, 2401)
+ABS_BINS = np.linspace(0.0, 0.6, 1201)
+BIN_CENTERS = (DISPLACEMENT_BINS[:-1] + DISPLACEMENT_BINS[1:]) / 2
+ABS_CENTERS = (ABS_BINS[:-1] + ABS_BINS[1:]) / 2
 
 
 def sampled_windows(num_frames, source_fps, fps, chunk_length, per_episode):
@@ -57,12 +71,12 @@ def summarize(sample, timing, source_fps):
     if len(xyz) > 1:
         distances, _ = cKDTree(xyz).query(xyz, k=2)
         spacing = float(np.median(distances[:, 1]) * 1000.0)
-    # Per-element scale of the supervised target.  This is the quantity that must
-    # match the unit-variance sampling noise: ``pointflow_displacement_scale`` in
-    # metres per model unit.  The (n, mean, std) triple pools exactly across
-    # windows; the raw values are handed back alongside it so the caller can take
-    # exact pooled quantiles, which cannot be recovered from summary statistics.
     values = displacement[valid]
+    # Per-frame-index, per-channel pools: the cumulative-from-anchor target grows
+    # with k, and the depth (z) channel carries systematically less variance than
+    # x/y -- PointWorld normalises per (timestep, channel) for the same reason.
+    # These feed POINTFLOW_DISPLACEMENT_FRAME_SCALES in its 96-value form.
+    frame_values = [displacement[k][valid[k]] for k in range(displacement.shape[0])]
     row = {
         "points": len(sample["inputs"]["point_ids"]),
         "voxels": len(sample["inputs"]["coord"]),
@@ -75,7 +89,7 @@ def summarize(sample, timing, source_fps):
         "displacement_mean_m": float(values.mean()) if values.size else 0.0,
         "displacement_std_m": float(values.std()) if values.size else 0.0,
     }
-    return row, values.reshape(-1).astype(np.float32)
+    return row, frame_values
 
 
 def pooled_std(rows):
@@ -96,8 +110,65 @@ def pooled_std(rows):
 GAUSSIAN_Q01_Q99_SPAN = 4.6524
 
 
-def scale_candidates(values):
-    """Candidate ``pointflow_displacement_scale`` values from one pooled sample.
+def _new_accumulator(steps):
+    return {
+        "n": np.zeros((steps, 3)),
+        "sum": np.zeros((steps, 3)),
+        "sq": np.zeros((steps, 3)),
+        "hist": np.zeros((steps, 3, len(DISPLACEMENT_BINS) - 1), np.int64),
+        "glob": np.zeros(3),  # n, sum, sumsq over every value in the setting
+        "glob_hist": np.zeros(len(DISPLACEMENT_BINS) - 1, np.int64),
+        "glob_abs_hist": np.zeros(len(ABS_BINS) - 1, np.int64),
+        "glob_abs_max": 0.0,
+        "rows": [],
+    }
+
+
+def _accumulate(acc, row, frame_values):
+    acc["rows"].append(row)
+    nonempty = [v for v in frame_values if len(v)]
+    for k, values in enumerate(frame_values):
+        if not len(values):
+            continue
+        acc["n"][k] += len(values)
+        acc["sum"][k] += values.sum(0)
+        acc["sq"][k] += (values.astype(np.float64) ** 2).sum(0)
+        for c in range(3):
+            acc["hist"][k, c] += np.histogram(values[:, c], bins=DISPLACEMENT_BINS)[0]
+    if nonempty:
+        flat = np.concatenate(nonempty).reshape(-1).astype(np.float64)
+        acc["glob"] += (flat.size, flat.sum(), (flat**2).sum())
+        acc["glob_hist"] += np.histogram(flat, bins=DISPLACEMENT_BINS)[0]
+        acc["glob_abs_hist"] += np.histogram(np.abs(flat), bins=ABS_BINS)[0]
+        acc["glob_abs_max"] = max(acc["glob_abs_max"], float(np.abs(flat).max()))
+
+
+def _merge_accumulators(accs, steps):
+    merged = _new_accumulator(steps)
+    for acc in accs:
+        for key in ("n", "sum", "sq", "hist", "glob", "glob_hist", "glob_abs_hist"):
+            merged[key] += acc[key]
+        merged["glob_abs_max"] = max(merged["glob_abs_max"], acc["glob_abs_max"])
+        merged["rows"].extend(acc["rows"])
+    return merged
+
+
+def _bucket_std(acc):
+    n, total, sq = acc["n"], acc["sum"], acc["sq"]
+    mean = np.divide(total, n, out=np.zeros_like(total), where=n > 0)
+    var = np.divide(sq, n, out=np.zeros_like(sq), where=n > 0) - mean**2
+    return np.sqrt(np.maximum(var, 0.0))
+
+
+def _hist_quantile(hist, n, centers, p):
+    if n <= 0:
+        return 0.0
+    idx = int(np.searchsorted(np.cumsum(hist), p * n, side="left"))
+    return float(centers[min(idx, len(centers) - 1)])
+
+
+def scale_candidates(acc):
+    """Candidate ``pointflow_displacement_scale`` values from one pooled setting.
 
     ``std`` matches the unit-variance noise exactly but is inflated by tracking
     outliers.  ``robust`` divides the signed q01..q99 span by its Gaussian value,
@@ -105,25 +176,68 @@ def scale_candidates(values):
     is the convention the action normalizers use -- q01/q99 mapped to +/-1 --
     which leaves a Gaussian at std ~0.43, i.e. 2.3x below the noise.
     """
-    if values.size == 0:
+    n, total, sq = (float(v) for v in acc["glob"])
+    if n == 0:
         return {}
-    q01, q50, q99 = (float(v) for v in np.quantile(values, [0.01, 0.5, 0.99]))
-    absolute = np.abs(values)
-    a50, a99, a999 = (float(v) for v in np.quantile(absolute, [0.5, 0.99, 0.999]))
+    mean = total / n
+    std = float(np.sqrt(max(sq / n - mean**2, 0.0)))
+    q01 = _hist_quantile(acc["glob_hist"], n, BIN_CENTERS, 0.01)
+    q50 = _hist_quantile(acc["glob_hist"], n, BIN_CENTERS, 0.5)
+    q99 = _hist_quantile(acc["glob_hist"], n, BIN_CENTERS, 0.99)
     return {
-        "n": int(values.size),
-        "mean": float(values.mean()),
-        "std": float(values.std()),
+        "n": int(n),
+        "mean": mean,
+        "std": std,
         "q01": q01,
         "q50": q50,
         "q99": q99,
-        "abs_p50": a50,
-        "abs_p99": a99,
-        "abs_p999": a999,
-        "abs_max": float(absolute.max()),
+        "abs_p50": _hist_quantile(acc["glob_abs_hist"], n, ABS_CENTERS, 0.5),
+        "abs_p99": _hist_quantile(acc["glob_abs_hist"], n, ABS_CENTERS, 0.99),
+        "abs_p999": _hist_quantile(acc["glob_abs_hist"], n, ABS_CENTERS, 0.999),
+        "abs_max": acc["glob_abs_max"],
         "robust": (q99 - q01) / GAUSSIAN_Q01_Q99_SPAN,
         "quantile": (q99 - q01) / 2.0,
     }
+
+
+def _scan_chunk(job):
+    """Worker: scan a slice of episodes, return per-setting accumulators."""
+    names, by_name, settings, cfg = job
+    timing = PointFlowTiming(cfg["fps"], cfg["chunk_length"], 4)
+    sources = {
+        label: PointFlowSource(
+            cfg["manifest"],
+            timing=timing,
+            max_points=cfg["max_points"],
+            voxel_size=cfg["voxel_size"],
+            seed=cfg["seed"],
+            select_motion_fraction=keep,
+            select_top_n=top_n,
+            min_voxel_members=cfg["min_voxel_members"],
+            select_regions=cfg["regions"],
+            select_region_quotas=cfg["region_quotas"],
+            select_min_valid_steps=cfg["min_valid_steps"],
+            select_phantom_guard=cfg["phantom_guard"],
+            window_cache_root=cfg["window_cache_root"],
+        )
+        for label, keep, top_n in settings
+    }
+    accs = {label: _new_accumulator(timing.steps) for label, _, _ in settings}
+    for name in names:
+        episode = by_name[name]
+        source_fps = float(episode["source_fps"])
+        windows = sampled_windows(
+            int(episode["num_frames"]), source_fps, cfg["fps"], cfg["chunk_length"], cfg["windows_per_episode"]
+        )
+        stride = int(round(source_fps / cfg["fps"]))
+        for window in windows:
+            frame_ids = window + stride * np.arange(cfg["chunk_length"] + 1, dtype=np.int64)
+            for label, _, _ in settings:
+                sample = sources[label].load(name, frame_ids, source_fps, (544, 736))
+                row, frame_values = summarize(sample, timing, source_fps)
+                row.update(episode=name, window=int(window), setting=label)
+                _accumulate(accs[label], row, frame_values)
+    return accs
 
 
 def main() -> None:
@@ -167,6 +281,7 @@ def main() -> None:
         default=None,
         help="precomputed window cache (tools/build_pointflow_window_cache.py); skips online preparation",
     )
+    parser.add_argument("--workers", type=int, default=16, help="parallel episode scanners; results are identical")
     parser.add_argument("--output", type=Path, default=None, help="optional JSON dump of every row")
     args = parser.parse_args()
 
@@ -187,44 +302,41 @@ def main() -> None:
         settings = [(f"top{args.top_n}", 0.0, args.top_n)]
     else:
         settings = [(("off (full)" if v == 0 else f"{v:.0%}"), v, 0) for v in map(float, args.fractions.split(","))]
-    rows = []
-    # Raw valid displacement values per setting, kept only to take exact pooled
-    # quantiles.  float32, ~0.3 MB per window at 410 points -- a scan of a few
-    # hundred windows stays well under 100 MB.
-    pooled = {}
+    cfg = {
+        "manifest": str(args.manifest),
+        "max_points": args.max_points,
+        "voxel_size": args.voxel_size,
+        "seed": args.seed,
+        "min_voxel_members": args.min_voxel_members,
+        "regions": args.regions,
+        "region_quotas": args.region_quotas,
+        "min_valid_steps": args.min_valid_steps,
+        "phantom_guard": args.phantom_guard,
+        "window_cache_root": str(args.window_cache_root) if args.window_cache_root else None,
+        "fps": args.fps,
+        "chunk_length": args.chunk_length,
+        "windows_per_episode": args.windows_per_episode,
+    }
     print(f"  {len(names)} episodes x {args.windows_per_episode} windows x {len(settings)} settings\n")
 
+    workers = max(1, min(args.workers, len(names)))
+    jobs = [(names[i::workers], by_name, settings, cfg) for i in range(workers)]
+    if workers > 1:
+        with ProcessPoolExecutor(max_workers=workers) as executor:
+            partials = list(executor.map(_scan_chunk, jobs))
+    else:
+        partials = [_scan_chunk(jobs[0])]
+    merged = {}
+    for part in partials:
+        for label, acc in part.items():
+            merged.setdefault(label, []).append(acc)
+    accs = {label: _merge_accumulators(chunks, timing.steps) for label, chunks in merged.items()}
+    rows = sorted(
+        (row for acc in accs.values() for row in acc["rows"]), key=lambda r: (r["episode"], r["window"], r["setting"])
+    )
     for name in names:
-        episode = by_name[name]
-        source_fps = float(episode["source_fps"])
-        windows = sampled_windows(
-            int(episode["num_frames"]), source_fps, args.fps, args.chunk_length, args.windows_per_episode
-        )
-        stride = int(round(source_fps / args.fps))
-        for window in windows:
-            frame_ids = window + stride * np.arange(args.chunk_length + 1, dtype=np.int64)
-            for label, keep, top_n in settings:
-                source = PointFlowSource(
-                    str(args.manifest),
-                    timing=timing,
-                    max_points=args.max_points,
-                    voxel_size=args.voxel_size,
-                    seed=args.seed,
-                    select_motion_fraction=keep,
-                    select_top_n=top_n,
-                    min_voxel_members=args.min_voxel_members,
-                    select_regions=args.regions,
-                    select_region_quotas=args.region_quotas,
-                    select_min_valid_steps=args.min_valid_steps,
-                    select_phantom_guard=args.phantom_guard,
-                    window_cache_root=args.window_cache_root,
-                )
-                sample = source.load(name, frame_ids, source_fps, (544, 736))
-                row, values = summarize(sample, timing, source_fps)
-                row.update(episode=name, window=int(window), setting=label)
-                rows.append(row)
-                pooled.setdefault(label, []).append(values)
-        print(f"  {name}: {len(windows)} windows done", flush=True)
+        done = sum(1 for r in rows if r["episode"] == name)
+        print(f"  {name}: {done} window-settings done", flush=True)
 
     print(
         f"\n  {'select':>9}{'pts min':>9}{'pts p50':>9}{'pts max':>9}{'vox p50':>9}"
@@ -249,10 +361,7 @@ def main() -> None:
 
     print("\n  pointflow_displacement_scale 候选值(= 单位:米 / 模型单位):")
     for label, keep, top_n in settings:
-        subset = [r for r in rows if r["setting"] == label]
-        if not subset:
-            continue
-        stats = scale_candidates(np.concatenate(pooled[label]) if pooled.get(label) else np.empty(0, np.float32))
+        stats = scale_candidates(accs[label])
         if not stats:
             continue
         print(f"\n    select={label}   n={stats['n']}")
@@ -275,9 +384,52 @@ def main() -> None:
         )
         print(f"             std 被尾部抬高 {stats['std'] / max(stats['robust'], 1e-12):.2f}x")
 
+    print("\n  per-frame scale(逐帧×逐通道统计,对应 POINTFLOW_DISPLACEMENT_FRAME_SCALES 的 96 值形式):")
+    frame_scale_dump = {}
+    frame_scale_env = {}
+    for label, keep, top_n in settings:
+        acc = accs[label]
+        stds = _bucket_std(acc)
+        steps = stds.shape[0]
+        robusts = np.zeros_like(stds)
+        counts = acc["n"][:, 0].astype(int).tolist()
+        for k in range(steps):
+            for c in range(3):
+                n = acc["n"][k, c]
+                q01 = _hist_quantile(acc["hist"][k, c], n, BIN_CENTERS, 0.01)
+                q99 = _hist_quantile(acc["hist"][k, c], n, BIN_CENTERS, 0.99)
+                robusts[k, c] = (q99 - q01) / GAUSSIAN_Q01_Q99_SPAN if n else 0.0
+        frame_scale_dump[label] = {"std": stds.round(6).tolist(), "robust": robusts.round(6).tolist(), "n": counts}
+        # Canonical file the model reads via POINTFLOW_DISPLACEMENT_FRAME_SCALES_FILE.
+        frame_scale_env[label] = {
+            "steps": steps,
+            "channels": 3,
+            "order": "frame-major x,y,z",
+            "stat": "std",
+            "selection": label,
+            "scales": [round(float(v), 6) for v in stds.reshape(-1)],
+        }
+        print(f"\n    select={label}")
+        for start in range(0, steps, 8):
+            stop = min(start + 8, steps)
+            print(f"      帧 {start:>2}-{stop - 1:>2}  std_x " + " ".join(f"{v:.5f}" for v in stds[start:stop, 0]))
+            print(f"      {'':>8}  std_y " + " ".join(f"{v:.5f}" for v in stds[start:stop, 1]))
+            print(f"      {'':>8}  std_z " + " ".join(f"{v:.5f}" for v in stds[start:stop, 2]))
+        # 帧主序、通道次序 (k0x,k0y,k0z,k1x,...) 的 96 值 env 串
+        print(f"      env(std):    {','.join(f'{v:.5f}' for v in stds.reshape(-1))}")
+        print(f"      env(robust): {','.join(f'{v:.5f}' for v in robusts.reshape(-1))}")
+
     if args.output:
         args.output.write_text(json.dumps(rows, indent=2) + "\n")
         print(f"\n  wrote {args.output}")
+        frame_path = args.output.with_name(args.output.stem + "_frame_scales.json")
+        frame_path.write_text(json.dumps(frame_scale_dump, indent=2) + "\n")
+        print(f"  wrote {frame_path}")
+        for label, doc in frame_scale_env.items():
+            suffix = "" if len(frame_scale_env) == 1 else f"_{label.replace(' ', '_')}"
+            env_path = args.output.with_name(args.output.stem + f"_frame_scales_env{suffix}.json")
+            env_path.write_text(json.dumps(doc, indent=2) + "\n")
+            print(f"  wrote {env_path}  →  POINTFLOW_DISPLACEMENT_FRAME_SCALES_FILE={env_path.resolve()}")
 
 
 if __name__ == "__main__":

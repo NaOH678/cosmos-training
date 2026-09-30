@@ -4,6 +4,7 @@
 """Cosmos3-Edge-DROID policy SFT for the single-right-hand sandwich data."""
 
 import copy
+import os
 
 from hydra.core.config_store import ConfigStore
 
@@ -97,8 +98,13 @@ model_config["rectified_flow_training_config"]["loss_scale"] = 10.0
 # loss READS differently and its "predict zero" baseline moves with it -- judge
 # the branch by ADE against the zero-motion baseline, never by the loss value.
 # 0.0740 pairs with manifest_sandwich_labeled_20260921.json + top300 + mvs16;
-# the legacy manifest needs 0.0432.
-model_config["rectified_flow_training_config"]["pointflow_displacement_scale"] = 0.0740
+# the legacy manifest needs 0.0432.  Override per run with
+# POINTFLOW_DISPLACEMENT_SCALE (the scale follows the selection, so dense
+# experiments must re-scan tools/scan_pointflow_selection.py first).
+_scale_env = os.environ.get("POINTFLOW_DISPLACEMENT_SCALE")
+model_config["rectified_flow_training_config"]["pointflow_displacement_scale"] = (
+    float(_scale_env) if _scale_env else 0.0740
+)
 
 # PointFlow must see "clean video + noisy points" in training: the conditional-fit
 # evaluation (and any deployment observing the current video) presents exactly that

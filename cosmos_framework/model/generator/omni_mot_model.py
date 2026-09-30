@@ -338,10 +338,23 @@ class OmniMoTModel(ImaginaireModel):
                         token_mode=token_mode,
                     )
                     scale = self.config.rectified_flow_training_config.pointflow_displacement_scale
-                    log.info(
-                        f"PointFlow displacement scale: {scale} m/model-unit "
-                        "(must match the point selection; re-measure when the selection changes)"
+                    from cosmos_framework.model.generator.pointflow_scale import frame_scales_from_env
+
+                    frames = frame_scales_from_env(
+                        int(os.environ.get("POINTFLOW_STEPS", "32")),
                     )
+                    if frames is None:
+                        log.info(
+                            f"PointFlow displacement scale: {scale} m/model-unit "
+                            "(must match the point selection; re-measure when the selection changes)"
+                        )
+                    else:
+                        log.info(
+                            f"PointFlow per-frame displacement scales ({len(frames)} values over "
+                            f"{int(os.environ.get('POINTFLOW_STEPS', '32'))} frames, "
+                            f"{frames[0]:.4f}..{frames[-1]:.4f} m/model-unit) override the scalar {scale}; "
+                            "checkpoints are tied to this vector"
+                        )
 
         return net
 
@@ -1171,9 +1184,11 @@ class OmniMoTModel(ImaginaireModel):
                 state = gen_data_noised.pointflow
                 clean = packed_sequence.pointflow_data
                 sigma = state.sigma[clean.inputs["point_batch"]][None, :, None]
+                from cosmos_framework.model.generator.pointflow_scale import broadcast_scale
+
                 output_batch["pointflow_preview_displacement"] = (
                     (state.xt.float() - sigma * out_net["preds_pointflow"].float())
-                    * rf_cfg.pointflow_displacement_scale
+                    * broadcast_scale(rf_cfg.pointflow_displacement_scale, state.xt.shape[0], state.xt.device)
                 ).detach()
                 output_batch["pointflow_preview_sigma"] = state.sigma.detach()
         if sigmas_action is not None:
@@ -1370,11 +1385,17 @@ class OmniMoTModel(ImaginaireModel):
             if gen_data_noised.pointflow is None or "preds_pointflow" not in out_net:
                 raise ValueError("PointFlow labels require a noised state and network prediction")
             with pointflow_phase("pf_loss"):
+                from cosmos_framework.model.generator.pointflow_scale import broadcast_scale
+
                 fm_point, point_metrics = pointflow_loss(
                     out_net["preds_pointflow"],
                     gen_data_noised.pointflow,
                     data_batch_packed.pointflow_data,
-                    scale=rf_cfg.pointflow_displacement_scale,
+                    scale=broadcast_scale(
+                        rf_cfg.pointflow_displacement_scale,
+                        data_batch_packed.pointflow_data.timing.steps,
+                        data_batch_packed.pointflow_data.displacement.device,
+                    ),
                 )
             total_loss += fm_point * rf_cfg.pointflow_loss_weight
             losses_dict["flow_matching_loss_pointflow"] = fm_point
@@ -1857,10 +1878,16 @@ class OmniMoTModel(ImaginaireModel):
             if self.parallel_dims is not None and self.parallel_dims.cp_enabled:
                 raise ValueError("PointFlow training currently requires CP=1")
             with pointflow_phase("pf_add_noise"):
+                from cosmos_framework.model.generator.pointflow_scale import broadcast_scale
+
                 pointflow_noised = pointflow_add_noise(
                     gen_data_clean.pointflow,
                     sigmas if sigmas_pointflow is None else sigmas_pointflow,
-                    scale=self.config.rectified_flow_training_config.pointflow_displacement_scale,
+                    scale=broadcast_scale(
+                        self.config.rectified_flow_training_config.pointflow_displacement_scale,
+                        gen_data_clean.pointflow.timing.steps,
+                        gen_data_clean.pointflow.displacement.device,
+                    ),
                     generator=noise_gen,
                 )
 
@@ -3310,7 +3337,13 @@ class OmniMoTModel(ImaginaireModel):
                     horizon = pointflow.displacement.shape[0]
                     point_dim = horizon * (end - start) * 3
                     state = latents[i][offset : offset + point_dim].reshape(horizon, end - start, 3)
-                    scale = float(self.config.rectified_flow_training_config.pointflow_displacement_scale)
+                    from cosmos_framework.model.generator.pointflow_scale import broadcast_scale
+
+                    scale = broadcast_scale(
+                        self.config.rectified_flow_training_config.pointflow_displacement_scale,
+                        horizon,
+                        state.device,
+                    )
                     result_pointflow.append(state.float() * scale)
                     offset += point_dim
                     idx_point += 1
@@ -3519,8 +3552,14 @@ class OmniMoTModel(ImaginaireModel):
         )
         packed.to_cuda()
 
-        scale = self.config.rectified_flow_training_config.pointflow_displacement_scale
+        from cosmos_framework.model.generator.pointflow_scale import broadcast_scale
+
         device = data.inputs["anchor_xyz"].device
+        scale = broadcast_scale(
+            self.config.rectified_flow_training_config.pointflow_displacement_scale,
+            pf.displacement.shape[0],
+            device,
+        )
         generator = torch.Generator(device=device).manual_seed(int(seed))
         epsilon = torch.randn(pf.displacement.shape, generator=generator, device=device, dtype=torch.float32)
         valid, target = pf.valid, pf.displacement.float()
@@ -3580,9 +3619,15 @@ class OmniMoTModel(ImaginaireModel):
         )
         packed.to_cuda()
 
-        scale = self.config.rectified_flow_training_config.pointflow_displacement_scale
         shift = training_shift(self.config.rectified_flow_training_config.shift, self.config.resolution)
         device = packed.pointflow_data.inputs["anchor_xyz"].device
+        from cosmos_framework.model.generator.pointflow_scale import broadcast_scale
+
+        scale = broadcast_scale(
+            self.config.rectified_flow_training_config.pointflow_displacement_scale,
+            data.timing.steps,
+            device,
+        )
         generator = torch.Generator(device=device).manual_seed(int(seed))
         state = torch.randn(
             (data.timing.steps, len(data.inputs["point_ids"]), 3),

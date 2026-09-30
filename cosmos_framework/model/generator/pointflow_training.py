@@ -1,15 +1,13 @@
 """PointFlow rectified-flow convention matches Cosmos: v = epsilon - clean."""
 
-import math
-
 import torch
 
 from cosmos_framework.data.pointflow_batch import PointFlowNoised
+from cosmos_framework.model.generator.pointflow_scale import validate_scale
 
 
 def pointflow_add_noise(clean, sigmas, *, scale=1.0, generator=None, epsilon=None):
-    if not math.isfinite(scale) or scale <= 0:
-        raise ValueError("PointFlow displacement scale must be finite and positive")
+    validate_scale(scale)
     b = len(clean.labeled)
     if sigmas.shape not in ((b,), (b, 1)):
         raise ValueError("PointFlow currently requires one shared video sigma per sample, not diffusion forcing")
@@ -93,8 +91,7 @@ def pointflow_ade(prediction, state, clean, scale=1.0):
     zero is not that baseline: it leaves ``x0_hat = x_t``, which is dominated by
     the noise just added.
     """
-    if not math.isfinite(scale) or scale <= 0:
-        raise ValueError("PointFlow displacement scale must be finite and positive")
+    validate_scale(scale)
     valid = clean.valid
     if not valid.any():
         zeros = prediction.new_zeros(())
