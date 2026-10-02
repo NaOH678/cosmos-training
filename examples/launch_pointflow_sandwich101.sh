@@ -49,6 +49,10 @@ export POINTFLOW_SELECT_MOTION_FRACTION="${POINTFLOW_SELECT_MOTION_FRACTION:-0}"
 export POINTFLOW_DISPLACEMENT_FRAME_SCALES_FILE="${POINTFLOW_DISPLACEMENT_FRAME_SCALES_FILE:-}"
 export POINTFLOW_DISPLACEMENT_FRAME_SCALES="${POINTFLOW_DISPLACEMENT_FRAME_SCALES:-}"
 
+# Fuse per-point level-0 geometry + relative XYZ with noisy motion before pooling.
+# Changes motion_encoder input width; use a fresh OUTPUT_ROOT when switching modes.
+export POINTFLOW_GEOMETRY_MOTION_FUSION="${POINTFLOW_GEOMETRY_MOTION_FUSION:-false}"
+
 # Decode-side upgrades (off by default): multi-resolution Sonata skip features
 # ("1,2" adds level-1/2 per-point features) and per-point transformer blocks
 # between broadcast and the velocity head.

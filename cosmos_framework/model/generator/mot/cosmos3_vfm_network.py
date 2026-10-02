@@ -218,7 +218,8 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         codec = self.pointflow_branch.codec
         log.info(
             f"PointFlow branch installed: token_mode={token_mode}, stage={stage}, "
-            f"freeze_geometry={freeze_geometry}, geometry_dim={codec.geometry_projection.in_features}"
+            f"freeze_geometry={freeze_geometry}, geometry_dim={codec.geometry_projection.in_features}, "
+            f"geometry_motion_fusion={codec.geometry_motion_fusion}"
         )
 
     def init_weights(self, buffer_device: torch.device | None):

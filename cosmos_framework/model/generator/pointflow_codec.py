@@ -64,6 +64,7 @@ class PointFlowCodec(nn.Module):
         decoder_dim=256,
         xyz_scale=1.0,
         include_anchor=True,
+        geometry_motion_fusion=False,
         point_blocks=0,
         point_block_dim=256,
         point_block_heads=4,
@@ -79,11 +80,15 @@ class PointFlowCodec(nn.Module):
         self.hidden_dim, self.include_anchor = hidden_dim, include_anchor
         self.local_dim = local_dim
         self.skip_dims = tuple(skip_dims)
+        self.geometry_motion_fusion = geometry_motion_fusion
         self.register_buffer("xyz_scale", torch.tensor(float(xyz_scale)))
         self.register_buffer("sigma_frequencies", torch.exp(-math.log(10000) * torch.arange(32) / 32))
         self.geometry_projection = nn.Linear(geometry_dim, content_dim)
         self.xyz_encoder = mlp(3, content_dim, content_dim)
-        self.motion_encoder = mlp(3 * self.timing.steps_per_token, content_dim, content_dim)
+        motion_dim = 3 * self.timing.steps_per_token
+        if geometry_motion_fusion:
+            motion_dim += local_dim + 3
+        self.motion_encoder = mlp(motion_dim, content_dim, content_dim)
         self.point2llm = nn.Sequential(nn.LayerNorm(2 * content_dim), nn.Linear(2 * content_dim, hidden_dim))
         self.anchor_projection = nn.Sequential(nn.LayerNorm(content_dim), nn.Linear(content_dim, hidden_dim))
         self.modality_embedding = nn.Parameter(torch.zeros(hidden_dim))
@@ -116,14 +121,26 @@ class PointFlowCodec(nn.Module):
             raise ValueError("Noisy state must be finite and cover every original point")
         return blocks
 
-    def encode(self, geometry, noisy_displacement, sigma):
+    def encode(self, geometry, noisy_displacement, sigma, *, inputs=None):
         blocks = self._blocks(geometry, noisy_displacement)
         sigma_features = self._sigma(sigma, len(geometry["has_geometry"]))
         shape = geometry["cluster_features"].shape
         g = self.geometry_projection(geometry["cluster_features"]) + self.xyz_encoder(
             (geometry["cluster_xyz"] / self.xyz_scale).to(geometry["cluster_features"].dtype)
         )
-        point_motion = self.motion_encoder(blocks)
+        motion_inputs = blocks
+        if self.geometry_motion_fusion:
+            if inputs is None:
+                raise ValueError("Geometry-motion fusion requires original_to_voxel inputs")
+            local = geometry["voxel_features"][inputs["original_to_voxel"]]
+            if local.shape != (blocks.shape[1], self.local_dim):
+                raise ValueError("Geometry-motion fusion requires one level-0 feature per original point")
+            relative = geometry["relative_xyz"] / self.xyz_scale
+            # Joint nonlinearity precedes pooling: preserve which geometry carries
+            # which noisy motion. No future GT or validity masks enter this path.
+            static = torch.cat((local.to(blocks.dtype), relative.to(blocks.dtype)), dim=-1)
+            motion_inputs = torch.cat((blocks, static.unsqueeze(0).expand(len(blocks), -1, -1)), dim=-1)
+        point_motion = self.motion_encoder(motion_inputs)
         pooled = point_motion.new_zeros((len(blocks), shape[0], point_motion.shape[-1]))
         pooled = pooled.index_add(1, geometry["original_to_cluster"], point_motion)
         pooled = pooled / geometry["cluster_counts"].clamp_min(1)[None, :, None]
@@ -179,5 +196,5 @@ class PointFlowCodec(nn.Module):
                     outputs.append(self.decoder(fused))
         return restore_motion(torch.stack(outputs), self.timing)
 
-    def forward(self, geometry, noisy_displacement, sigma):
-        return self.encode(geometry, noisy_displacement, sigma)
+    def forward(self, geometry, noisy_displacement, sigma, *, inputs=None):
+        return self.encode(geometry, noisy_displacement, sigma, inputs=inputs)

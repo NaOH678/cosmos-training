@@ -43,7 +43,9 @@ def setup(monkeypatch):
     return net, sequence, batch
 
 
-def test_vfm_forward_backward_and_future_label_isolation(monkeypatch):
+@pytest.mark.parametrize("fusion", ["false", "true"])
+def test_vfm_forward_backward_and_future_label_isolation(monkeypatch, fusion):
+    monkeypatch.setenv("POINTFLOW_GEOMETRY_MOTION_FUSION", fusion)
     net, sequence, batch = setup(monkeypatch)
     noise = torch.randn_like(batch.displacement, requires_grad=True)
     sigma = torch.tensor([0.2, 0.5, 0.8])

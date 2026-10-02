@@ -139,6 +139,7 @@ class PointFlowBranch(nn.Module):
             point_blocks=point_blocks,
             point_block_dim=point_block_dim,
             point_block_heads=point_block_heads,
+            geometry_motion_fusion=os.environ.get("POINTFLOW_GEOMETRY_MOTION_FUSION", "false").lower() == "true",
         )
         self.timing = timing
 
@@ -160,7 +161,7 @@ class PointFlowBranch(nn.Module):
             geometry["voxel_skip_features"] = [value.to(dtype) for value in geometry["voxel_skip_features"]]
         noisy = noisy_displacement.to(dtype)
         with pointflow_phase("pf_codec_encode"):
-            encoded = self.codec(geometry, noisy, sigma)
+            encoded = self.codec(geometry, noisy, sigma, inputs=data.inputs)
         with pointflow_phase("pf_positions"):
             positions = video_aligned_point_positions(sequence, data.inputs, geometry, self.timing, pixel_stride)
         with pointflow_phase("pf_attach_tokens"):
