@@ -1,0 +1,195 @@
+{
+  "correctness": {
+    "axis_counts": [
+      24,
+      16,
+      16,
+      8
+    ],
+    "depth_pair_indices": [
+      49,
+      50,
+      52,
+      53,
+      55,
+      56,
+      58,
+      59
+    ],
+    "output_max_error": 1.3322676295501878e-15,
+    "gradient_max_error": 1.5543122344752192e-15,
+    "checks": [
+      "GQA",
+      "ragged_sample_isolation",
+      "causal_text_mask",
+      "empty_groups",
+      "baseline_recovery",
+      "time_channels_unchanged",
+      "local_depth_sensitivity",
+      "non_geometry_logits_unchanged",
+      "common_depth_shift_invariance",
+      "backward_equivalence"
+    ],
+    "gpu_benchmark": "not run; prototype is a CPU oracle, not a fused implementation"
+  },
+  "anchor_depth_scan": {
+    "scope": "24 anchor windows from first 8 sorted episodes, not split-filtered; no fitted training parameters",
+    "quantiles": [
+      0,
+      0.01,
+      0.5,
+      0.99,
+      1
+    ],
+    "point_depth_m": [
+      0.48884791135787964,
+      0.5112893110513688,
+      0.6728044152259827,
+      0.8262935918569565,
+      0.8602570295333862
+    ],
+    "fk_depth_m": [
+      0.5965925066118365,
+      0.6463451480375294,
+      0.8125705352525792,
+      0.9178398231803127,
+      0.9411251638670732
+    ],
+    "point_inverse_depth_per_m": [
+      1.1624432764500767,
+      1.2102235951616775,
+      1.4863160487456901,
+      1.9558398318021892,
+      2.0456260050744333
+    ],
+    "fk_inverse_depth_per_m": [
+      1.0625579236358007,
+      1.089514726657591,
+      1.2306627896901787,
+      1.5471609934888677,
+      1.6761859877845133
+    ],
+    "windows": [
+      {
+        "episode": "episode_0000_20260730_163803",
+        "window": 0,
+        "source_frame": 0
+      },
+      {
+        "episode": "episode_0000_20260730_163803",
+        "window": 975,
+        "source_frame": 975
+      },
+      {
+        "episode": "episode_0000_20260730_163803",
+        "window": 1950,
+        "source_frame": 1950
+      },
+      {
+        "episode": "episode_0001_20260730_164807",
+        "window": 0,
+        "source_frame": 0
+      },
+      {
+        "episode": "episode_0001_20260730_164807",
+        "window": 924,
+        "source_frame": 924
+      },
+      {
+        "episode": "episode_0001_20260730_164807",
+        "window": 1848,
+        "source_frame": 1848
+      },
+      {
+        "episode": "episode_0002_20260730_164936",
+        "window": 0,
+        "source_frame": 0
+      },
+      {
+        "episode": "episode_0002_20260730_164936",
+        "window": 674,
+        "source_frame": 674
+      },
+      {
+        "episode": "episode_0002_20260730_164936",
+        "window": 1347,
+        "source_frame": 1347
+      },
+      {
+        "episode": "episode_0006_20260730_165246",
+        "window": 0,
+        "source_frame": 0
+      },
+      {
+        "episode": "episode_0006_20260730_165246",
+        "window": 792,
+        "source_frame": 792
+      },
+      {
+        "episode": "episode_0006_20260730_165246",
+        "window": 1584,
+        "source_frame": 1584
+      },
+      {
+        "episode": "episode_0009_20260730_165859",
+        "window": 0,
+        "source_frame": 0
+      },
+      {
+        "episode": "episode_0009_20260730_165859",
+        "window": 683,
+        "source_frame": 683
+      },
+      {
+        "episode": "episode_0009_20260730_165859",
+        "window": 1365,
+        "source_frame": 1365
+      },
+      {
+        "episode": "episode_0009_20260731_133239",
+        "window": 0,
+        "source_frame": 0
+      },
+      {
+        "episode": "episode_0009_20260731_133239",
+        "window": 743,
+        "source_frame": 743
+      },
+      {
+        "episode": "episode_0009_20260731_133239",
+        "window": 1486,
+        "source_frame": 1486
+      },
+      {
+        "episode": "episode_0010_20260730_170019",
+        "window": 0,
+        "source_frame": 0
+      },
+      {
+        "episode": "episode_0010_20260730_170019",
+        "window": 727,
+        "source_frame": 727
+      },
+      {
+        "episode": "episode_0010_20260730_170019",
+        "window": 1454,
+        "source_frame": 1454
+      },
+      {
+        "episode": "episode_0011_20260731_133456",
+        "window": 0,
+        "source_frame": 0
+      },
+      {
+        "episode": "episode_0011_20260731_133456",
+        "window": 549,
+        "source_frame": 549
+      },
+      {
+        "episode": "episode_0011_20260731_133456",
+        "window": 1098,
+        "source_frame": 1098
+      }
+    ]
+  }
+}

@@ -17,7 +17,9 @@ video/action 在主循环里联合去噪。
 (一点一 token,500 点)与 **cluster**(sonata 空间池化簇 token + 点级 decode),
 含 per-frame scale 归一化、dream canvas 联合去噪可视化、窗口缓存管线;
 纯 FK 已在相邻 `_mano` 工作区接入,普通 point-FK 四模态已在 `_base` 工作区接入;
-当前 pointflow 分支尚未组合这条 FK 路径,局部 (t,h,w,z) 位置编码待实现。
+当前 pointflow 分支尚未组合这条 FK 路径。局部 (t,h,w,z) 的方案 A 已完成设计与
+CPU 数学原型,尚未接入训练,见
+[pointflow_fk_local_mrope_20261002.md](./pointflow_fk_local_mrope_20261002.md)。
 形态对比的全部数据见
 [pointflow_form_comparison_observations_20261001.md](./pointflow_form_comparison_observations_20261001.md),
 数据管线和实验记录见[文档地图](#文档地图)。
@@ -236,6 +238,7 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 
 | 文档 | 内容 |
 | ---- | ---- |
+| [pointflow_fk_local_mrope_20261002.md](./pointflow_fk_local_mrope_20261002.md) | **局部四轴 RoPE 方案 A**:共享相机位置、24/16/16/8通道、分组attention与CPU原型验证 |
 | [pointflow_position_encoding.md](./pointflow_position_encoding.md) | 原三轴(t,h,w)位置与action–point交互规则设计;实际legacy路径见其核查说明 |
 | [pointflow_cluster_decode_20260929.md](./pointflow_cluster_decode_20260929.md) | 簇 token + 点级 decode(skip/pb):方案、实现、env 清单 |
 | [pointflow_ptv3_cosmos_design.md](./pointflow_ptv3_cosmos_design.md) | sonata(PTv3)接入 cosmos 的原始设计 |
