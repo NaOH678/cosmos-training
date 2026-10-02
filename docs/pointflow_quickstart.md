@@ -8,9 +8,19 @@
 
 ## 0. 这是什么
 
-在 cosmos3 edge 的 action policy SFT 里接入 pointflow 模态:逐点 token
-(per_point,300 点),与 video/action 在主循环里联合去噪。数据管线和实验
-记录见[文档地图](#文档地图)。
+主线:现有的World-action-model（wam）会对video和action联合建模，但是训练过程中我们发现了video和action不一致的情况。即video预测的内容是正确的，但是action不正确。我们把这个成为video-action gap。本项目而目的是在video和action之间加入桥梁缓解gap。具体的，在 cosmos3 edge 的 action policy SFT 里接入 **point(pointflow 轨迹)+
+FK(urdf 正运动学 21 关键点)两种 3D 模态,并配 (t,h,w,z) 位置编码**把两者在
+相机坐标系下桥接起来——point 与 FK 共用一套 3D token 化/位置编码体系,与
+video/action 在主循环里联合去噪。
+
+当前进度:point 侧已实现两种 token 形态并完成了系统对比——**per_point**
+(一点一 token,500 点)与 **cluster**(sonata 空间池化簇 token + 点级 decode),
+含 per-frame scale 归一化、dream canvas 联合去噪可视化、窗口缓存管线;
+纯 FK 已在相邻 `_mano` 工作区接入,普通 point-FK 四模态已在 `_base` 工作区接入;
+当前 pointflow 分支尚未组合这条 FK 路径,局部 (t,h,w,z) 位置编码待实现。
+形态对比的全部数据见
+[pointflow_form_comparison_observations_20261001.md](./pointflow_form_comparison_observations_20261001.md),
+数据管线和实验记录见[文档地图](#文档地图)。
 
 ## 1. 拿代码 + 装环境
 
@@ -82,7 +92,7 @@ export PYTHON_BIN=/mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv/bin/python
 export EDGE_DROID_MODEL_PATH=/data/shichaojian/models/cosmos3-edge-droid
 export BASE_CHECKPOINT_PATH=/data/shichaojian/models/cosmos3-edge-droid-dcp
 export POINTFLOW_SONATA_CHECKPOINT=/data/shichaojian/checkpoints/ptv3/sonata_small.pth
-# sandwich:
+# sandwich:log
 export SINGLERIGHTHAND_RAW_ROOT=/data/shichaojian/raw_data/singlerighthand_sandwich_100
 export SINGLERIGHTHAND_CACHE_ROOT=/data/shichaojian/datasets/singlerighthand-sandwich-100-cosmos-cache
 export POINTFLOW_MANIFEST=$PWD/pointflow_outputs/sandwich_924_20260928/manifest.json
@@ -168,16 +178,20 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 - 主干文档 `docs/pointflow_per_point_tokens_20260919.md` 有全部实验结论与
   待办(幻影守卫、scale 重标定、位置编码、FK 模态)。
 
-### 6.1 最新实验状态(2026-09-30)
+### 6.1 最新实验状态(2026-10-01)
 
-- **在跑**:per_point-500(`pointflow_sandwich101_strat500_v2_20260929`)与
-  cluster-origin baseline(`cluster_500p_origin_baseline`);A/B 结论 per_point 全胜,
-  cluster 已 plateau(主线文档 9-30 节);
-- **per-frame scale 已落地**:`POINTFLOW_DISPLACEMENT_FRAME_SCALES`(32 值向量,
-  101 集实测 0.00506→0.07583)治"前段帧学不出来";启用需从头训 + 新 OUTPUT_ROOT,
-  用法见 scale 文档 §14;
-- **待启动**:cluster+skip+点级 block(方案 C,先单卡 smoke)、per-frame scale 版
-  per_point run、密集版 N=4000(需先重建窗口缓存 + 重扫 scale)。
+- **在跑(16卡×2)**:E1 framescale(`perpoint_strat500_framescale_20260930` @5100,
+  cond 平台与 v2 打平,但 val_02_joint 短板治好)、E2 cluster+skip+pb4 全量
+  (`cluster_500p_skip_pb4_20260930` @3000,~5000 步见平台);
+- **已结束**:v2(per_point 基线,停 @9200,平台化后回退)、B(cluster-origin,
+  10000 跑满,等 iter 落后 + 平台更高)、E2s(方案 C 冒烟,停 @6800);
+- **全 case 对比结论**(cond/joint/漂移四张表):cond 口径 per-point 全胜且大运动
+  case 差距不收敛;joint 口径 case 分化,cluster 在 val_02/04 有固有优势;静态漂移
+  是 cluster 系系统病灶。详见
+  [pointflow_form_comparison_observations_20261001.md](./pointflow_form_comparison_observations_20261001.md);
+- **下一步**:E3(n4000 密集 cluster)一把定胜负 → point 形态定稿 → 切入
+  FK/thwz 实施;dropper 迁移(E5 系列)数据准备可随时起(CPU)。
+  队列与启动命令见 [pointflow_experiment_queue_20260930.md](./pointflow_experiment_queue_20260930.md)。
 
 ## 7. 排障速查
 
@@ -194,17 +208,56 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 
 ## 文档地图
 
+**新来的 agent 推荐阅读顺序**:本页 §0/§6.1 →
+[形态对比观测档案](./pointflow_form_comparison_observations_20261001.md)(最新数据与未解问题)→
+[实验队列](./pointflow_experiment_queue_20260930.md)(在跑什么、怎么起)→
+[主线实验记录](./pointflow_per_point_tokens_20260919.md)(完整历史)→ 按需查专题文档。
+
+### 入口与状态(先读)
+
+| 文档 | 内容 |
+| ---- | ---- |
+| [pointflow_form_comparison_observations_20261001.md](./pointflow_form_comparison_observations_20261001.md) | **形态对比观测档案**:per_point/cluster 四形态全 case 数据(cond/joint/漂移)、架构事实(file:line)、未解问题清单、方案池、数据位置 |
+| [pointflow_experiment_queue_20260930.md](./pointflow_experiment_queue_20260930.md) | **实验队列**:A/B/E1~E5 状态与启动命令、产物路径、sandwich 共享数据产物 |
+| [pointflow_per_point_tokens_20260919.md](./pointflow_per_point_tokens_20260919.md) | 主线实验记录(最长最全):从 300 点验证到 101 集全量的全部结论与误差分析 |
+
+### 操作手册(动手前查)
+
+| 文档 | 内容 |
+| ---- | ---- |
+| [pointflow_data_pipeline.md](./pointflow_data_pipeline.md) | 数据处理操作手册(接新数据必读):转换、manifest、缓存、仿射常数 |
+| [pointflow_multinode_training.md](./pointflow_multinode_training.md) | 多机训练:SenseCore 注入兼容、HSDP 配置、提交命令、排障 |
+| [pointflow_eval_visualization.md](./pointflow_eval_visualization.md) | eval 可视化与 stage viewer:dream canvas 投影规则(544x704 真相) |
+| [pointflow_selection_visualization_20260920.md](./pointflow_selection_visualization_20260920.md) | 选点动态可视化工具用法(gif/mp4,验证训练所见) |
+| [pointflow_window_latent_cache_20260913.md](./pointflow_window_latent_cache_20260913.md) | VAE 窗口 latent 缓存:构建、并发、多卡、注意事项 |
+| [docs/setup.md](./setup.md) / [setup_offline.md](./setup_offline.md) | 在线 / 离线环境安装;sonata 追加依赖见本页 §1 |
+
+### 设计与专题分析
+
+| 文档 | 内容 |
+| ---- | ---- |
+| [pointflow_position_encoding.md](./pointflow_position_encoding.md) | 原三轴(t,h,w)位置与action–point交互规则设计;实际legacy路径见其核查说明 |
+| [pointflow_cluster_decode_20260929.md](./pointflow_cluster_decode_20260929.md) | 簇 token + 点级 decode(skip/pb):方案、实现、env 清单 |
+| [pointflow_ptv3_cosmos_design.md](./pointflow_ptv3_cosmos_design.md) | sonata(PTv3)接入 cosmos 的原始设计 |
+| [pointflow_displacement_scale_20260914.md](./pointflow_displacement_scale_20260914.md) | scale 根因与标定;§14 per-frame scale(逐帧归一化,env 向量) |
+| [pointflow_motion_selection_20260914.md](./pointflow_motion_selection_20260914.md) | 运动选点策略分析(配额、幻影守卫的依据) |
+| [pointworld_implementation_20260929.md](./pointworld_implementation_20260929.md) | PointWorld/EgoWAM 点处理机制调研(外部方案对照) |
+| [pointflow_fit005_analysis_20260914.md](./pointflow_fit005_analysis_20260914.md) | 早期拟合实验(fit005)误差分析 |
+
+### 历史档案(任务实施记录,按需查)
+
+| 文档 | 内容 |
+| ---- | ---- |
+| task1~task8 系列(task1_data_interface … task8_training) | 数据接口/几何/codec/序列注意力/数据源/batch/网络/训练的分步实施记录 |
+| [pointflow_task11_single_gpu_train_eval.md](./pointflow_task11_single_gpu_train_eval.md) / [pointflow_task12_optimizer_freeze_and_metrics.md](./pointflow_task12_optimizer_freeze_and_metrics.md) | 单卡训练 eval 贯通、优化器冻结与指标 |
+| [pointflow_sonata_smoke.md](./pointflow_sonata_smoke.md) / [sonata_environment_validation.md](./sonata_environment_validation.md) | sonata 冒烟与环境验证 |
+| [pointflow_alignment_audit_20260913.md](./pointflow_alignment_audit_20260913.md) | 训练/eval 输入对齐审计 |
+| [pointflow_dense_fullseq_audit.md](./pointflow_dense_fullseq_audit.md) | 密集全序列数据审计 |
+| [pointflow_bugfix_log_20260912.md](./pointflow_bugfix_log_20260912.md) | 早期 bugfix 日志(sigma 解耦、投影等) |
+
+### 仓库通用
+
 | 文档 | 内容 |
 | ---- | ---- |
 | [AGENTS.md](../AGENTS.md) | 仓库总地图(目录结构、命令、规则) |
-| [docs/setup.md](./setup.md) / [setup_offline.md](./setup_offline.md) | 在线 / 离线(内网预下载)环境安装 |
-| [docs/pointflow_data_pipeline.md](./pointflow_data_pipeline.md) | 数据处理操作手册(接新数据必读) |
-| [docs/pointflow_multinode_training.md](./pointflow_multinode_training.md) | 多机训练:SenseCore 注入兼容、HSDP 配置、提交命令、排障 |
-| [docs/pointflow_per_point_tokens_20260919.md](./pointflow_per_point_tokens_20260919.md) | 主线实验记录与结论(最长最全,含 9-30 A/B 对比与误差三分解) |
-| [docs/pointflow_experiment_queue_20260930.md](./pointflow_experiment_queue_20260930.md) | **实验队列**:状态(进行中/等待中/已完成)+ 各实验启动命令 |
-| [docs/pointflow_displacement_scale_20260914.md](./pointflow_displacement_scale_20260914.md) | scale 根因与标定;§14 per-frame scale(逐帧归一化,env 向量) |
-| [docs/pointflow_cluster_decode_20260929.md](./pointflow_cluster_decode_20260929.md) | 簇 token + 点级 decode:方案、实现、env 清单、实验计划 |
-| [docs/pointworld_implementation_20260929.md](./pointworld_implementation_20260929.md) | PointWorld/EgoWAM 点处理机制调研(方案对照) |
-| [docs/pointflow_eval_visualization.md](./pointflow_eval_visualization.md) | eval 可视化与 stage viewer 用法 |
-| [docs/pointflow_position_encoding.md](./pointflow_position_encoding.md) | 位置编码分析((t,h,w,z) 方案) |
-| [docs/training.md](./training.md) / [docs/inference.md](./inference.md) | 通用训练 / 推理 |
+| [docs/training.md](./training.md) / [docs/inference.md](./inference.md) / [docs/faq.md](./faq.md) | 通用训练 / 推理 / 排障 |
