@@ -28,19 +28,24 @@ class _LossRecord:
         self.iter_count = 0
 
     def get_stat(self, return_valid_mask_sum: bool = False) -> Tuple[float, float]:
+        device = (
+            self.loss.device
+            if isinstance(self.loss, torch.Tensor)
+            else ("cuda" if dist.get_backend() == "nccl" else "cpu")
+        )
         if self.iter_count == 0:
-            self.loss = torch.tensor([float("nan")], device="cuda")
+            self.loss = torch.tensor([float("nan")], device=device)
             self.iter_count = 1
         self.loss = self.loss.mean()
         msg_str = f"{self.name}: sum_loss={self.loss.item()}/iter_count={self.iter_count}="
         avg_loss_tensor = self.loss / self.iter_count
         # Create a mask (1 if valid, 0 if NaN or Inf)
-        valid_mask = torch.tensor([torch.isfinite(avg_loss_tensor).float()], device="cuda")
+        valid_mask = torch.tensor([torch.isfinite(avg_loss_tensor).float()], device=device)
         msg_str += f"avg_loss={avg_loss_tensor.item()}, valid_mask={valid_mask.item()}, "
 
         # Replace NaN/Inf with 0 to avoid affecting sum
         avg_loss_tensor = torch.where(
-            torch.isfinite(avg_loss_tensor), avg_loss_tensor, torch.tensor([0.0], device="cuda")
+            torch.isfinite(avg_loss_tensor), avg_loss_tensor, torch.tensor([0.0], device=device)
         )
 
         # Reduce across all ranks
@@ -64,6 +69,19 @@ class _LossRecord:
             return avg_loss, valid_mask_sum
         else:
             return avg_loss
+
+
+def _reduce_loss_records(records: dict[str, _LossRecord]) -> dict[str, float]:
+    """Every rank reduces the same keys in the same order, including absent bins."""
+    keys_by_rank = [None for _ in range(dist.get_world_size())]
+    dist.all_gather_object(keys_by_rank, list(records))
+    keys = sorted(set().union(*keys_by_rank))
+    result = {}
+    for key in keys:
+        # Empty records contribute no valid observation, rather than a zero
+        # that would dilute a sigma bin seen on only some data-parallel ranks.
+        result[key] = records.setdefault(key, _LossRecord()).get_stat()
+    return result
 
 
 class WandbCallback(Callback):
@@ -150,9 +168,7 @@ class WandbCallback(Callback):
         if iteration % (self.config.trainer.logging_iter * self.logging_iter_multipler) == 0:
             avg_final_loss = self.final_loss_log.get_stat()
 
-            avg_final_all_loss = {}
-            for key in self.final_all_loss_log.keys():
-                avg_final_all_loss[key] = self.final_all_loss_log[key].get_stat()
+            avg_final_all_loss = _reduce_loss_records(self.final_all_loss_log)
 
             # Step 1: Gather all dataset names across ranks
             local_dataset_names = list(self.final_loss_log_per_dataset.keys())
