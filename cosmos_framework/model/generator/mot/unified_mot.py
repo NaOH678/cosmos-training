@@ -677,7 +677,24 @@ class PackedAttentionMoT(nn.Module):
         # Only reached when the point payload was labelled pairwise, which happens
         # only while the reference attention is enabled; see
         # pointflow_attention.reference_attention_enabled for why it is opt-in.
-        if getattr(attention_mask, "pointflow_modalities", None) is not None and reference_attention_enabled():
+        if getattr(attention_mask, "local_geometry_partition", None) is not None:
+            from cosmos_framework.model.generator.pointflow_fk_attention import packed_local_attention
+
+            if not self._pointflow_edge or memory_value is not None or self.dispatch_attention_fn != dispatch_attention:
+                raise ValueError("Local geometry attention requires Edge, CP=1 and standard dispatch")
+            packed_attn_output = packed_local_attention(
+                packed_query_states_,
+                packed_key_states_,
+                packed_value_states_,
+                from_und_gen_splits(q_und, q_gen, pack),
+                from_und_gen_splits(k_und, k_gen, pack),
+                packed_cos,
+                packed_sin,
+                attention_mask,
+                normalized_k=packed_key_states_normalized_,
+            )
+            kv_to_store = None
+        elif getattr(attention_mask, "pointflow_modalities", None) is not None and reference_attention_enabled():
             from cosmos_framework.model.generator.pointflow_attention import (
                 pairwise_point_attention,
                 temporal_rotary,

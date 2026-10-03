@@ -52,7 +52,7 @@ def check_points_inside_video_grid(positions, cluster_batch, grids):
     return fraction
 
 
-def video_aligned_point_positions(sequence, inputs, geometry, timing, pixel_stride):
+def video_aligned_point_positions(sequence, inputs, geometry, timing, pixel_stride, *, check_grid=True):
     """Convert actual tracker->video affine to patch centers and reuse video origins."""
     if pixel_stride <= 0 or sequence.vision is None:
         raise ValueError("PointFlow requires a video grid and positive pixel stride")
@@ -96,7 +96,10 @@ def video_aligned_point_positions(sequence, inputs, geometry, timing, pixel_stri
         / timing.fps,
         spatial_origin=torch.stack(spatial),
     )
-    geometry["point_grid_inside_fraction"] = check_points_inside_video_grid(positions, geometry["cluster_batch"], grids)
+    if check_grid:
+        geometry["point_grid_inside_fraction"] = check_points_inside_video_grid(
+            positions, geometry["cluster_batch"], grids
+        )
     return positions
 
 

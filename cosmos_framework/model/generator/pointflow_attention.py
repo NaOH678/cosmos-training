@@ -29,6 +29,8 @@ def reference_attention_enabled():
 
 
 def default_attention_mode():
+    if os.environ.get("POINTFLOW_FK_LOCAL_ROPE", "false").lower() == "true":
+        return "local_pointflow_fk_mrope"
     return "pairwise_point_mrope" if reference_attention_enabled() else "legacy_mrope"
 
 

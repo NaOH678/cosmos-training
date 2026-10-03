@@ -68,7 +68,7 @@ def attach_point_tokens(sequence: PackedSequence, encoded, positions, *, attenti
     Noisy token order within each sample is block-major; gather restores [blocks,K,D].
     """
     attention_mode = attention_mode or default_attention_mode()
-    if attention_mode not in ("legacy_mrope", "pairwise_point_mrope"):
+    if attention_mode not in ("legacy_mrope", "pairwise_point_mrope", "local_pointflow_fk_mrope"):
         raise ValueError("Unknown point attention mode")
     if sequence.point is not None:
         raise ValueError("Point tokens already attached")
@@ -136,6 +136,24 @@ def attach_point_tokens(sequence: PackedSequence, encoded, positions, *, attenti
             spans=spans,
         )
 
+    def carried_tokens(payload):
+        """Re-index an already-attached extra modality through this attach's remap.
+
+        FK and PointFlow can both be present.  Whichever attaches second inserts
+        tokens into every sample, which shifts every later index -- so the payload
+        that is already on the sequence has to be remapped here just like
+        vision/action/sound are.  Without it the earlier modality keeps its
+        pre-attach ``sequence_indexes`` and the model scatters its tokens onto the
+        wrong positions, with no shape error to catch it.
+        """
+        if payload is None:
+            return None
+        return replace(
+            payload,
+            sequence_indexes=remap[payload.sequence_indexes.to(device)],
+            noisy_indexes=remap[payload.noisy_indexes.to(device)],
+        )
+
     return replace(
         sequence,
         sample_lens=lengths,
@@ -147,5 +165,6 @@ def attach_point_tokens(sequence: PackedSequence, encoded, positions, *, attenti
         vision=modality(sequence.vision),
         action=modality(sequence.action),
         sound=modality(sequence.sound),
+        fk=carried_tokens(sequence.fk),
         point=PointTokenPayload(torch.cat(contents), torch.cat(indices), noisy_indices, attention_mode),
     )
