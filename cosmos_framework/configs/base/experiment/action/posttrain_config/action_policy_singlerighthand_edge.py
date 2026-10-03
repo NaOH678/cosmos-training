@@ -268,6 +268,9 @@ action_policy_singlerighthand_edge["trainer"]["callbacks"]["pointflow_eval"] = L
     # diagnostic must not integrate them differently.  comparison_steps gives a second
     # UniPC trajectory to see whether the step count is even the binding constraint.
     max_cases=2,
+    unified_joint="${oc.env:POINTFLOW_FK_UNIFIED_EVAL,false}",
+    val_episodes=1,
+    val_windows=4,
     sampling_steps=4,
     comparison_steps=16,
     seed=42,
@@ -298,6 +301,7 @@ action_policy_singlerighthand_edge["trainer"]["callbacks"]["fk_eval"] = L(FKEval
     # Main fk_eval artifacts now measure joint generation, at the same paths.
     # PointFlow joins automatically when the fixed case carries its payload.
     joint_only=True,
+    reuse_pointflow_joint="${oc.env:POINTFLOW_FK_UNIFIED_EVAL,false}",
     every_n="${oc.env:FK_EVAL_EVERY,1}",
     max_cases="${oc.env:FK_EVAL_CASES,2}",
     # 4 steps, the same solver (UniPC) and the same shift as the video/action path --

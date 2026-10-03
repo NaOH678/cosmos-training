@@ -14,7 +14,6 @@ from cosmos_framework.callbacks.pointflow_eval_cases import evaluation_rng, fixe
 from cosmos_framework.callbacks.pointflow_visualize import (
     point_video_grid_diagnostic,
     render_case,
-    stage_viewer,
     stitch_windows,
     trajectory_metrics,
 )
@@ -256,6 +255,9 @@ class PointFlowEvalCallback(callback.Callback):
         comparison_sampler="euler",
         seed=42,
         val_stage_fractions=(0.2, 0.5, 0.8),
+        unified_joint=False,
+        val_episodes=1,
+        val_windows=4,
         ablate_action=False,
         ablate_modes="",
         joint_rollout=False,
@@ -270,6 +272,10 @@ class PointFlowEvalCallback(callback.Callback):
         # same loop as video/action); the comparison keeps the legacy Euler reference so
         # one eval answers "was the solver the problem" directly.
         self.sampler, self.comparison_sampler = str(sampler), str(comparison_sampler)
+        self.unified_joint = str(unified_joint).lower() == "true"
+        self.val_episodes, self.val_windows = int(val_episodes), int(val_windows)
+        if min(self.val_episodes, self.val_windows) < 1:
+            raise ValueError("val_episodes and val_windows must be positive")
         self.val_stage_fractions = tuple(float(value) for value in val_stage_fractions)
         # `${oc.env:...}` yields a string, so "false" would be truthy without this.
         if str(ablate_action).lower() == "true" if isinstance(ablate_action, str) else bool(ablate_action):
@@ -316,14 +322,28 @@ class PointFlowEvalCallback(callback.Callback):
         with evaluation_rng(self.seed):
             if self._fixed is None:
                 self._fixed = fixed_cases(
-                    self.config, count=self.max_cases, seed=self.seed, val_stage_fractions=self.val_stage_fractions
+                    self.config,
+                    count=self.max_cases,
+                    seed=self.seed,
+                    val_stage_fractions=self.val_stage_fractions,
+                    val_episodes=self.val_episodes,
+                    val_windows=self.val_windows,
                 )
                 if distributed.is_rank0():
                     root = Path(self.config.job.path_local) / "pointflow_eval"
                     root.mkdir(parents=True, exist_ok=True)
-                    temporary = root / "fixed_cases_stages_4windows.tmp.json"
+                    temporary = root / f"fixed_cases_stages_{self.val_windows}windows.tmp.json"
                     temporary.write_text(json.dumps(self._fixed[0], indent=2) + "\n")
-                    temporary.replace(root / "fixed_cases_stages_4windows.json")
+                    temporary.replace(root / f"fixed_cases_stages_{self.val_windows}windows.json")
+            if self.unified_joint:
+                if not self.joint_rollout or self.sampler != "unipc" or self.ablate_modes or self.sigma_scan:
+                    raise ValueError("Unified eval requires UniPC joint rollout without conditional diagnostics")
+                from cosmos_framework.callbacks.joint_pointflow_fk_eval import run_joint_eval
+
+                run_joint_eval(self, model, iteration)
+                self._done = True
+                self._compared = True
+                return
             stage_media = []
             joint_stage_media = []
             dream_stage_media = []
@@ -423,6 +443,7 @@ class PointFlowEvalCallback(callback.Callback):
                             joint_stage_media.append(
                                 dict(
                                     stage=identity["stage"],
+                                    episode=identity["episode"],
                                     video=joint_paths["video"],
                                     start_time=float(times[0]),
                                     end_time=float(times[-1]),
@@ -459,6 +480,7 @@ class PointFlowEvalCallback(callback.Callback):
                                 dream_stage_media.append(
                                     dict(
                                         stage=identity["stage"],
+                                        episode=identity["episode"],
                                         video=dream_paths["video"],
                                         start_time=float(times[0]),
                                         end_time=float(times[-1]),
@@ -469,6 +491,7 @@ class PointFlowEvalCallback(callback.Callback):
                         stage_media.append(
                             dict(
                                 stage=identity["stage"],
+                                episode=identity["episode"],
                                 video=paths["video"],
                                 start_time=float(times[0]),
                                 end_time=float(times[-1]),
@@ -479,40 +502,23 @@ class PointFlowEvalCallback(callback.Callback):
                 del prediction, reference, batch
             if distributed.is_rank0():
                 output = Path(self.config.job.path_local) / "pointflow_eval" / f"step_{iteration:07d}"
-                stitched = []
-                for stage in ("early", "middle", "late"):
-                    clips = [item for item in stage_media if item["stage"] == stage]
-                    video = stitch_windows([item["video"] for item in clips], output / f"{stage}_stitched.mp4")
-                    stitched.append(
-                        dict(
-                            stage=stage,
-                            kind="conditional",
-                            video=video,
-                            label=f"{clips[0]['label']} | full interval "
-                            f"{clips[0]['start_time']:.2f}-{clips[-1]['end_time']:.2f}s | 4 windows",
-                        )
-                    )
-                    for suffix, media in (("joint", joint_stage_media), ("joint_dream", dream_stage_media)):
-                        clips = [item for item in media if item["stage"] == stage]
-                        if not clips:
-                            continue
-                        video = stitch_windows(
-                            [item["video"] for item in clips], output / f"{stage}_stitched_{suffix}.mp4"
-                        )
-                        stitched.append(
-                            dict(
-                                stage=stage,
-                                kind=suffix,
-                                video=video,
-                                label=f"{clips[0]['label']} | {clips[0]['start_time']:.2f}"
-                                f"-{clips[-1]['end_time']:.2f}s | 4 windows",
-                            )
-                        )
-                viewer = stage_viewer(stitched, output / "validation_stages.html")
-                if wandb.run is not None:
-                    wandb.log(
-                        {"pointflow/val_stages": wandb.Html(Path(viewer).read_text(), inject=False)}, step=iteration
-                    )
+                episodes = list(dict.fromkeys(item["episode"] for item in stage_media))
+                for episode in episodes:
+                    # Preserve the MP4 layout; prefix multi-episode stage videos
+                    # to avoid collisions without adding an HTML navigation layer.
+                    prefix = f"{episode}_" if self.val_episodes > 1 else ""
+                    for stage in ("early", "middle", "late"):
+                        for suffix, media in (
+                            ("", stage_media),
+                            ("_joint", joint_stage_media),
+                            ("_joint_dream", dream_stage_media),
+                        ):
+                            clips = [item for item in media if item["stage"] == stage and item["episode"] == episode]
+                            if clips:
+                                stitch_windows(
+                                    [item["video"] for item in clips],
+                                    output / f"{prefix}{stage}_stitched{suffix}.mp4",
+                                )
         self._done = True
         self._compared = True
 
@@ -597,7 +603,7 @@ class PointFlowEvalCallback(callback.Callback):
         )
         (directory / "metrics.json").write_text(json.dumps(metrics, indent=2) + "\n")
         if wandb.run is not None:
-            caption = f"{case_id}: {identity['episode']}; {record['prediction_kind']}; clean GT video/action"
+            caption = f"{case_id}: {identity['episode']}; {record['prediction_kind']}; {record['conditions']}"
             table = wandb.Table(
                 columns=["case", "comparison", "error_map", "position_grid", "video", "ade_mm", "zero_ade_mm"]
             )

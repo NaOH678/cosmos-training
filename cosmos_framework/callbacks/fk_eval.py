@@ -77,6 +77,7 @@ class FKEvalCallback(callback.Callback):
         video_joint_steps=None,
         joint_action=False,
         joint_only=False,
+        reuse_pointflow_joint=False,
         config=None,
         trainer=None,
     ):
@@ -87,6 +88,7 @@ class FKEvalCallback(callback.Callback):
         # Match the deployed solver; retain the legacy Euler comparison only for
         # conditional evaluation.
         self.joint_only = _as_bool(joint_only)
+        self.reuse_pointflow_joint = _as_bool(reuse_pointflow_joint)
         self.sampler = str(sampler)
         # The joint path supports UniPC only. Keep the longer reference rollout,
         # but compare step counts under the same joint conditions, not clean GT.
@@ -128,7 +130,7 @@ class FKEvalCallback(callback.Callback):
         self._done = False
 
     def on_validation_step_end(self, model, data_batch, output_batch, loss, iteration=0):
-        if iteration % self.every_n or self._done:
+        if self.reuse_pointflow_joint or iteration % self.every_n or self._done:
             return
         value = output_batch.get("flow_matching_loss_fk")
         if value is not None and distributed.is_rank0():

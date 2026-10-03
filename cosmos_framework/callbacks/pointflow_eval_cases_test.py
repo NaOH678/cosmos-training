@@ -140,3 +140,28 @@ def test_four_contiguous_windows_per_stage():
         indices = [idx for idx, _ in selected[offset : offset + 4]]
         assert np.diff(indices).tolist() == [32, 32, 32]
         assert indices[0] > 0 and indices[-1] < 499
+
+
+def test_stage_windows_cover_distinct_episodes():
+    class Dataset:
+        def get_shuffle_blocks(self):
+            return [(0, 500), (500, 500), (1000, 500)]
+
+        def __getitem__(self, idx):
+            episode, frame = divmod(idx, 500)
+            return {
+                "pointflow": {
+                    "metadata": {
+                        "episode": str(episode),
+                        "start_frame": frame * 2,
+                        "raw_frame_ids": np.arange(frame * 2, frame * 2 + 65, 2),
+                    },
+                    "inputs": {"point_ids": np.arange(3)},
+                    "targets": {"valid": np.ones((32, 3), bool)},
+                }
+            }
+
+    selected = cases.stage_windows(Dataset(), (0.2, 0.5, 0.8), windows=1, episodes=3)
+    assert [idx for idx, _ in selected] == [100, 250, 399, 600, 750, 899, 1100, 1250, 1399]
+    with pytest.raises(ValueError, match="requested 4"):
+        cases.stage_windows(Dataset(), (0.2, 0.5, 0.8), episodes=4)

@@ -33,8 +33,11 @@ def evaluation_rng(seed):
         np.random.set_state(np_state)
 
 
-def stage_windows(dataset, fractions, windows=1):
-    """Pick early/middle/late legal windows within one labeled episode."""
+def stage_windows(dataset, fractions, windows=1, episodes=1):
+    """Pick early/middle/late windows from distinct labeled episodes."""
+    if windows < 1 or episodes < 1:
+        raise ValueError("windows and episodes must be positive")
+    result, seen = [], set()
     if len(fractions) != 3 or not 0 < fractions[0] < fractions[1] < fractions[2] < 1:
         raise ValueError("Expected three increasing interior validation fractions")
     for start, length in dataset.get_shuffle_blocks():
@@ -67,11 +70,17 @@ def stage_windows(dataset, fractions, windows=1):
                 for left, right in zip(points[offset : offset + windows - 1], points[offset + 1 : offset + windows]):
                     if int(left["metadata"]["raw_frame_ids"][-1]) != int(right["metadata"]["raw_frame_ids"][0]):
                         raise ValueError("Prediction windows are not temporally contiguous")
-            return selected
-    raise ValueError("No labeled episode supports three distinct interior validation windows")
+            episode = str(points[0]["metadata"]["episode"])
+            if episode in seen:
+                continue
+            seen.add(episode)
+            result.extend(selected)
+            if len(seen) == episodes:
+                return result
+    raise ValueError(f"Only {len(seen)} labeled episodes support stage windows; requested {episodes}")
 
 
-def fixed_cases(config, *, count=2, seed=42, val_stage_fractions=None, val_windows=4):
+def fixed_cases(config, *, count=2, seed=42, val_stage_fractions=None, val_windows=4, val_episodes=1):
     """Save selected map indices and identity; verify them when resuming."""
     root = Path(config.job.path_local) / "pointflow_eval"
     manifest = root / (
@@ -94,7 +103,7 @@ def fixed_cases(config, *, count=2, seed=42, val_stage_fractions=None, val_windo
         dataset_cfg.update(iterable_shuffle=False, cfg_dropout_rate=0.0, use_image_augmentation=False)
         dataset = instantiate(dataset_cfg)
         stage_mode = split == "val" and val_stage_fractions is not None
-        expected_count = 3 * val_windows if stage_mode else count
+        expected_count = 3 * val_windows * val_episodes if stage_mode else count
         if len(dataset) < expected_count:
             raise ValueError(f"Not enough {split} windows for fixed PointFlow eval")
         old = [row for row in previous or [] if row["split"] == split]
@@ -103,7 +112,7 @@ def fixed_cases(config, *, count=2, seed=42, val_stage_fractions=None, val_windo
         if old:
             selected = [(row["index"], dataset[row["index"]]) for row in old]
         elif stage_mode:
-            selected = stage_windows(dataset, val_stage_fractions, val_windows)
+            selected = stage_windows(dataset, val_stage_fractions, val_windows, val_episodes)
         else:
             # Bounded GT-only selection: moving window first, then a low-motion
             # window, preferring another episode. Never select using predictions.
@@ -149,9 +158,9 @@ def fixed_cases(config, *, count=2, seed=42, val_stage_fractions=None, val_windo
             identity.update(case_id=f"{split}_{case_index:02d}", seed=case_seed)
             if stage_mode:
                 identity.update(
-                    stage=("early", "middle", "late")[case_index // val_windows],
+                    stage=("early", "middle", "late")[(case_index // val_windows) % 3],
                     window_index=case_index % val_windows,
-                    window_fraction=float(val_stage_fractions[case_index // val_windows]),
+                    window_fraction=float(val_stage_fractions[(case_index // val_windows) % 3]),
                 )
             if old and identity != old[case_index]:
                 raise ValueError("Fixed eval identity changed; use a new output directory")

@@ -214,6 +214,20 @@ def render_case(record, video_path, output_dir, *, max_points=96, width=320, err
         draw(panels[1], pred_uv, pred_xyz_for_draw, step, purple)
         draw(panels[2], gt_uv, gt_xyz_for_draw, step, green)
         draw(panels[2], pred_uv, pred_xyz_for_draw, step, purple)
+        if "fk_pred_uv" in record:
+            from cosmos_framework.callbacks.fk_visualize import EDGES
+
+            for panel, kinds in zip(panels, (("gt",), ("pred",), ("gt", "pred")), strict=True):
+                for kind in kinds:
+                    uv = record[f"fk_{kind}_uv"][step]
+                    mask = record[f"fk_{kind}_valid"][step]
+                    color = (0, 220, 255) if kind == "gt" else (255, 180, 0)
+                    for a, b in EDGES:
+                        if mask[a] and mask[b]:
+                            xy = np.rint(np.clip(uv[[a, b]], -100000, 100000)).astype(int)
+                            accepted, left, right = cv2.clipLine((0, 0, width, height), tuple(xy[0]), tuple(xy[1]))
+                            if accepted:
+                                cv2.line(panel, left, right, color, 1, cv2.LINE_AA)
         titles = ("GT | tracker UV", "Pred | " + str(record.get("prediction_kind", "estimate")), "GT + Pred")
         for panel, title in zip(panels, titles):
             cv2.rectangle(panel, (0, 0), (width, 24), (0, 0, 0), -1)
@@ -321,7 +335,7 @@ def _stage_slider_page(cases):
 <style>body{font:14px sans-serif;margin:12px;background:#171717;color:#eee}
 input{width:100%}.labels{display:flex;justify-content:space-between}section[hidden]{display:none}</style>
 <h3>Validation: early / middle / late</h3>
-<p>Independent windows | GT / Prediction / Overlay | playback 1x | four independent 32-frame windows per stage</p>
+<p>Independent windows | GT / Prediction / Overlay | playback 1x | 32-frame prediction windows; window count shown per stage</p>
 """
         + "\n".join(panels)
         + """
@@ -358,7 +372,7 @@ def _stage_grid_page(cases):
 table{border-collapse:collapse;width:100%}td,th{border:1px solid #333;vertical-align:top;padding:6px}
 .row-label{writing-mode:vertical-rl;text-orientation:middle;white-space:nowrap;width:1em}</style>
 <h3>Validation: early / middle / late, one row per canvas</h3>
-<p>Independent windows | GT / Prediction / Overlay | playback 1x | four independent 32-frame windows per stage</p>
+<p>Independent windows | GT / Prediction / Overlay | playback 1x | 32-frame prediction windows; window count shown per stage</p>
 """
         + f"<table><tr><th></th>{header}</tr>{''.join(rows)}</table>"
     )
