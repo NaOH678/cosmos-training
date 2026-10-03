@@ -17,8 +17,29 @@ video/action 在主循环里联合去噪。
 (一点一 token,500 点)与 **cluster**(sonata 空间池化簇 token + 点级 decode),
 含 per-frame scale 归一化、dream canvas 联合去噪可视化、窗口缓存管线;
 纯 FK 已在相邻 `_mano` 工作区接入,普通 point-FK 四模态已在 `_base` 工作区接入;
-当前 pointflow 分支尚未组合这条 FK 路径。局部 (t,h,w,z) 的方案 A 已完成设计与
-CPU 数学原型,尚未接入训练,见
+当前 `pointflow-fk` worktree 已组合 FK 路径，复用已有 FK 投影，并接入局部四轴
+分组 attention，当前使用纯 Flash2 varlen，局部合并不调用 NATTEN。
+CPU 网络测试、A800 BF16 前向/反向及梯度检查点检查通过；8 卡 FSDP 已分别完成
+eager 两步和 torch.compile 三步训练、DCP 保存、整轮验证及四模态联合生成（均 exit 0）。
+当前启动入口默认开启 Transformer block 的 fullgraph、动态尺寸编译，保留完整梯度检查点。
+已完成局部四轴开关各 30 步对照：8 卡、每卡 batch=16，中位步耗时关闭 5.24 s、开启 6.00 s；
+短 profile 指向索引重排及反向写回的额外开销。关闭组含慢步，均值及测量限制见运行记录；
+尚未测量长时间稳定训练速度。
+后续索引优化的分组版中位耗时为 5.65 s；新增 `POINTFLOW_FK_ATTN_IMPL=lifted160`
+已通过数值、compile 及 8 卡 batch=16 的 30 步训练，但中位耗时 6.26 s，暂未加速，
+默认仍为 `partition`。实现和短测限制见局部四轴文档末节。
+当前分组版合并 Q 置换后的补测也已完成：中位仍为 5.65 s，无明确速度收益；
+分配显存峰值从 47.22 降至 40.26 GiB，每卡 batch=16 正常运行。
+Selective checkpoint 也已验证：仅保存 Flash2 输出可在 batch=16 下跑通，但中位 5.70 s
+未提速；保存全部矩阵乘法加 Flash2 则显存不足。默认保持 full，配置方法见局部四轴文档末节。
+随后直接补测仓库默认 selective（只改 mode，保留 `[fmha]`）：30 步通过，
+中位 6.00 s、分配显存峰值 25.06 GiB，同样未提速。
+另新增按矩阵形状保存 Q/K/V/O、同时保存 Flash2 的 selective 选项，已通过物理 GPU 1
+上的整网冒烟和 8 卡 batch=16 的 30 步测试：中位 5.53 s，分配显存峰值 53.97 GiB，
+本轮平均步耗时比 full 减少约 2.1%。默认仍为 full，启用参数和短测限制见局部四轴文档末节。
+
+几何检查：PointFlow 保留自己的 DA3 内参，FK 沿用已有投影代码；
+已核验各自重投影及进入视频 patch 的像素变换。检查范围和结果详见
 [pointflow_fk_local_mrope_20261002.md](./pointflow_fk_local_mrope_20261002.md)。
 形态对比的全部数据见
 [pointflow_form_comparison_observations_20261001.md](./pointflow_form_comparison_observations_20261001.md),
@@ -238,7 +259,7 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 
 | 文档 | 内容 |
 | ---- | ---- |
-| [pointflow_fk_local_mrope_20261002.md](./pointflow_fk_local_mrope_20261002.md) | **局部四轴 RoPE 方案 A**:共享相机位置、24/16/16/8通道、分组attention与CPU原型验证 |
+| [pointflow_fk_local_mrope_20261002.md](./pointflow_fk_local_mrope_20261002.md) | **局部四轴 RoPE 方案 A**:共享相机位置、24/16/16/8通道、分组attention、FK接入、CPU/GPU验证与投影审计(§7) |
 | [pointflow_position_encoding.md](./pointflow_position_encoding.md) | 原三轴(t,h,w)位置与action–point交互规则设计;实际legacy路径见其核查说明 |
 | [pointflow_cluster_decode_20260929.md](./pointflow_cluster_decode_20260929.md) | 簇 token + 点级 decode(skip/pb):方案、实现、env 清单 |
 | [pointflow_ptv3_cosmos_design.md](./pointflow_ptv3_cosmos_design.md) | sonata(PTv3)接入 cosmos 的原始设计 |

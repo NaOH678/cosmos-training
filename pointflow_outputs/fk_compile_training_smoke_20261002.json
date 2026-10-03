@@ -1,0 +1,29 @@
+{
+  "output_root": "/tmp/pointflow_fk_compile_smoke_20261002",
+  "backend": "flash2_varlen_only",
+  "steps": 3,
+  "activation_checkpointing": "full",
+  "fsdp_shards": 8,
+  "grad_accum_iter": 1,
+  "compile": {
+    "ar_post_saturation_mode": "default",
+    "compile_dynamic": true,
+    "compiled_region": "language",
+    "coordinate_descent_tuning": false,
+    "enabled": true,
+    "max_autotune_pointwise": false,
+    "use_cuda_graphs": false
+  },
+  "training_completed": true,
+  "exit_code": 0,
+  "pointflow_joint_cases": 14,
+  "dream_videos_first_frame_decoded": 17,
+  "fk_cases": 4,
+  "checkpoint": "iter_000000003",
+  "rank0_step_seconds": [
+    115.9,
+    6.2,
+    22.8
+  ],
+  "timing_note": "Step 1 includes startup/compilation; step 3 includes checkpoint save (14.14 s). Not a steady-state throughput benchmark."
+}

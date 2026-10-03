@@ -1,0 +1,37 @@
+{
+  "device": "NVIDIA A800-SXM4-80GB",
+  "dtype": "bfloat16",
+  "seed": 17,
+  "activation_checkpointing": true,
+  "torch_compile": true,
+  "backend": "flash2_varlen_only",
+  "implementation": "lifted160",
+  "cases": [
+    {
+      "tokens": 138,
+      "geometry": 5,
+      "output_max_error": 0.007401875684252879,
+      "gradient_max_error": 0.02242004104068407
+    },
+    {
+      "tokens": 138,
+      "geometry": 0,
+      "output_max_error": 0.0073462587099020205,
+      "gradient_max_error": 0.01965489915810803
+    },
+    {
+      "tokens": 138,
+      "geometry": 138,
+      "output_max_error": 0.002559948492446451,
+      "gradient_max_error": 0.00831813056132047
+    },
+    {
+      "tokens": 138,
+      "geometry": 79,
+      "output_max_error": 0.00704536311829429,
+      "gradient_max_error": 0.024195659222411514
+    }
+  ],
+  "peak_allocated_mib": 66.7822265625,
+  "timing": "Correctness check only; no throughput claim."
+}

@@ -1,0 +1,193 @@
+{
+  "log": "/tmp/pointflow_fk_perf_optimized_20261002.log",
+  "steps": [
+    {
+      "step": 1,
+      "seconds": 110.24
+    },
+    {
+      "step": 2,
+      "seconds": 5.85
+    },
+    {
+      "step": 3,
+      "seconds": 5.72
+    },
+    {
+      "step": 4,
+      "seconds": 5.58
+    },
+    {
+      "step": 5,
+      "seconds": 5.81
+    },
+    {
+      "step": 6,
+      "seconds": 5.7
+    },
+    {
+      "step": 7,
+      "seconds": 5.77
+    },
+    {
+      "step": 8,
+      "seconds": 5.68
+    },
+    {
+      "step": 9,
+      "seconds": 5.63
+    },
+    {
+      "step": 10,
+      "seconds": 5.64
+    },
+    {
+      "step": 11,
+      "seconds": 5.66
+    },
+    {
+      "step": 12,
+      "seconds": 5.6
+    },
+    {
+      "step": 13,
+      "seconds": 5.59
+    },
+    {
+      "step": 14,
+      "seconds": 5.64
+    },
+    {
+      "step": 15,
+      "seconds": 5.6
+    },
+    {
+      "step": 16,
+      "seconds": 5.62
+    },
+    {
+      "step": 17,
+      "seconds": 5.62
+    },
+    {
+      "step": 18,
+      "seconds": 5.63
+    },
+    {
+      "step": 19,
+      "seconds": 5.64
+    },
+    {
+      "step": 20,
+      "seconds": 5.64
+    },
+    {
+      "step": 21,
+      "seconds": 5.68
+    },
+    {
+      "step": 22,
+      "seconds": 5.71
+    },
+    {
+      "step": 23,
+      "seconds": 5.66
+    },
+    {
+      "step": 24,
+      "seconds": 5.67
+    },
+    {
+      "step": 25,
+      "seconds": 5.65
+    },
+    {
+      "step": 26,
+      "seconds": 5.64
+    },
+    {
+      "step": 27,
+      "seconds": 5.64
+    },
+    {
+      "step": 28,
+      "seconds": 5.67
+    },
+    {
+      "step": 29,
+      "seconds": 5.67
+    },
+    {
+      "step": 30,
+      "seconds": 6.57
+    },
+    {
+      "step": 31,
+      "seconds": 6.67
+    },
+    {
+      "step": 32,
+      "seconds": 6.28
+    },
+    {
+      "step": 33,
+      "seconds": 20.31
+    }
+  ],
+  "exit_zero": true,
+  "timing_steps_11_29": {
+    "n": 19,
+    "median": 5.64,
+    "mean": 5.643684210526316,
+    "minimum": 5.59,
+    "maximum": 5.71,
+    "samples_per_second": 22.680220087662036
+  },
+  "step_time_reduction_vs_previous_on_percent": 6.000000000000005,
+  "median_overhead_vs_off_percent": 7.6335877862595325,
+  "memory_gib": {
+    "peak_gpu_mem": {
+      "avg": 47.048318,
+      "max": 47.217808,
+      "min": 46.928208
+    },
+    "peak_gpu_mem_reserved": {
+      "avg": 48.631348,
+      "max": 48.824219,
+      "min": 48.490234
+    },
+    "nvml_used_gpu_mem": {
+      "avg": 50.715637,
+      "max": 50.908508,
+      "min": 50.574524
+    }
+  },
+  "protocol": {
+    "gpus": 8,
+    "batch_per_gpu": 16,
+    "grad_accum_iter": 1,
+    "seed": 42,
+    "in_order": true,
+    "local_rope": true,
+    "compile": true,
+    "activation_checkpointing": "full",
+    "logging_iter": 10,
+    "timed_steps": [
+      11,
+      29
+    ],
+    "memory_step": 30,
+    "profiler_active_steps": [
+      31,
+      32
+    ],
+    "validation": false,
+    "final_step": 33
+  },
+  "caveats": [
+    "Short-run measurement, not long-run throughput.",
+    "Profiler inactive during timed steps 11-29; warmup at step 30 and active on steps 31-32.",
+    "Profile uses later data windows than baseline profile at steps 11-12; kernel durations are indicative rather than an exact paired comparison.",
+    "Original on/off benchmark: pointflow_outputs/fk_local_rope_perf_20261002.json"
+  ]
+}

@@ -1,0 +1,205 @@
+{
+  "log": "/tmp/pointflow_fk_qkvo_sac_8gpu_20261002.log",
+  "steps": [
+    {
+      "step": 1,
+      "seconds": 116.65
+    },
+    {
+      "step": 2,
+      "seconds": 6.78
+    },
+    {
+      "step": 3,
+      "seconds": 5.74
+    },
+    {
+      "step": 4,
+      "seconds": 5.47
+    },
+    {
+      "step": 5,
+      "seconds": 5.6
+    },
+    {
+      "step": 6,
+      "seconds": 5.52
+    },
+    {
+      "step": 7,
+      "seconds": 6.02
+    },
+    {
+      "step": 8,
+      "seconds": 5.5
+    },
+    {
+      "step": 9,
+      "seconds": 5.53
+    },
+    {
+      "step": 10,
+      "seconds": 5.47
+    },
+    {
+      "step": 11,
+      "seconds": 5.53
+    },
+    {
+      "step": 12,
+      "seconds": 5.54
+    },
+    {
+      "step": 13,
+      "seconds": 5.59
+    },
+    {
+      "step": 14,
+      "seconds": 5.47
+    },
+    {
+      "step": 15,
+      "seconds": 5.47
+    },
+    {
+      "step": 16,
+      "seconds": 5.46
+    },
+    {
+      "step": 17,
+      "seconds": 5.47
+    },
+    {
+      "step": 18,
+      "seconds": 5.51
+    },
+    {
+      "step": 19,
+      "seconds": 5.59
+    },
+    {
+      "step": 20,
+      "seconds": 5.54
+    },
+    {
+      "step": 21,
+      "seconds": 5.54
+    },
+    {
+      "step": 22,
+      "seconds": 5.69
+    },
+    {
+      "step": 23,
+      "seconds": 5.55
+    },
+    {
+      "step": 24,
+      "seconds": 5.54
+    },
+    {
+      "step": 25,
+      "seconds": 5.54
+    },
+    {
+      "step": 26,
+      "seconds": 5.52
+    },
+    {
+      "step": 27,
+      "seconds": 5.51
+    },
+    {
+      "step": 28,
+      "seconds": 5.53
+    },
+    {
+      "step": 29,
+      "seconds": 5.52
+    },
+    {
+      "step": 30,
+      "seconds": 5.52
+    }
+  ],
+  "exit_zero": true,
+  "timing_steps_11_29": {
+    "n": 19,
+    "mean": 5.532105263157895,
+    "median": 5.53,
+    "minimum": 5.46,
+    "maximum": 5.69,
+    "global_samples_per_second": 23.137665303015886
+  },
+  "memory": {
+    "peak_gpu_mem_gib": {
+      "avg": 53.771462,
+      "max": 53.97122,
+      "min": 53.626935
+    },
+    "peak_gpu_mem_reserved_gib": {
+      "avg": 55.348145,
+      "max": 55.537109,
+      "min": 55.203125
+    },
+    "nvml_used_gpu_mem_gib": {
+      "avg": 57.420715,
+      "max": 57.60968,
+      "min": 57.275696
+    }
+  },
+  "comparison": {
+    "full_checkpoint_source": "pointflow_outputs/fk_partition_v3_perf_20261002.json",
+    "full_checkpoint": {
+      "n": 19,
+      "mean": 5.6489473684210525,
+      "median": 5.65,
+      "minimum": 5.6,
+      "maximum": 5.71,
+      "global_samples_per_second": 22.65908879157738
+    },
+    "mean_time_change_percent": -2.068387216994305
+  },
+  "protocol": {
+    "gpus": 8,
+    "batch_per_gpu": 16,
+    "global_batch": 128,
+    "grad_accum_iter": 1,
+    "seed": 42,
+    "in_order": true,
+    "local_rope": true,
+    "compile": true,
+    "activation_checkpointing": "selective",
+    "logging_iter": 10,
+    "timed_steps": [
+      11,
+      29
+    ],
+    "memory_step": 30,
+    "validation": false,
+    "final_step": 30,
+    "save_ops_regex": [
+      "_flash_attn.*forward"
+    ],
+    "save_mm_shapes": [
+      [
+        2048,
+        2048
+      ],
+      [
+        2048,
+        1024
+      ]
+    ],
+    "implementation": "partition"
+  },
+  "source_sha256": {
+    "cosmos_framework/model/generator/pointflow_fk_attention.py": "54e5ce1af6e0c2370663a694eac25eedc029258f3643415613ba24dc962fb3fe",
+    "cosmos_framework/model/attention/flash2/two_group.py": "a0de4d96973bcd56f7e39becd107df98cf6c87cb9ed4df69b4dde89aeabe20d8"
+  },
+  "caveats": [
+    "Selective saves Flash2 forward and aten.mm with RHS shapes [2048,2048] or [2048,1024]; MLP projections recompute.",
+    "Short run compared with prior full-checkpoint baseline, not repeated alternating trials.",
+    "No generation quality evaluation."
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "log": "/tmp/pointflow_fk_qkvo_sac_gpu1_20261002.log",
+  "exit_zero": true,
+  "physical_gpu": 1,
+  "cuda_visible_devices": "1",
+  "logical_rank": 0,
+  "batch_per_gpu": 1,
+  "grad_accum_iter": 1,
+  "seed": 42,
+  "compile": true,
+  "local_rope": true,
+  "attention_implementation": "partition",
+  "checkpoint_mode": "selective",
+  "save_ops_regex": [
+    "_flash_attn.*forward"
+  ],
+  "save_mm_shapes": [
+    [
+      2048,
+      2048
+    ],
+    [
+      2048,
+      1024
+    ]
+  ],
+  "steps": [
+    {
+      "step": 1,
+      "loss": 19.9953,
+      "seconds": 83.52
+    },
+    {
+      "step": 2,
+      "loss": 20.7535,
+      "seconds": 0.64
+    },
+    {
+      "step": 3,
+      "loss": 17.0034,
+      "seconds": 2.27
+    }
+  ],
+  "cpu_tests_passed": 3,
+  "limitations": [
+    "Integration smoke only; not a steady-state speed benchmark.",
+    "8-GPU batch=16 capacity and throughput not tested."
+  ],
+  "memory": {
+    "peak_gpu_mem_gib": {
+      "avg": 39.831857,
+      "max": 39.831857,
+      "min": 39.831857
+    },
+    "peak_gpu_mem_reserved_gib": {
+      "avg": 40.587891,
+      "max": 40.587891,
+      "min": 40.587891
+    }
+  },
+  "source_sha256": {
+    "cosmos_framework/model/generator/mot/parallelize_unified_mot.py": "927afc4369681bb4c9c3c555b6dea1f3b0a83752d0b5631d1f11a6f38ebb119a",
+    "cosmos_framework/configs/base/defaults/activation_checkpointing.py": "b673885fb59375e5fe1fed88e1b9dedd5619c8e521cc911ac98a50b37bbf3d12"
+  },
+  "excluded_nvml_reading": {
+    "raw": {
+      "avg": 0.749268,
+      "max": 0.749268,
+      "min": 0.749268
+    },
+    "reason": "device_monitor.py:106 indexes NVML by LOCAL_RANK, ignoring CUDA_VISIBLE_DEVICES remapping. This reading is not GPU 1 memory; use PyTorch peak counters above."
+  }
+}

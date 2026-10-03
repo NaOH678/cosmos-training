@@ -1,0 +1,199 @@
+{
+  "log": "/tmp/pointflow_fk_partition_sac_flash_perf_20261002.log",
+  "steps": [
+    {
+      "step": 1,
+      "seconds": 117.63
+    },
+    {
+      "step": 2,
+      "seconds": 6.17
+    },
+    {
+      "step": 3,
+      "seconds": 5.76
+    },
+    {
+      "step": 4,
+      "seconds": 5.53
+    },
+    {
+      "step": 5,
+      "seconds": 5.72
+    },
+    {
+      "step": 6,
+      "seconds": 5.72
+    },
+    {
+      "step": 7,
+      "seconds": 5.77
+    },
+    {
+      "step": 8,
+      "seconds": 5.68
+    },
+    {
+      "step": 9,
+      "seconds": 5.68
+    },
+    {
+      "step": 10,
+      "seconds": 5.7
+    },
+    {
+      "step": 11,
+      "seconds": 5.76
+    },
+    {
+      "step": 12,
+      "seconds": 5.64
+    },
+    {
+      "step": 13,
+      "seconds": 5.65
+    },
+    {
+      "step": 14,
+      "seconds": 5.68
+    },
+    {
+      "step": 15,
+      "seconds": 5.64
+    },
+    {
+      "step": 16,
+      "seconds": 5.64
+    },
+    {
+      "step": 17,
+      "seconds": 5.64
+    },
+    {
+      "step": 18,
+      "seconds": 5.76
+    },
+    {
+      "step": 19,
+      "seconds": 5.67
+    },
+    {
+      "step": 20,
+      "seconds": 5.72
+    },
+    {
+      "step": 21,
+      "seconds": 5.88
+    },
+    {
+      "step": 22,
+      "seconds": 5.71
+    },
+    {
+      "step": 23,
+      "seconds": 5.69
+    },
+    {
+      "step": 24,
+      "seconds": 5.7
+    },
+    {
+      "step": 25,
+      "seconds": 5.71
+    },
+    {
+      "step": 26,
+      "seconds": 5.71
+    },
+    {
+      "step": 27,
+      "seconds": 5.69
+    },
+    {
+      "step": 28,
+      "seconds": 5.73
+    },
+    {
+      "step": 29,
+      "seconds": 5.71
+    },
+    {
+      "step": 30,
+      "seconds": 5.75
+    }
+  ],
+  "exit_zero": true,
+  "timing_steps_11_29": {
+    "n": 19,
+    "mean": 5.701578947368421,
+    "median": 5.7,
+    "minimum": 5.64,
+    "maximum": 5.88,
+    "global_samples_per_second": 22.449921536047263
+  },
+  "memory": {
+    "peak_gpu_mem_gib": {
+      "avg": 32.97646,
+      "max": 33.079848,
+      "min": 32.897062
+    },
+    "peak_gpu_mem_reserved_gib": {
+      "avg": 34.9646,
+      "max": 35.673828,
+      "min": 34.597656
+    },
+    "nvml_used_gpu_mem_gib": {
+      "avg": 37.03717,
+      "max": 37.746399,
+      "min": 36.670227
+    }
+  },
+  "comparison": {
+    "full_checkpoint_source": "pointflow_outputs/fk_partition_v3_perf_20261002.json",
+    "full_checkpoint": {
+      "n": 19,
+      "mean": 5.6489473684210525,
+      "median": 5.65,
+      "minimum": 5.6,
+      "maximum": 5.71,
+      "global_samples_per_second": 22.65908879157738
+    },
+    "mean_time_reduction_percent": -0.9317059536010364
+  },
+  "protocol": {
+    "gpus": 8,
+    "batch_per_gpu": 16,
+    "global_batch": 128,
+    "grad_accum_iter": 1,
+    "seed": 42,
+    "in_order": true,
+    "local_rope": true,
+    "implementation": "partition",
+    "compile": true,
+    "activation_checkpointing": "selective",
+    "save_ops_regex": [
+      "_flash_attn.*forward"
+    ],
+    "logging_iter": 10,
+    "timed_steps": [
+      11,
+      29
+    ],
+    "memory_step": 30,
+    "validation": false,
+    "final_step": 30
+  },
+  "failed_policy": {
+    "save_ops_regex": [
+      "mm",
+      "_flash_attn.*forward"
+    ],
+    "batch_per_gpu": 16,
+    "result": "CUDA out of memory before completing first step; about 78.1 GiB allocated by PyTorch",
+    "log": "/tmp/pointflow_fk_partition_sac_perf_20261002.log"
+  },
+  "caveats": [
+    "Short training run, not a long-run throughput or generation quality evaluation.",
+    "Uses same configuration as preceding full-checkpoint run except checkpoint policy; baseline is not rerun."
+  ]
+}

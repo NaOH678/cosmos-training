@@ -1,0 +1,396 @@
+{
+  "off": {
+    "log": "/tmp/pointflow_fk_perf_rope_off_20261002.log",
+    "local_rope": false,
+    "steps": [
+      {
+        "step": 1,
+        "seconds": 84.83
+      },
+      {
+        "step": 2,
+        "seconds": 5.29
+      },
+      {
+        "step": 3,
+        "seconds": 5.25
+      },
+      {
+        "step": 4,
+        "seconds": 5.17
+      },
+      {
+        "step": 5,
+        "seconds": 5.21
+      },
+      {
+        "step": 6,
+        "seconds": 5.25
+      },
+      {
+        "step": 7,
+        "seconds": 5.29
+      },
+      {
+        "step": 8,
+        "seconds": 5.24
+      },
+      {
+        "step": 9,
+        "seconds": 5.2
+      },
+      {
+        "step": 10,
+        "seconds": 5.2
+      },
+      {
+        "step": 11,
+        "seconds": 5.25
+      },
+      {
+        "step": 12,
+        "seconds": 5.19
+      },
+      {
+        "step": 13,
+        "seconds": 5.21
+      },
+      {
+        "step": 14,
+        "seconds": 5.27
+      },
+      {
+        "step": 15,
+        "seconds": 5.19
+      },
+      {
+        "step": 16,
+        "seconds": 5.19
+      },
+      {
+        "step": 17,
+        "seconds": 5.2
+      },
+      {
+        "step": 18,
+        "seconds": 5.18
+      },
+      {
+        "step": 19,
+        "seconds": 5.21
+      },
+      {
+        "step": 20,
+        "seconds": 5.24
+      },
+      {
+        "step": 21,
+        "seconds": 5.28
+      },
+      {
+        "step": 22,
+        "seconds": 5.28
+      },
+      {
+        "step": 23,
+        "seconds": 6.6
+      },
+      {
+        "step": 24,
+        "seconds": 10.97
+      },
+      {
+        "step": 25,
+        "seconds": 11.94
+      },
+      {
+        "step": 26,
+        "seconds": 6.08
+      },
+      {
+        "step": 27,
+        "seconds": 5.2
+      },
+      {
+        "step": 28,
+        "seconds": 5.29
+      },
+      {
+        "step": 29,
+        "seconds": 5.24
+      },
+      {
+        "step": 30,
+        "seconds": 5.27
+      }
+    ],
+    "memory": {
+      "peak_gpu_mem_gib": {
+        "avg": 32.057189,
+        "max": 32.132213,
+        "min": 32.004143
+      },
+      "peak_gpu_mem_reserved_gib": {
+        "avg": 33.634277,
+        "max": 33.804688,
+        "min": 33.53125
+      },
+      "nvml_used_gpu_mem_gib": {
+        "avg": 35.706848,
+        "max": 35.877258,
+        "min": 35.603821
+      }
+    },
+    "exit_zero": true,
+    "timing_steps_11_29": {
+      "n": 19,
+      "mean": 6.0005263157894735,
+      "median": 5.24,
+      "minimum": 5.18,
+      "maximum": 11.94,
+      "global_samples_per_second": 21.331462152442768
+    },
+    "cpu_region_timers": [
+      {
+        "timer/encoding_480p": 0.018260608673095702,
+        "iteration": 0,
+        "_step": 0,
+        "timer/encoding": 0.018260608673095702
+      },
+      {
+        "timer/optimizer_step": 0.4864379644393921,
+        "timer/forward": 6.648804926872254,
+        "_step": 10,
+        "timer/backward": 3.2419562578201293,
+        "iteration": 10,
+        "timer/dataloader_train": 0.004029464721679687
+      },
+      {
+        "_step": 20,
+        "timer/forward": 1.717183494567871,
+        "timer/optimizer_step": 0.4099846601486206,
+        "timer/backward": 3.0633237838745115,
+        "timer/dataloader_train": 0.004765105247497558,
+        "iteration": 20
+      },
+      {
+        "timer/dataloader_train": 0.0050402402877807615,
+        "_step": 30,
+        "timer/forward": 2.300440049171448,
+        "iteration": 30,
+        "timer/backward": 3.858066725730896,
+        "timer/optimizer_step": 0.5281943321228028
+      }
+    ]
+  },
+  "on": {
+    "log": "/tmp/pointflow_fk_perf_rope_on_20261002.log",
+    "local_rope": true,
+    "steps": [
+      {
+        "step": 1,
+        "seconds": 92.1
+      },
+      {
+        "step": 2,
+        "seconds": 6.15
+      },
+      {
+        "step": 3,
+        "seconds": 6.02
+      },
+      {
+        "step": 4,
+        "seconds": 5.92
+      },
+      {
+        "step": 5,
+        "seconds": 6.03
+      },
+      {
+        "step": 6,
+        "seconds": 5.98
+      },
+      {
+        "step": 7,
+        "seconds": 5.96
+      },
+      {
+        "step": 8,
+        "seconds": 5.99
+      },
+      {
+        "step": 9,
+        "seconds": 5.99
+      },
+      {
+        "step": 10,
+        "seconds": 5.98
+      },
+      {
+        "step": 11,
+        "seconds": 6.0
+      },
+      {
+        "step": 12,
+        "seconds": 5.94
+      },
+      {
+        "step": 13,
+        "seconds": 5.94
+      },
+      {
+        "step": 14,
+        "seconds": 5.98
+      },
+      {
+        "step": 15,
+        "seconds": 6.0
+      },
+      {
+        "step": 16,
+        "seconds": 5.94
+      },
+      {
+        "step": 17,
+        "seconds": 6.0
+      },
+      {
+        "step": 18,
+        "seconds": 5.94
+      },
+      {
+        "step": 19,
+        "seconds": 6.04
+      },
+      {
+        "step": 20,
+        "seconds": 5.98
+      },
+      {
+        "step": 21,
+        "seconds": 6.01
+      },
+      {
+        "step": 22,
+        "seconds": 6.05
+      },
+      {
+        "step": 23,
+        "seconds": 6.02
+      },
+      {
+        "step": 24,
+        "seconds": 6.02
+      },
+      {
+        "step": 25,
+        "seconds": 5.99
+      },
+      {
+        "step": 26,
+        "seconds": 5.99
+      },
+      {
+        "step": 27,
+        "seconds": 5.97
+      },
+      {
+        "step": 28,
+        "seconds": 6.04
+      },
+      {
+        "step": 29,
+        "seconds": 6.04
+      },
+      {
+        "step": 30,
+        "seconds": 6.02
+      }
+    ],
+    "memory": {
+      "peak_gpu_mem_gib": {
+        "avg": 32.059268,
+        "max": 32.134305,
+        "min": 32.006212
+      },
+      "peak_gpu_mem_reserved_gib": {
+        "avg": 34.487549,
+        "max": 34.855469,
+        "min": 34.328125
+      },
+      "nvml_used_gpu_mem_gib": {
+        "avg": 36.56012,
+        "max": 36.92804,
+        "min": 36.400696
+      }
+    },
+    "exit_zero": true,
+    "timing_steps_11_29": {
+      "n": 19,
+      "mean": 5.99421052631579,
+      "median": 6.0,
+      "minimum": 5.94,
+      "maximum": 6.05,
+      "global_samples_per_second": 21.353938010360874
+    },
+    "cpu_region_timers": [
+      {
+        "timer/encoding": 0.01469257640838623,
+        "timer/encoding_480p": 0.01469257640838623,
+        "_step": 0,
+        "iteration": 0
+      },
+      {
+        "timer/backward": 4.03586642742157,
+        "timer/dataloader_train": 0.004280447959899902,
+        "timer/optimizer_step": 0.22126972675323486,
+        "_step": 10,
+        "iteration": 10,
+        "timer/forward": 7.440701675415039
+      },
+      {
+        "timer/dataloader_train": 0.004794478416442871,
+        "timer/backward": 3.9311469078063963,
+        "timer/forward": 1.8355483770370484,
+        "timer/optimizer_step": 0.18751063346862792,
+        "_step": 20,
+        "iteration": 20
+      },
+      {
+        "_step": 30,
+        "timer/forward": 1.8461395263671876,
+        "timer/dataloader_train": 0.004396224021911621,
+        "timer/optimizer_step": 0.18696057796478271,
+        "iteration": 30,
+        "timer/backward": 3.9592019081115724
+      }
+    ]
+  },
+  "protocol": {
+    "gpus": 8,
+    "batch_per_gpu": 16,
+    "grad_accum_iter": 1,
+    "seed": 42,
+    "in_order": true,
+    "compile": true,
+    "activation_checkpointing": "full",
+    "train_steps": 30,
+    "validation": false,
+    "timing_window": [
+      11,
+      29
+    ],
+    "memory": "DeviceMonitor cumulative training peak through step 30, before final checkpoint; GiB",
+    "logging_iter": 10
+  },
+  "mean_overhead_percent": -0.1052539250942841,
+  "median_overhead_percent": 14.50381679389312,
+  "caveats": [
+    "Off steps 23-26 took 6.60, 10.97, 11.94, 6.08 seconds; cause not established. All retained in mean.",
+    "19 timed steps per run; median describes typical step, not demonstrated long-run throughput.",
+    "Memory is cumulative training peak from startup through step 30; device maxima can come from different GPUs.",
+    "Identical seeds and ordered loading; no claim of bitwise identical RNG streams or trajectories.",
+    "Region timers are CPU wall-clock scopes, not independent synchronized GPU timings; asynchronous work may cross region boundaries."
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "output_root": "/tmp/pointflow_fk_flash2_smoke_v2_20261002",
+  "backend": "flash2_varlen_only",
+  "steps": 2,
+  "activation_checkpointing": "full",
+  "fsdp_shards": 8,
+  "grad_accum_iter": 1,
+  "compile": false,
+  "training_completed": true,
+  "exit_code": 0,
+  "pointflow_joint_cases": 14,
+  "dream_videos_first_frame_decoded": 17,
+  "fk_cases": 4,
+  "checkpoint": "iter_000000002"
+}

@@ -1,0 +1,204 @@
+{
+  "log": "/tmp/pointflow_fk_partition_v3_perf_20261002.log",
+  "implementation": "partition",
+  "optimization": "Gather all Q groups through one permutation; inverse permutation in backward",
+  "steps": [
+    {
+      "step": 1,
+      "seconds": 95.45
+    },
+    {
+      "step": 2,
+      "seconds": 6.29
+    },
+    {
+      "step": 3,
+      "seconds": 5.64
+    },
+    {
+      "step": 4,
+      "seconds": 5.6
+    },
+    {
+      "step": 5,
+      "seconds": 5.84
+    },
+    {
+      "step": 6,
+      "seconds": 5.64
+    },
+    {
+      "step": 7,
+      "seconds": 5.75
+    },
+    {
+      "step": 8,
+      "seconds": 5.64
+    },
+    {
+      "step": 9,
+      "seconds": 5.64
+    },
+    {
+      "step": 10,
+      "seconds": 5.63
+    },
+    {
+      "step": 11,
+      "seconds": 5.67
+    },
+    {
+      "step": 12,
+      "seconds": 5.61
+    },
+    {
+      "step": 13,
+      "seconds": 5.62
+    },
+    {
+      "step": 14,
+      "seconds": 5.68
+    },
+    {
+      "step": 15,
+      "seconds": 5.6
+    },
+    {
+      "step": 16,
+      "seconds": 5.62
+    },
+    {
+      "step": 17,
+      "seconds": 5.62
+    },
+    {
+      "step": 18,
+      "seconds": 5.63
+    },
+    {
+      "step": 19,
+      "seconds": 5.65
+    },
+    {
+      "step": 20,
+      "seconds": 5.63
+    },
+    {
+      "step": 21,
+      "seconds": 5.65
+    },
+    {
+      "step": 22,
+      "seconds": 5.67
+    },
+    {
+      "step": 23,
+      "seconds": 5.68
+    },
+    {
+      "step": 24,
+      "seconds": 5.64
+    },
+    {
+      "step": 25,
+      "seconds": 5.64
+    },
+    {
+      "step": 26,
+      "seconds": 5.71
+    },
+    {
+      "step": 27,
+      "seconds": 5.66
+    },
+    {
+      "step": 28,
+      "seconds": 5.7
+    },
+    {
+      "step": 29,
+      "seconds": 5.65
+    },
+    {
+      "step": 30,
+      "seconds": 5.71
+    }
+  ],
+  "exit_zero": true,
+  "timing_steps_11_29": {
+    "n": 19,
+    "mean": 5.6489473684210525,
+    "median": 5.65,
+    "minimum": 5.6,
+    "maximum": 5.71,
+    "global_samples_per_second": 22.65908879157738
+  },
+  "memory": {
+    "peak_gpu_mem_gib": {
+      "avg": 40.117449,
+      "max": 40.255463,
+      "min": 40.019685
+    },
+    "peak_gpu_mem_reserved_gib": {
+      "avg": 41.701172,
+      "max": 41.832031,
+      "min": 41.576172
+    },
+    "nvml_used_gpu_mem_gib": {
+      "avg": 43.773743,
+      "max": 43.904602,
+      "min": 43.648743
+    }
+  },
+  "comparison": {
+    "previous_source": "pointflow_outputs/fk_local_rope_optimized_v2_perf_20261002.json",
+    "previous_partition": {
+      "n": 19,
+      "median": 5.65,
+      "mean": 5.644210526315789,
+      "minimum": 5.57,
+      "maximum": 5.71,
+      "samples_per_second": 22.6781051846326
+    },
+    "mean_time_change_vs_previous_percent": 0.08392390898919189,
+    "median_time_change_vs_previous_percent": 0.0,
+    "base_source": "pointflow_outputs/fk_local_rope_perf_20261002.json",
+    "base_no_local_rope": {
+      "n": 19,
+      "mean": 6.0005263157894735,
+      "median": 5.24,
+      "minimum": 5.18,
+      "maximum": 11.94,
+      "global_samples_per_second": 21.331462152442768
+    },
+    "median_overhead_vs_base_percent": 7.82442748091603
+  },
+  "protocol": {
+    "gpus": 8,
+    "batch_per_gpu": 16,
+    "global_batch": 128,
+    "grad_accum_iter": 1,
+    "seed": 42,
+    "in_order": true,
+    "local_rope": true,
+    "compile": true,
+    "activation_checkpointing": "full",
+    "logging_iter": 10,
+    "timed_steps": [
+      11,
+      29
+    ],
+    "memory_step": 30,
+    "validation": false,
+    "final_step": 30
+  },
+  "source_sha256": {
+    "cosmos_framework/model/generator/pointflow_fk_attention.py": "54e5ce1af6e0c2370663a694eac25eedc029258f3643415613ba24dc962fb3fe",
+    "cosmos_framework/model/attention/flash2/two_group.py": "a0de4d96973bcd56f7e39becd107df98cf6c87cb9ed4df69b4dde89aeabe20d8"
+  },
+  "caveats": [
+    "Short-run measurement; reuses prior baseline runs, not repeated alternating trials.",
+    "Earlier optimized partition baseline had profiling after the timing window; this run has no profiler.",
+    "Base run contains slow steps; its mean is not representative of its typical step time."
+  ]
+}
