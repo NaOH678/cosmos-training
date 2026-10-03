@@ -1,0 +1,41 @@
+{
+  "output_root": "/tmp/dropper_mix71_fk_localrope_8gpu_eval_smoke_20261002",
+  "validation_seconds": 366,
+  "train_steps": 5,
+  "rank0_training": [
+    [
+      "1",
+      "19.5056",
+      "453.48"
+    ],
+    [
+      "2",
+      "19.4397",
+      "5.90"
+    ],
+    [
+      "3",
+      "18.8168",
+      "5.46"
+    ],
+    [
+      "4",
+      "19.6472",
+      "5.44"
+    ],
+    [
+      "5",
+      "19.1643",
+      "5.41"
+    ]
+  ],
+  "pf_metrics": 46,
+  "val_joint_dream_videos": 21,
+  "stage_joint_dream_videos": 21,
+  "fk_metrics": 4,
+  "html_files": 0,
+  "training_done": true,
+  "traceback": false,
+  "exit_code": 0,
+  "timing_note": "Step 1 callback time includes startup eval and compile; steps 2-5 are short smoke timings, not a throughput benchmark."
+}

@@ -1,0 +1,37 @@
+{
+  "output_root": "/tmp/dropper_mix71_fk_unified_eval_8gpu_v2_20261002",
+  "cases": 23,
+  "validation_episodes": 7,
+  "shared_arrays_exact": true,
+  "pf_metrics": 23,
+  "fk_metrics": 23,
+  "val_joint_dream_videos": 21,
+  "html_files": 0,
+  "joint_sampling_log_calls": 23,
+  "legacy_fk_sampling_log_calls": 0,
+  "conditional_pf_sampling_calls": 0,
+  "training_done": true,
+  "traceback": false,
+  "rank0_training": [
+    [
+      "1",
+      "19.5054",
+      "284.76"
+    ],
+    [
+      "2",
+      "19.4399",
+      "5.89"
+    ],
+    [
+      "3",
+      "18.8165",
+      "5.40"
+    ]
+  ],
+  "exit_code": 0,
+  "validation_seconds": 196,
+  "previous_separate_validation_seconds": 366,
+  "timing_note": "Single startup eval comparison, includes initialization; not a stable throughput benchmark.",
+  "initial_failed_attempt": "/tmp/dropper_mix71_fk_unified_eval_8gpu_20261002: missing writer.config, fixed and regression-tested before rerun"
+}

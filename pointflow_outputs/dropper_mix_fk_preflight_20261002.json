@@ -1,0 +1,136 @@
+{
+  "episodes": 71,
+  "arm_action_space": "joint",
+  "pointflow_scale_pooled": 0.03749266422413415,
+  "scan_windows": 18176,
+  "samples": [
+    {
+      "split": "train",
+      "windows": 61966,
+      "episodes": 64,
+      "shapes": {
+        "video": [
+          3,
+          33,
+          716,
+          544
+        ],
+        "action": [
+          33,
+          27
+        ],
+        "conditioning_fps": [],
+        "domain_id": [],
+        "raw_frame_ids": [
+          33
+        ],
+        "action_frame_ids": [
+          32
+        ],
+        "timestamps_sec": [
+          33
+        ],
+        "vae_latent_cache": [
+          1,
+          48,
+          9,
+          46,
+          34
+        ]
+      },
+      "keys": [
+        "ai_caption",
+        "video",
+        "action",
+        "conditioning_fps",
+        "mode",
+        "domain_id",
+        "viewpoint",
+        "additional_view_description",
+        "episode_name",
+        "raw_frame_ids",
+        "action_frame_ids",
+        "timestamps_sec",
+        "pointflow",
+        "fk",
+        "vae_latent_cache"
+      ]
+    },
+    {
+      "split": "val",
+      "windows": 6278,
+      "episodes": 7,
+      "shapes": {
+        "video": [
+          3,
+          33,
+          716,
+          544
+        ],
+        "action": [
+          33,
+          27
+        ],
+        "conditioning_fps": [],
+        "domain_id": [],
+        "raw_frame_ids": [
+          33
+        ],
+        "action_frame_ids": [
+          32
+        ],
+        "timestamps_sec": [
+          33
+        ],
+        "vae_latent_cache": [
+          1,
+          48,
+          9,
+          46,
+          34
+        ]
+      },
+      "keys": [
+        "ai_caption",
+        "video",
+        "action",
+        "conditioning_fps",
+        "mode",
+        "domain_id",
+        "viewpoint",
+        "additional_view_description",
+        "episode_name",
+        "raw_frame_ids",
+        "action_frame_ids",
+        "timestamps_sec",
+        "pointflow",
+        "fk",
+        "vae_latent_cache"
+      ]
+    }
+  ],
+  "missing": [],
+  "vae_config": {
+    "schema_version": 1,
+    "fps": 15.0,
+    "chunk_length": 32,
+    "sample_stride": 1,
+    "resolution": "480",
+    "storage": "bfloat16_bits_in_uint16",
+    "vae": "/data/shichaojian/models/cosmos3-edge-droid/vae/Wan2.2_VAE.pth"
+  },
+  "split_val_ratio": 0.1,
+  "fk_scale_scan": {
+    "episodes": 71,
+    "elements": 137579904,
+    "per_element_std_m": 0.043357,
+    "scope": "all 71 episodes, not train-only"
+  },
+  "visualization_preflight": {
+    "validation_episodes": 7,
+    "validation_windows": 21,
+    "windows_per_stage": 1,
+    "cpu_selection": "passed on actual dataset",
+    "gpu_generation": "not run for new coverage"
+  }
+}
