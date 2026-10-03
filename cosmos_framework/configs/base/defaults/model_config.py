@@ -74,6 +74,39 @@ class RectifiedFlowTrainingConfig:
     # default is 10.0 to align with previous training settings.
     pointflow_loss_weight: float = 1.0
     pointflow_displacement_scale: float = 1.0  # meters per model unit; fixed train/inference scale
+    fk_loss_weight: float = 1.0
+    # Metres per model unit; fixed train/inference scale.  This default is NOT a
+    # working value: it leaves the clean target in metres while the RF noise is
+    # unit-variance, so the branch trains almost entirely on the noise term.  Every
+    # experiment must set it to the per-element std of its own displacement data
+    # (tools/scan_fk_displacement_scale.py), the same way the PointFlow config sets
+    # pointflow_displacement_scale.
+    fk_displacement_scale: float = 1.0
+    # What "error" means in the FK loss: "mse" (the original), "charbonnier"
+    # (smooth L1) or "l1".  ADE, the metric this model is judged by, is an L1
+    # quantity, so MSE training optimises a different functional than the one
+    # being reported.  The MSE value is logged either way as
+    # ``train/fk_mse_loss`` so the two are comparable.  See
+    # ``fk_training._objective_error``.
+    #
+    # The motivation is *not* established.  Measured on -7@4000, pred/gt falls
+    # from 1.19 to 0.83 as the true displacement grows -- the regression-to-the-
+    # mean shape a conditional-mean estimator produces when the conditioning is
+    # ambiguous.  But MSE is only one of the candidate causes, and the sibling
+    # PointFlow line rules it out as sufficient: it uses the identical
+    # ``.square().mean(-1)`` (``pointflow_training.py:66``), also predicts
+    # anchor-relative displacement (``pointflow_window.py:255``), and carries a
+    # near-identical displacement scale (0.0740) -- yet on its own artifacts
+    # pred/gt runs the *other* way, 1.20 -> 15.11 over magnitude bins.  Do not
+    # switch to charbonnier/l1 expecting the compression to go
+    # away; the discriminating measurement is in
+    # ``callbacks/fk_sampler_probe.py::_shrinkage_vs_sigma``.
+    fk_loss_objective: str = "mse"
+    # Crossover of the Charbonnier penalty, in model-space squared-error units.
+    # Behaviour is L2 below it and L1 above it; the per-keypoint RMS error at the
+    # start of training is ~0.13, so the default keeps almost everything in the
+    # L1 regime, which is the point of switching.
+    fk_charbonnier_eps: float = 0.01
     action_loss_weight: float = 10.0
 
     # Independent noise schedule for action. When False (default), action shares the sigma
@@ -81,6 +114,15 @@ class RectifiedFlowTrainingConfig:
     # its own sigma from `rectified_flow_action` using `shift_action`. Action always uses a
     # shared scalar sigma per sample ([B,1]), independent of vision's DF mode.
     independent_action_schedule: bool = False
+    # Sample FK's sigma independently of the video's instead of sharing one per sample.
+    # Training pairs a noised video with an FK state at the *same* sigma, so the model
+    # can learn the shortcut "the video is clean, therefore sigma is ~0, therefore the
+    # answer is the input unchanged" -- and that shortcut is exactly what the eval's
+    # condition (clean video + FK from pure noise) triggers, which is why the sampled
+    # trajectory collapses onto the initial noise.  Drawing FK's sigma separately keeps
+    # the marginal identical but puts that condition back inside the training
+    # distribution.  See docs/fk_modality_design.md 6.9.
+    independent_fk_schedule: bool = False
     shift_action: int | None = None  # must be int; None → inherit `shift` (which must also be int)
 
     # Independent noise schedule for sound. When False (default), sound shares the vision

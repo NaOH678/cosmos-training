@@ -11,6 +11,7 @@ from transformers.modeling_utils import PreTrainedModel
 
 from cosmos_framework.data.generator.sequence_packing import ModalityData, PackedSequence
 from cosmos_framework.data.generator.sequence_packing.natten import verify_natten_parameter_list
+from cosmos_framework.model.generator.fk_sequence import attach_fk_tokens, fk_positions
 from cosmos_framework.model.generator.mot.attention import SplitInfo, build_packed_sequence
 from cosmos_framework.model.generator.mot.context_parallel_utils import (
     get_context_parallel_last_hidden_state,
@@ -168,6 +169,40 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         self.config = config
         self.parallel_dims = None
         self.pointflow_branch = None
+        self.fk_branch = None
+
+    def install_local_geometry_rope(
+        self, *, depth_min=0.125, depth_max=4.0, rho0=1.0, rho_scale=1.0, implementation="partition"
+    ):
+        from cosmos_framework.model.generator.pointflow_attention import reference_attention_enabled
+        from cosmos_framework.utils import log
+
+        if (
+            self.head_dim != 128
+            or list(self.language_model.config.mrope_section) != [24, 20, 20]
+            or self.config.joint_attn_implementation != "two_way"
+            or self.video_temporal_causal
+            or reference_attention_enabled()
+        ):
+            raise ValueError("Local geometry RoPE requires Edge 128/[24,20,20], two-way and no reference attention")
+        if not (0 < depth_min <= depth_max and rho_scale > 0):
+            raise ValueError("Invalid depth frequencies or inverse-depth scale")
+        if implementation not in {"partition", "lifted160"}:
+            raise ValueError(f"Unknown local geometry attention implementation: {implementation}")
+        device = next(self.parameters()).device
+        self.register_buffer(
+            "local_depth_frequencies", torch.logspace(math.log10(depth_min), math.log10(depth_max), 8, device=device)
+        )
+        self.register_buffer("local_depth_normalization", torch.tensor([rho0, rho_scale], device=device))
+        self.config.local_geometry_rope = dict(
+            depth_min=depth_min,
+            depth_max=depth_max,
+            rho0=rho0,
+            rho_scale=rho_scale,
+            fixed_anchor=True,
+            implementation=implementation,
+        )
+        log.info(f"Local geometry RoPE installed: implementation={implementation}")
 
     def install_pointflow(
         self,
@@ -220,6 +255,58 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             f"PointFlow branch installed: token_mode={token_mode}, stage={stage}, "
             f"freeze_geometry={freeze_geometry}, geometry_dim={codec.geometry_projection.in_features}, "
             f"geometry_motion_fusion={codec.geometry_motion_fusion}"
+        )
+
+    def install_fk(
+        self, *, timing, hidden_dim=None, keypoints=21, index_dim=64, content_dim=256, decoder_dim=256, xyz_scale=1.0
+    ):
+        """Install after base materialization/loading, before optimizer/FSDP construction.
+
+        The FK counterpart of ``install_pointflow``, minus the checkpoint: FK's
+        encoder is learned from scratch (there is no pretrained keypoint backbone
+        to lose), so this only has to happen before FSDP wraps the parameters.
+        """
+        from cosmos_framework.model.generator.fk_branch import FKBranch
+
+        if self.fk_branch is not None:
+            raise ValueError("FK branch is already installed")
+        parameter = next(self.parameters())
+        if parameter.is_meta:
+            raise ValueError("Install FK on a materialized network")
+        # The temporal axis is the only thing FK takes from the video timeline, so
+        # these have to agree before any of it means anything.  Same preconditions
+        # the PointFlow branch checks, for the same reason.
+        if (
+            self.config.joint_attn_implementation != "two_way"
+            or self.video_temporal_causal
+            or not self.config.enable_fps_modulation
+            or self.config.base_fps != 24
+            or self.config.temporal_compression_factor_vision != 4
+            or timing.steps_per_token != 4
+        ):
+            raise ValueError("FK requires two-way, FPS modulation, base_fps=24 and temporal compression=4")
+        self.fk_branch = FKBranch(
+            timing=timing,
+            hidden_dim=hidden_dim or self.hidden_size,
+            keypoints=keypoints,
+            index_dim=index_dim,
+            content_dim=content_dim,
+            decoder_dim=decoder_dim,
+            xyz_scale=xyz_scale,
+        ).to(device=parameter.device)
+        self.fk_branch.to(dtype=parameter.dtype)
+        self.fk_branch.train(self.training)
+        from cosmos_framework.utils import log
+
+        # The pointflow branch logs its install; this one did not, and the new-cluster
+        # checklist asks the operator to see BOTH lines per rank.  A gate that can fail
+        # without saying so is the failure mode this line removes -- and the dtype is on
+        # it deliberately: ``.to(dtype=...)`` runs AFTER ``.to(device)``, and a branch
+        # whose parameters missed that cast fails only at the first forward.
+        log.info(
+            f"FK branch installed: keypoints={keypoints}, include_anchor={self.fk_branch.include_anchor}, "
+            f"index_dim={index_dim}, hidden_dim={self.fk_branch.hidden_dim}, "
+            f"dtype={next(self.fk_branch.parameters()).dtype}"
         )
 
     def init_weights(self, buffer_device: torch.device | None):
@@ -952,6 +1039,8 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         video_temporal_causal: bool | None = None,
         pointflow_displacement: torch.Tensor | None = None,
         pointflow_sigma: torch.Tensor | None = None,
+        fk_displacement: torch.Tensor | None = None,
+        fk_sigma: torch.Tensor | None = None,
     ) -> dict:
         """
         Forward pass for Cosmos3VFMNetwork.
@@ -981,6 +1070,46 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         # This is intentional for proper batch norm / dropout behavior
         # assert self.training, "Cosmos3VFMNetwork only supports training mode"
 
+        fk_seen = packed_seq.fk is not None or packed_seq.fk_data is not None
+        if fk_seen and (
+            self.config.joint_attn_implementation != "two_way"
+            or (self.video_temporal_causal if video_temporal_causal is None else video_temporal_causal)
+            or memory is not None
+            or packed_seq.control_weights is not None
+            or (self.parallel_dims is not None and self.parallel_dims.cp_enabled)
+            or self.pad_for_cuda_graphs
+        ):
+            raise ValueError("FK tokens require CP=1 two-way, no temporal causal/memory/controls/CUDA graphs")
+
+        if packed_seq.fk_data is not None:
+            if self.fk_branch is None:
+                raise ValueError("FK data supplied but no FK branch is installed")
+            if fk_displacement is None or fk_sigma is None:
+                raise ValueError("Supply explicit noisy FK displacement and sigma; never use GT by default")
+            encoded = self.fk_branch.encode(packed_seq.fk_data, fk_displacement, fk_sigma)
+            if "anchor_uv" in packed_seq.fk_data.inputs:
+                from cosmos_framework.model.generator.pointflow_branch import video_aligned_point_positions
+
+                if packed_seq.pointflow_data is None:
+                    raise ValueError("Projected FK requires PointFlow canvas metadata")
+                fk_geometry = {
+                    "cluster_uv": packed_seq.fk_data.inputs["anchor_uv"],
+                    "cluster_batch": packed_seq.fk_data.inputs["point_batch"],
+                }
+                positions = video_aligned_point_positions(
+                    packed_seq,
+                    packed_seq.pointflow_data.inputs,
+                    fk_geometry,
+                    self.fk_branch.timing,
+                    self.latent_downsample,
+                    check_grid=False,
+                )
+            else:
+                positions = fk_positions(packed_seq, packed_seq.fk_data.inputs["point_batch"], self.fk_branch.timing)
+            packed_seq = attach_fk_tokens(packed_seq, encoded, positions)
+        elif fk_displacement is not None or fk_sigma is not None:
+            raise ValueError("FK state supplied without FK inputs")
+
         pointflow_geometry = None
         if packed_seq.point is not None or packed_seq.pointflow_data is not None:
             if (
@@ -1008,6 +1137,11 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             raise ValueError("PointFlow state supplied without PointFlow inputs")
 
         packed_sequence, target_dtype = self._encode_text(packed_seq)  # packed_sequence: [N_total,hidden_size]
+
+        if packed_seq.fk is not None:
+            packed_sequence[packed_seq.fk.sequence_indexes] = packed_seq.fk.tokens.to(
+                device=packed_sequence.device, dtype=target_dtype
+            )
 
         if packed_seq.point is not None:
             packed_sequence[packed_seq.point.sequence_indexes] = packed_seq.point.tokens.to(
@@ -1046,6 +1180,8 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             all_gen_indexes.append(packed_seq.action.sequence_indexes)
         if packed_seq.sound is not None and isinstance(packed_seq.sound.sequence_indexes, torch.Tensor):
             all_gen_indexes.append(packed_seq.sound.sequence_indexes)
+        if packed_seq.fk is not None:
+            all_gen_indexes.append(packed_seq.fk.sequence_indexes)
         if packed_seq.point is not None:
             all_gen_indexes.append(packed_seq.point.sequence_indexes)
         vision_sequence_indexes = torch.cat(all_gen_indexes, dim=0) if all_gen_indexes else None  # [N_gen_tokens]
@@ -1117,6 +1253,56 @@ class Cosmos3VFMNetwork(PreTrainedModel):
                 modalities[packed_seq.action.sequence_indexes] = 1
             modalities[packed_seq.point.sequence_indexes] = 2
             attention_meta.pointflow_modalities = modalities
+
+        if hasattr(self, "local_depth_frequencies"):
+            from cosmos_framework.model.generator.pointflow_fk_attention import make_partition
+
+            if (
+                sequence_shard_world_size != 1
+                or memory is not None
+                or self.pad_for_cuda_graphs
+                or packed_seq.control_weights is not None
+                or packed_seq.null_action_supertokens
+                or packed_seq.attn_modes != ["causal", "full"] * len(packed_seq.sample_lens)
+            ):
+                raise ValueError("Local geometry RoPE requires CP=1, two-way, no memory/control/null-action/cudagraph")
+            if packed_seq.point is None or packed_seq.fk is None or "anchor_uv" not in packed_seq.fk_data.inputs:
+                raise ValueError("Local geometry RoPE requires projected FK and PointFlow payloads")
+            if not self.pointflow_branch.codec.include_anchor or not self.fk_branch.include_anchor:
+                raise ValueError("Local geometry RoPE currently requires anchor tokens")
+            indexes, depths = [], []
+            for payload, xyz in (
+                (packed_seq.point, pointflow_geometry["cluster_xyz"]),
+                (packed_seq.fk, packed_seq.fk_data.inputs["anchor_xyz"]),
+            ):
+                z = xyz[:, 2].float()
+                if not torch.isfinite(z).all() or (z <= 0).any():
+                    raise ValueError("Local geometry RoPE requires finite positive anchor camera Z")
+                # noisy_indexes retains [block, original point/cluster] order even
+                # after the other modality remaps the packed sequence.
+                ids = payload.noisy_indexes
+                anchor_ids = ids[0] - xyz.shape[0]  # overwritten sample-wise below
+                # Anchor tokens immediately precede block 0 within each sample.
+                counts = (
+                    pointflow_geometry["cluster_offsets"]
+                    if payload is packed_seq.point
+                    else packed_seq.fk_data.inputs["point_offsets"]
+                )
+                start = 0
+                for end in counts.tolist():
+                    anchor_ids[start:end] = ids[0, start:end] - (end - start)
+                    start = end
+                indexes.append(torch.cat((anchor_ids[None], ids)).flatten())
+                rho = (z.reciprocal() - self.local_depth_normalization[0]) / self.local_depth_normalization[1]
+                depths.append(rho[None].expand(ids.shape[0] + 1, -1).flatten())
+            attention_meta.local_geometry_partition = make_partition(
+                packed_seq.sample_lens, packed_seq.split_lens, torch.cat(indexes), torch.cat(depths)
+            )
+            attention_meta.local_depth_frequencies = self.local_depth_frequencies
+            attention_meta.local_geometry_implementation = self.config.local_geometry_rope.get(
+                "implementation", "partition"
+            )
+            packed_seq.point.attention_mode = "local_pointflow_fk_mrope"
 
         # ── Multi-control transfer: annotate SplitInfo with per-item ranges ──────
         # Activated only when packed_seq carries control_weights, i.e. the caller
@@ -1199,6 +1385,18 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             )
             output_dict["pointflow_cluster_offsets"] = pointflow_geometry["cluster_offsets"]
             output_dict["pointflow_point_offsets"] = pointflow_geometry["point_offsets"]
+        if packed_seq.fk is not None:
+            output_dict["fk_hidden"] = packed_seq.fk.hidden(last_hidden_state)
+
+        if packed_seq.fk_data is not None:
+            output_dict["preds_fk"] = self.fk_branch.decode(
+                output_dict["fk_hidden"],
+                fk_displacement,
+                fk_sigma,
+                packed_seq.fk_data.inputs["point_batch"],
+                len(packed_seq.fk_data.labeled),
+            )
+            output_dict["fk_point_offsets"] = packed_seq.fk_data.inputs["point_offsets"]
 
         # decode vision tokens
         if self.config.vision_gen:

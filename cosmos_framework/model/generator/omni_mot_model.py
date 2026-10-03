@@ -355,6 +355,28 @@ class OmniMoTModel(ImaginaireModel):
                             f"{frames[0]:.4f}..{frames[-1]:.4f} m/model-unit) override the scalar {scale}; "
                             "checkpoints are tied to this vector"
                         )
+                if os.environ.get("POINTFLOW_FK_LOCAL_ROPE", "false").lower() == "true":
+                    net.install_local_geometry_rope(
+                        implementation=os.environ.get("POINTFLOW_FK_ATTN_IMPL", "partition")
+                    )
+
+                # FK is opt-in and independent of the PointFlow switch: v1 trains
+                # it alone, so the two gates must not imply each other.
+                if os.environ.get("FK_ENCODER_CHECKPOINT", "").lower() in {"1", "true", "yes", "on"}:
+                    from cosmos_framework.data.fk_window import FKTiming
+
+                    net.install_fk(
+                        timing=FKTiming(
+                            fps=float(os.environ.get("FK_FPS", "15")),
+                            steps=int(os.environ.get("FK_STEPS", "32")),
+                            steps_per_token=int(os.environ.get("FK_STEPS_PER_TOKEN", "4")),
+                        ),
+                        keypoints=int(os.environ.get("FK_KEYPOINTS", "21")),
+                        index_dim=int(os.environ.get("FK_INDEX_DIM", "64")),
+                        content_dim=int(os.environ.get("FK_CONTENT_DIM", "256")),
+                        decoder_dim=int(os.environ.get("FK_DECODER_DIM", "256")),
+                        xyz_scale=float(os.environ.get("FK_XYZ_SCALE", "1.0")),
+                    )
 
         return net
 
@@ -1013,6 +1035,16 @@ class OmniMoTModel(ImaginaireModel):
         else:
             timesteps_sound, sigmas_sound = (None, None)
 
+        # Optional independent FK schedule: a fresh draw from the same vision sampler
+        # keeps the marginal identical to the shared-sigma case but decouples the FK
+        # tokens from the video's noise level, so "clean video + noisy FK" -- the
+        # conditional-fit evaluation condition -- occurs in training.
+        sigmas_fk = None
+        if rf_cfg.independent_fk_schedule and gen_data_clean.fk is not None:
+            sigmas_fk = self._get_train_noise_level_fk(
+                batch_size=gen_data_clean.batch_size, iteration=iteration
+            )  # [B,1]
+
         # Broadcast timesteps/sigmas across CP group to ensure consistency
         if self.parallel_dims is not None and self.parallel_dims.cp_enabled:
             src_rank = 0  # use cp rank 0 to broadcast timesteps/sigmas
@@ -1113,6 +1145,7 @@ class OmniMoTModel(ImaginaireModel):
                 sigmas_action=sigmas_action,
                 sigmas_sound=sigmas_sound,
                 sigmas_pointflow=sigmas_pointflow,
+                sigmas_fk=sigmas_fk,
                 iteration=iteration,
             )
             self._replace_clean_with_noised(packed_sequence, gen_data_noised)
@@ -1404,6 +1437,23 @@ class OmniMoTModel(ImaginaireModel):
                 # First gradient of the point head, i.e. the start of its backward sweep.
                 out_net["preds_pointflow"].register_hook(lambda _grad: mark_pointflow_boundary("head"))
 
+        if data_batch_packed.fk_data is not None:
+            from cosmos_framework.model.generator.fk_training import fk_loss
+
+            if gen_data_noised.fk is None or "preds_fk" not in out_net:
+                raise ValueError("FK labels require a noised state and network prediction")
+            fm_fk, fk_metrics = fk_loss(
+                out_net["preds_fk"],
+                gen_data_noised.fk,
+                data_batch_packed.fk_data,
+                scale=rf_cfg.fk_displacement_scale,
+                objective=rf_cfg.fk_loss_objective,
+                charbonnier_eps=rf_cfg.fk_charbonnier_eps,
+            )
+            total_loss += fm_fk * rf_cfg.fk_loss_weight
+            losses_dict["flow_matching_loss_fk"] = fm_fk
+            losses_dict.update(fk_metrics)
+
         if self.config.sound_gen:
             if data_batch_packed.sound is not None:
                 assert isinstance(data_batch_packed.sound.condition_mask, list), (
@@ -1633,6 +1683,26 @@ class OmniMoTModel(ImaginaireModel):
         timesteps = sigmas * max_timestep  # [B,1]
         return timesteps, sigmas
 
+    def _get_train_noise_level_fk(self, batch_size: int, iteration: int | None = None) -> torch.Tensor:
+        """Sample FK sigmas of shape ``[batch_size, 1]`` from the vision RF sampler.
+
+        Same train-time distribution and resolution shift as the vision sigma, so the
+        marginal over sigma is unchanged; only the coupling to the sample's *video*
+        sigma is removed.
+        """
+        rf_cfg = self.config.rectified_flow_training_config
+        shift_config = rf_cfg.shift
+        if isinstance(shift_config, int):
+            shift_val = float(shift_config)
+        else:
+            shift_val = float(dict(shift_config)[self.config.resolution])
+        shifts = torch.full((batch_size,), shift_val, dtype=torch.float32)
+        return (
+            self.rectified_flow_video.sample_train_time(batch_size, iteration=iteration, shifts=shifts)
+            .to(**self.tensor_kwargs_fp32)
+            .unsqueeze(1)
+        )  # [B,1]
+
     def _get_train_noise_level_sound(self, batch_size: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Sample ``(timesteps, sigmas)`` of shape ``[batch_size, 1]`` from ``rectified_flow_sound``.
 
@@ -1694,6 +1764,7 @@ class OmniMoTModel(ImaginaireModel):
         sigmas_action: torch.Tensor | None = None,
         sigmas_sound: torch.Tensor | None = None,
         sigmas_pointflow: torch.Tensor | None = None,
+        sigmas_fk: torch.Tensor | None = None,
         iteration: int | None = None,
     ) -> GenerationDataNoised:
         """
@@ -1892,9 +1963,23 @@ class OmniMoTModel(ImaginaireModel):
                 )
 
         # create the GenerationDataNoised object
+        fk_noised = None
+        if gen_data_clean.fk is not None:
+            from cosmos_framework.model.generator.fk_training import fk_add_noise
+
+            if self.parallel_dims is not None and self.parallel_dims.cp_enabled:
+                raise ValueError("FK training currently requires CP=1")
+            fk_noised = fk_add_noise(
+                gen_data_clean.fk,
+                sigmas if sigmas_fk is None else sigmas_fk,
+                scale=self.config.rectified_flow_training_config.fk_displacement_scale,
+                generator=noise_gen,
+            )
+
         gen_data_noised = GenerationDataNoised(
             batch_size=gen_data_clean.batch_size,
             pointflow=pointflow_noised,
+            fk=fk_noised,
             # vision
             epsilon_vision=epsilon_vision,
             xt_tokens_vision=xt_vision,
@@ -1922,6 +2007,7 @@ class OmniMoTModel(ImaginaireModel):
     ) -> None:
         """Replace packed clean tokens with noised tokens."""
         packed_sequence.pointflow_noised = gen_data_noised.pointflow
+        packed_sequence.fk_noised = gen_data_noised.fk
         if packed_sequence.vision is not None:
             packed_sequence.vision.tokens = gen_data_noised.xt_tokens_vision
         if packed_sequence.action is not None and gen_data_noised.xt_tokens_action is not None:
@@ -2016,9 +2102,15 @@ class OmniMoTModel(ImaginaireModel):
                   initial_noise, where 1 keeps condition_reference values fixed
                 - has_noisy_actions: True when the packed sequence marks action
                   tokens as denoising targets. Determines whether the flattened
-                  noise layout is [vision | action | sound] or [vision | sound];
+                  noise layout is [vision | action ...] or [vision ...];
                   callers must thread it to _get_velocity so both sides split the
                   flat state identically.
+
+        The flattened layout is
+        ``[vision | action | sound | pointflow | FK]``, each middle segment present
+        only when its modality is.  FK is last; PointFlow sits between action and FK
+        and is therefore no longer the trailing segment.  PointFlow and FK are each
+        sized from their own payload's per-sample ``point_spans``.
         """
         # 1. Build sequence plans (same as training)
         sequence_plans = build_sequence_plans_from_data_batch(
@@ -2035,9 +2127,9 @@ class OmniMoTModel(ImaginaireModel):
         # is encoded instead of the whole clip).
         vision_condition_indexes = [plan.condition_frame_indexes_vision for plan in sequence_plans]
         gen_data_clean = self.get_data_and_condition(data_batch, vision_condition_indexes=vision_condition_indexes)
-        if gen_data_clean.pointflow is not None:
-            from dataclasses import replace
+        from dataclasses import replace
 
+        if gen_data_clean.pointflow is not None:
             # Never let GT future displacement/validity ride into inference packing:
             # the branch input is anchor geometry only.  Mirrors sample_pointflow.
             gen_data_clean.pointflow = replace(
@@ -2045,6 +2137,17 @@ class OmniMoTModel(ImaginaireModel):
                 displacement=torch.zeros_like(gen_data_clean.pointflow.displacement),
                 valid=torch.zeros_like(gen_data_clean.pointflow.valid),
                 labeled=torch.zeros_like(gen_data_clean.pointflow.labeled),
+            )
+        if gen_data_clean.fk is not None:
+            # Same rule for FK.  Its branch reads ``fk_noised`` for the state and the
+            # payload only for anchors, so the GT would not leak into the forward --
+            # but the labels have no business in an inference pack either, and the
+            # eval-side path (_fk_fitting_context) already zeroes them.
+            gen_data_clean.fk = replace(
+                gen_data_clean.fk,
+                displacement=torch.zeros_like(gen_data_clean.fk.displacement),
+                valid=torch.zeros_like(gen_data_clean.fk.valid),
+                labeled=torch.zeros_like(gen_data_clean.fk.labeled),
             )
 
         num_items_per_sample = gen_data_clean.num_vision_items_per_sample  # None for standard T2I/T2V
@@ -2081,13 +2184,24 @@ class OmniMoTModel(ImaginaireModel):
 
         # For image2image, num_items_per_sample could be > 1 (multi-vision),
         # so we need to repeat the seed for each vision item.
-        seed_dict = {"vision": [], "action": [], "sound": [], "pointflow": []}
+        from cosmos_framework.model.generator.fk_sampling import MODALITY_SEED_STRIDE
+
+        # FK gets a stream of its own, offset by MODALITY_SEED_STRIDE.  The other four
+        # share ``seed[sample_idx]`` here, and they keep it: changing a seed changes
+        # every existing deployment's output bit-for-bit, which is not a thing this
+        # change is entitled to do.  FK is new to this path, so it starts on the
+        # footing the FK branch was built with -- ``arch_invariant_rand`` is a
+        # ``RandomState`` keyed by the seed alone, so a shared seed hands two
+        # modalities the same leading values, which is exactly the coupling
+        # ``_seed_action_from_noise`` and friends exist to avoid.
+        seed_dict = {"vision": [], "action": [], "sound": [], "pointflow": [], "fk": []}
         for sample_idx in range(n_sample):
             num_vision_items = num_items_per_sample[sample_idx] if num_items_per_sample is not None else 1
             seed_dict["vision"].extend([seed[sample_idx]] * num_vision_items)
             seed_dict["action"].append(seed[sample_idx])
             seed_dict["sound"].append(seed[sample_idx])
             seed_dict["pointflow"].append(seed[sample_idx])
+            seed_dict["fk"].append(seed[sample_idx] + MODALITY_SEED_STRIDE)
 
         # Generate noise and apply conditioning per vision item (supports variable shapes).
         # Noise and the conditioning blend are kept in fp32 so the sampler accumulates
@@ -2187,8 +2301,34 @@ class OmniMoTModel(ImaginaireModel):
                     )
                 )
 
-        # 8. Concatenate vision, action, and sound noise per sample (flattened)
-        # Order: [vision | action (if present) | sound (if present)]
+        # 7c. FK noise: the same story as PointFlow -- the anchor rides *inside* every
+        # FK token rather than as separate frozen tokens, so the whole [H, sum(N), 3]
+        # state is a denoising target and there is no condition mask to blend against.
+        # Ragged per sample via the FK payload's own point_spans.
+        noise_fk_list: list[torch.Tensor] | None = None
+        fk = gen_data_clean.fk
+        if fk is not None and len(fk.inputs["point_ids"]):
+            noise_fk_list = []
+            fk_horizon = fk.displacement.shape[0]
+            for i in range(n_sample):
+                start, end = fk.point_spans[i].tolist()
+                noise_fk_list.append(
+                    misc.arch_invariant_rand(
+                        (fk_horizon, end - start, 3),
+                        self.tensor_kwargs_fp32["dtype"],
+                        self.tensor_kwargs_fp32["device"],
+                        seed_dict["fk"][i],
+                    )
+                )
+
+        # 8. Concatenate vision, action, sound, PointFlow and FK noise per sample
+        # (flattened).
+        # Order: [vision | action (if present) | sound (if present) | pointflow
+        # (if present) | FK (if present)] -- FK is LAST (merge doc §D3), and every
+        # reader of the flat vector has to agree on that or a segment gets read as
+        # its neighbour.  The four readers are this loop, _get_velocity's offset
+        # walk, _get_velocity's velocity reassembly, and
+        # generate_samples_from_batch's result split.
         # noise_action_list and noise_sound_list are dense (only modality-having samples),
         # so we use separate indexes.
         initial_noise: list[torch.Tensor] = []
@@ -2198,6 +2338,7 @@ class OmniMoTModel(ImaginaireModel):
         idx_action = 0
         idx_sound = 0
         idx_point = 0
+        idx_fk = 0
 
         for i in range(n_sample):
             parts = []
@@ -2260,9 +2401,36 @@ class OmniMoTModel(ImaginaireModel):
                 condition_mask_parts.append(zeros.reshape(-1))
                 idx_point += 1
 
+            if noise_fk_list is not None:
+                # FK is last, and like PointFlow it is entirely a denoising target --
+                # there is no conditioning step inside its state to freeze, so
+                # reference and mask are both zero.
+                fk_noise = noise_fk_list[idx_fk]
+                parts.append(fk_noise.reshape(-1))
+                zeros = torch.zeros_like(fk_noise)
+                condition_reference_parts.append(zeros.reshape(-1))
+                condition_mask_parts.append(zeros.reshape(-1))
+                idx_fk += 1
+
             initial_noise.append(torch.cat(parts, dim=0))  # [N_tokens_flat]
             condition_reference.append(torch.cat(condition_reference_parts, dim=0))  # [N_tokens_flat]
             condition_mask.append(torch.cat(condition_mask_parts, dim=0))  # [N_tokens_flat]
+
+        # Say what the flat vector actually is.  Every segment is present only if its
+        # payload arrived, so a modality that quietly failed to load takes the narrower
+        # layout and the sampler still returns plausible latents -- the output cannot
+        # tell the two apart.  Same reasoning as the line _fk_fitting_context logs.
+        if distributed.is_rank0():
+            present = ["vision"]
+            if has_noisy_actions:
+                present.append("action")
+            if has_sound:
+                present.append("sound")
+            if noise_pointflow_list is not None:
+                present.append("pointflow")
+            if noise_fk_list is not None:
+                present.append("FK")
+            log.info(f"inference flat vector: [{' | '.join(present)}], {initial_noise[0].numel()} elements (sample 0)")
 
         return (
             sequence_plans,
@@ -2284,6 +2452,11 @@ class OmniMoTModel(ImaginaireModel):
         if gen_data_clean.pointflow is not None and bool(gen_data_clean.pointflow.has_point.any()):
             # The template path does not thread the point state (see _get_velocity);
             # joint PointFlow sampling always takes the full re-pack path.
+            return False
+        if gen_data_clean.fk is not None and len(gen_data_clean.fk.inputs["point_ids"]):
+            # Same for FK: _update_inference_pack_template carries vision/action/sound
+            # only, so the template's FK payload would reach the network with no
+            # fk_noised beside it and trip "never use GT by default".  Full re-pack.
             return False
         if gen_data_clean.num_vision_items_per_sample is not None:
             return False
@@ -2411,18 +2584,23 @@ class OmniMoTModel(ImaginaireModel):
         has_sound = self.config.sound_gen and any(plan.has_sound for plan in sequence_plans)
 
         # Split flattened noise_x into vision, action, and sound parts per sample
-        # Order must match _prepare_inference_data: [vision | action (if present) | sound (if present) | pointflow (if present)]
+        # Order must match _prepare_inference_data:
+        # [vision | action (if present) | sound (if present) | pointflow (if present) | FK (if present)]
         noise_x_vision: list[torch.Tensor] = []
         noise_x_action: list[torch.Tensor] | None = [] if has_noisy_actions else None
         noise_x_sound: list[torch.Tensor] | None = [] if has_sound else None
         pointflow = gen_data_clean.pointflow
         has_pointflow = pointflow is not None and bool(pointflow.has_point.any())
+        fk = gen_data_clean.fk
+        has_fk = fk is not None and len(fk.inputs["point_ids"]) > 0
 
         vision_offset = 0  # tracks position in the flat x0_tokens_vision list
         idx_action = 0
         idx_sound = 0
         idx_point = 0
+        idx_fk = 0
         noise_x_pointflow: list[torch.Tensor] = []
+        noise_x_fk: list[torch.Tensor] = []
         for i in range(n_samples):
             n_vis = num_items[i] if num_items is not None else 1
             offset = 0
@@ -2434,7 +2612,16 @@ class OmniMoTModel(ImaginaireModel):
                 offset += vision_dim
             vision_offset += n_vis
 
-            if has_noisy_actions and noise_x_action is not None:
+            # The per-sample plan check is not decoration: this is the READ side of the
+            # flat vector that _prepare_inference_data BUILDS, and the builder emits an
+            # action segment only for a plan that has one (see its own
+            # ``sequence_plans[i].has_action``).  Without the check, a sample with no
+            # action would take its action segment out of whatever follows it, shifting
+            # every later offset by that much.  Sound, four lines below, already reads
+            # per-sample; action was the only modality that did not.  Homogeneous
+            # batches hide it -- ``has_noisy_actions`` is global, so it and the plan
+            # flag agree there -- which is why this survived.
+            if has_noisy_actions and noise_x_action is not None and sequence_plans[i].has_action:
                 assert gen_data_clean.x0_tokens_action is not None
                 action_shape = gen_data_clean.x0_tokens_action[idx_action].shape
                 action_dim = int(torch.prod(torch.tensor(action_shape)))
@@ -2453,13 +2640,25 @@ class OmniMoTModel(ImaginaireModel):
                 offset += sound_dim
                 idx_sound += 1
 
-            # Pointflow is the trailing segment: [H, N_i, 3] per sample.
+            # PointFlow: [H, N_i, 3] per sample, sliced by its OWN span.  This used to
+            # be ``[offset:]`` -- "Pointflow is the trailing segment" -- which stopped
+            # being true when FK was appended behind it (merge doc §D3): an unbounded
+            # tail slice would hand FK's bytes to the PointFlow branch, and the
+            # velocity side would reassemble to a flat vector of the wrong length.
             if has_pointflow and sequence_plans[i].has_point:
                 start, end = pointflow.point_spans[i].tolist()
                 point_dim = pointflow.displacement.shape[0] * (end - start) * 3
                 noise_x_pointflow.append(noise_x[i][offset : offset + point_dim])
                 offset += point_dim
                 idx_point += 1
+
+            # FK is the trailing segment now: [H, N_i, 3] per sample, its own span.
+            if has_fk:
+                fk_start, fk_end = fk.point_spans[i].tolist()
+                fk_dim = fk.displacement.shape[0] * (fk_end - fk_start) * 3
+                noise_x_fk.append(noise_x[i][offset : offset + fk_dim])
+                offset += fk_dim
+                idx_fk += 1
 
         if has_action:
             if has_noisy_actions:
@@ -2495,6 +2694,10 @@ class OmniMoTModel(ImaginaireModel):
             # PointFlow clean data (anchor geometry) for the branch; targets were
             # zeroed in _prepare_inference_data so no GT future leaks.
             pointflow=gen_data_clean.pointflow,
+            # Same for FK.  Carried through so the packer attaches the FK tokens --
+            # without it the flat vector would still have an FK segment, but there
+            # would be no FK tokens for the branch to write the prediction into.
+            fk=gen_data_clean.fk,
         )
 
         if packed_sequence_template is None:
@@ -2536,6 +2739,23 @@ class OmniMoTModel(ImaginaireModel):
                     epsilon=state.cuda(),
                     velocity_target=state.cuda(),
                     sigma=sigma.cuda(),
+                )
+
+            if has_fk:
+                from cosmos_framework.data.fk_batch import FKNoised
+
+                # Same contract as PointFlow: one ragged [H, sum(N), 3] state and one
+                # sigma per sample, both in the loop's own timestep space.  This is
+                # what lets FK ride the deployed sampler at all -- without it the
+                # packed FK payload trips the network's "never use GT by default".
+                fk_state = torch.cat([x.reshape(fk.displacement.shape[0], -1, 3) for x in noise_x_fk], dim=1).float()
+                fk_ticks = float(self.config.rectified_flow_inference_config.num_train_timesteps)
+                fk_sigma = (timestep.reshape(-1).float() / fk_ticks).clamp(0.0, 1.0)  # [B]
+                packed_sequence.fk_noised = FKNoised(
+                    xt=fk_state.cuda(),
+                    epsilon=fk_state.cuda(),
+                    velocity_target=fk_state.cuda(),
+                    sigma=fk_sigma.cuda(),
                 )
 
             packed_sequence.to_cuda()
@@ -2634,13 +2854,27 @@ class OmniMoTModel(ImaginaireModel):
                 start, end = pointflow.point_spans[i].tolist()
                 velocity_pointflow.append(preds_pointflow[:, start:end])  # [H, N_i, 3]
 
-        # Concatenate vision, action, and sound velocities per sample (flattened)
-        # Order must match _prepare_inference_data: [vision | action | sound | pointflow]
+        # FK velocity: same shape of story as PointFlow -- no condition mask, so the
+        # prediction passes through unmasked.  ``_make_joint_velocity`` documents why
+        # (the anchor rides inside every token rather than as frozen tokens).
+        velocity_fk: list[torch.Tensor] | None = None
+        if has_fk:
+            assert "preds_fk" in out, "FK branch must emit predictions when the state is supplied"
+            preds_fk = out["preds_fk"]  # [H, sum(N), 3]
+            velocity_fk = []
+            for i in range(n_samples):
+                fk_start, fk_end = fk.point_spans[i].tolist()
+                velocity_fk.append(preds_fk[:, fk_start:fk_end])  # [H, N_i, 3]
+
+        # Concatenate the velocities per sample (flattened).
+        # Order must match _prepare_inference_data:
+        # [vision | action | sound | pointflow | FK]
         velocity_output: list[torch.Tensor] = []
         vis_offset = 0
         idx_action = 0
         idx_sound = 0
         idx_point = 0
+        idx_fk = 0
         for i in range(n_samples):
             parts = []
             n_vis = num_items[i] if num_items is not None else 1
@@ -2660,6 +2894,10 @@ class OmniMoTModel(ImaginaireModel):
             if velocity_pointflow is not None and sequence_plans[i].has_point:
                 parts.append(velocity_pointflow[idx_point].reshape(-1))
                 idx_point += 1
+
+            if velocity_fk is not None:
+                parts.append(velocity_fk[idx_fk].reshape(-1))
+                idx_fk += 1
 
             velocity_output.append(torch.cat(parts, dim=0))  # [N_tokens_flat]
 
@@ -3273,21 +3511,25 @@ class OmniMoTModel(ImaginaireModel):
                         _ = x0_fn(latents, _dummy_sigma)
                 latents = list(torch.split(latents, chunk_sizes, dim=0))
 
-            # Split flattened latents back into vision latents, external actions, and sound latents
+            # Split flattened latents back into the per-modality outputs.
             # Mirror the per-sample logic from _prepare_inference_data:
-            # Order: [vision | action (if present) | sound (if present) | pointflow (if present)]
+            # Order: [vision | action (if present) | sound (if present) | pointflow (if present) | FK (if present)]
             # action/sound lists are dense (only modality-having samples), so use separate indexes.
             result_vision: list[torch.Tensor] = []
             result_action: list[torch.Tensor] = []
             result_sound: list[torch.Tensor] = []
             result_pointflow: list[torch.Tensor] = []
+            result_fk: list[torch.Tensor] = []
             pointflow = gen_data_clean.pointflow
             has_pointflow = pointflow is not None and bool(pointflow.has_point.any())
+            fk = gen_data_clean.fk
+            has_fk = fk is not None and len(fk.inputs["point_ids"]) > 0
             action_processing_records = get_action_processing_records(data_batch)
             idx_vision = 0
             idx_action = 0
             idx_sound = 0
             idx_point = 0
+            idx_fk = 0
             num_vision_items = gen_data_clean.num_vision_items_per_sample
 
             for i in range(n_sample):
@@ -3331,7 +3573,8 @@ class OmniMoTModel(ImaginaireModel):
                     offset += sound_dim
                     idx_sound += 1
 
-                # Extract PointFlow: the trailing [H, N_i, 3] segment, back to meters.
+                # Extract PointFlow: [H, N_i, 3], back to meters.  No longer the
+                # trailing segment -- see _get_velocity.
                 if has_pointflow and sequence_plans[i].has_point:
                     start, end = pointflow.point_spans[i].tolist()
                     horizon = pointflow.displacement.shape[0]
@@ -3348,6 +3591,20 @@ class OmniMoTModel(ImaginaireModel):
                     offset += point_dim
                     idx_point += 1
 
+                # Extract FK: the trailing [H, N_i, 3] segment, back to metres.  Same
+                # contract as PointFlow's -- the sampler works in model units and the
+                # scale is applied once, here, which is the only place the generated
+                # trajectory leaves the model.
+                if has_fk:
+                    fk_start, fk_end = fk.point_spans[i].tolist()
+                    fk_horizon = fk.displacement.shape[0]
+                    fk_dim = fk_horizon * (fk_end - fk_start) * 3
+                    fk_state = latents[i][offset : offset + fk_dim].reshape(fk_horizon, fk_end - fk_start, 3)
+                    fk_scale = float(self.config.rectified_flow_training_config.fk_displacement_scale)
+                    result_fk.append(fk_state.float() * fk_scale)
+                    offset += fk_dim
+                    idx_fk += 1
+
             result: dict[str, list[torch.Tensor]] = {"vision": result_vision}
             if has_noisy_actions and result_action:
                 result["action"] = result_action
@@ -3355,6 +3612,8 @@ class OmniMoTModel(ImaginaireModel):
                 result["sound"] = result_sound
             if result_pointflow:
                 result["pointflow"] = result_pointflow
+            if result_fk:
+                result["fk"] = result_fk
             return result
         finally:
             if previous_attention_dispatch is not None:
@@ -3541,6 +3800,9 @@ class OmniMoTModel(ImaginaireModel):
         pf = clean.pointflow
         if pf is None or not len(pf.inputs["point_ids"]):
             raise ValueError("PointFlow sigma scan requires anchor geometry")
+        # The FK payload stays and is handed over clean at sigma 0, exactly as the
+        # video and the action are in this arm -- see sample_pointflow for why the
+        # strip that used to be here is gone.
         packed = self._pack_input_sequence(plans, text, clean, torch.zeros((clean.batch_size, 1)))
         data = packed.pointflow_data
         # Hide the labels from the forward, exactly as the sampling path does.
@@ -3551,6 +3813,7 @@ class OmniMoTModel(ImaginaireModel):
             labeled=torch.zeros_like(data.labeled),
         )
         packed.to_cuda()
+        self._attach_clean_fk_state(packed, clean)
 
         from cosmos_framework.model.generator.pointflow_scale import broadcast_scale
 
@@ -3602,6 +3865,12 @@ class OmniMoTModel(ImaginaireModel):
         clean = self.get_data_and_condition(data_batch, iteration=0)
         if clean.pointflow is None or not len(clean.pointflow.inputs["point_ids"]):
             raise ValueError("PointFlow fitting evaluation requires anchor geometry")
+        # The FK payload stays.  It used to be stripped here, because this arm sets
+        # no ``fk_noised`` and a packed FK payload makes the network demand one
+        # ("never use GT by default").  The merge's D2 revokes that: every path
+        # supplies its noised states now, so this arm hands FK over CLEAN at sigma 0
+        # -- the same treatment its video and action already get, and the reason the
+        # arm is read as a ceiling rather than as deployable performance.
         # Pack clean conditioning modalities at sigma=0. Do not call the training
         # noise path, which would initialize PointFlow using future GT labels.
         packed = self._pack_input_sequence(
@@ -3618,6 +3887,7 @@ class OmniMoTModel(ImaginaireModel):
             labeled=torch.zeros_like(data.labeled),
         )
         packed.to_cuda()
+        self._attach_clean_fk_state(packed, clean)
 
         shift = training_shift(self.config.rectified_flow_training_config.shift, self.config.resolution)
         device = packed.pointflow_data.inputs["anchor_xyz"].device
@@ -3677,10 +3947,870 @@ class OmniMoTModel(ImaginaireModel):
         )
 
     @torch.no_grad()
+    def sample_fk(
+        self,
+        data_batch,
+        *,
+        steps=4,
+        seed=42,
+        sampler="unipc",
+        probe=None,
+        shift=None,
+        generate_video=False,
+        video_seed=0,
+        joint_action=False,
+    ):
+        """Conditional fitting diagnostic with clean GT video/action, not a rollout.
+
+        ``generate_video`` switches to the other, arguably more honest arm: instead
+        of conditioning on the clean video it generates the video from noise (i2v --
+        the first latent frame stays clean) and denoises FK alongside it, so the
+        branch has to read a *generated* video.  With the flag set the return value
+        becomes ``SimpleNamespace(fk=..., vision=..., finite=...)``, where ``vision``
+        is the list of generated ``[C,T,H,W]`` latents; unset, the return is the FK
+        tensor alone, unchanged.  See :meth:`_make_joint_velocity` for what the joint
+        step does and :meth:`_fk_fitting_context` for the packing.
+
+        ``joint_action`` goes one modality further, to the arm the deployed system
+        actually runs: the future *action* is denoised alongside the video and FK
+        rather than read clean, so nothing about the hand's future is handed over.
+        It requires ``generate_video`` -- the two are one layout, not two switches.
+        Left off, the joint arm still reads a clean action, which is what its
+        recorded numbers are; the pair then differs in exactly one thing, and the
+        difference between the two arms is the action's contribution.
+
+        The FK initial noise is drawn from ``seed`` either way, so the arms can share
+        one seed and differ only in what they are conditioned on.
+
+        PointFlow is not a switch: a batch that packs a PointFlow payload puts the
+        fourth segment in the joint state, and the arm's conditioning on it follows
+        the same rule as the video's -- generated in the joint arm, handed over clean
+        (sigma 0) in the FK-only one.  The returned namespace carries it as
+        ``pointflow``, or ``None`` when the batch has none.
+
+
+        Keep the normal Cosmos packing/attention path; only FK is sampled.  The
+        future FK labels and masks are removed before any model forward, so this
+        measures the sampler on the conditioning alone -- the same question the
+        PointFlow eval asks, in the metric the design's verdict is stated in.
+
+        ``probe``, when given, is called once per velocity evaluation as
+        ``probe(sigma=..., state=..., velocity=...)``.  It exists so a diagnostic
+        can read the *actual* trajectory rather than reimplementing the sampler
+        and measuring its own copy; a reimplementation that drifts from this one
+        would report on code that never runs.  Default ``None`` changes nothing.
+
+        ``shift`` overrides the sigma grid's warp for this call; ``None`` -- the
+        deployed behaviour -- resolves the value the branch was trained under.
+        See :meth:`_fk_fitting_context`.
+        """
+        from cosmos_framework.model.generator.fk_sampling import sample_displacement
+
+        if self.training:
+            raise ValueError("FK sampling requires model.eval()")
+        if joint_action and not generate_video:
+            raise ValueError(
+                "joint_action requires generate_video: the action only joins the joint state as a "
+                "middle segment of [vision | action | pointflow | FK], so there has to be a joint "
+                "state to join"
+            )
+        if generate_video and sampler != "unipc":
+            raise ValueError(
+                "generate_video requires sampler='unipc': the joint state is stepped by "
+                "self.sampler, the solver the deployed video path runs.  The euler fallback "
+                "in fk_sampling.sample_displacement walks the FK state alone."
+            )
+        context = self._fk_fitting_context(
+            data_batch,
+            probe=probe,
+            shift=shift,
+            generate_video=generate_video,
+            video_seed=video_seed,
+            joint_action=joint_action,
+        )
+        generator = torch.Generator(device=context.device).manual_seed(int(seed))
+        state = torch.randn(
+            (context.data.timing.steps, len(context.data.inputs["point_ids"]), 3),
+            generator=generator,
+            device=context.device,
+            dtype=torch.float32,
+        )
+
+        if generate_video:
+            # Same FK draw as the arm above -- same generator, same seed -- so the
+            # two arms differ only in the video they are conditioned on.  That is
+            # the comparison; the video noise comes off a separate stream so it
+            # cannot shift the FK draw.
+            return self._sample_joint(context, state, steps=int(steps), seed=int(seed))
+
+        if sampler == "unipc":
+            # Same solver, step count and shift as the video/action path.  The FK
+            # tokens are meant to be denoised *inside* that loop, so evaluating
+            # them with a different integrator measures a trajectory the deployed
+            # system never runs.  UniPC hands the callback a timestep in the
+            # scheduler's own space; dividing by ``num_train_timesteps`` makes
+            # that sigma.
+            ticks = int(self.config.rectified_flow_inference_config.num_train_timesteps)
+
+            def unipc_velocity(latent, timestep):
+                sigma = (timestep.reshape(-1)[:1].float() / ticks).expand(context.batch_size)
+                return context.velocity(latent, sigma)
+
+            return (
+                self.sampler(unipc_velocity, state, num_steps=int(steps), shift=float(context.shift), seed=int(seed))
+                * context.scale
+            )
+
+        sampling_step = 0
+
+        def velocity(state, sigma):
+            nonlocal sampling_step
+            sampling_step += 1
+            if sampling_step == 1 or sampling_step % 4 == 0 or sampling_step == steps:
+                log.info(f"FK sampling step {sampling_step}/{steps}")
+            return context.velocity(state, sigma)
+
+        return sample_displacement(
+            velocity,
+            steps=int(steps),
+            seed=int(seed),
+            horizon=context.data.timing.steps,
+            num_points=len(context.data.inputs["point_ids"]),
+            batch_size=context.batch_size,
+            device=context.device,
+            scale=context.scale,
+            # The branch is trained on the video's shifted sigma; sampling unshifted
+            # walks out of that distribution (see fk_sampling.shifted_sigmas).
+            shift=context.shift,
+        )
+
+    @torch.no_grad()
+    def _sample_joint(self, context, fk_state, *, steps, seed):
+        """Step the joint state, then split the result back apart.
+
+        The state is ``[vision_i | action_i | pointflow_i | FK_i]`` per sample -- the
+        action and PointFlow segments empty unless that modality is in the run -- and
+        the layout that says so was built once, in :meth:`_fk_fitting_context`, so
+        this side and the velocity closure cannot disagree about it.
+
+        Returns ``SimpleNamespace(fk=..., vision=..., action=..., pointflow=...,
+        finite=...)``.  ``scale`` is
+        applied to the FK slice **only** -- it is metres-per-model-unit, and
+        multiplying the whole joint vector by it would rescale the video latents.
+
+        ``finite`` is not decoration.  UniPC has no finiteness guard (unlike
+        ``fk_sampling.sample_displacement``), so a diverging video trajectory yields
+        NaN latents, and those reach the FK branch through the *same* attention pass.
+        A non-finite joint run can therefore report an FK failure that is really a
+        video failure, and the two are worth telling apart.  It is reported rather
+        than raised: every rank must issue the same number of forwards or FSDP
+        deadlocks, so this must not become an early exit.
+        """
+        from types import SimpleNamespace
+
+        from cosmos_framework.model.generator.fk_sampling import flatten_pieces, reassemble_fk
+
+        packed = context.packed
+        layout = context.layout
+        shapes = [tuple(t.shape) for t in packed.vision.tokens]
+        action_shapes = [tuple(t.shape) for t in packed.action.tokens] if context.joint_action else []
+        # The seeded starting states carry the segment shapes, exactly as
+        # ``action_shapes`` above does -- one source for the vector and the split.
+        seeded_pointflow = context.seeded_pointflow
+        pointflow_shapes = [tuple(t.shape) for t in seeded_pointflow] if seeded_pointflow is not None else []
+        with_pointflow = seeded_pointflow is not None
+        # The same horizon the layout was built with, not a second reading of it.
+        horizon = int(context.horizon)
+
+        joint = []
+        for i in range(len(layout)):
+            start, end = layout.spans[i]
+            pieces = [packed.vision.tokens[i]]
+            if context.joint_action:
+                pieces.append(packed.action.tokens[i])
+            if with_pointflow:
+                pieces.append(seeded_pointflow[i])
+            pieces.append(fk_state[:, start:end, :])
+            joint.append(
+                torch.cat(
+                    flatten_pieces(
+                        pieces,
+                        layout.segment_sizes(i, with_action=context.joint_action, with_pointflow=with_pointflow),
+                        what=f"joint state, sample {i}",
+                    )
+                )
+            )
+        # ``seed`` must be a LIST whenever the noise is one: UniPCSampler forwards
+        # both into ``run_multiseed``, which asserts its kwargs are all lists or all
+        # non-lists, and a scalar seed makes it build a single scheduler/generator
+        # while the per-sample latents arrive as a list -- "All kwargs must be lists
+        # or all must be non-lists, cannot mix" (samplers/utils.py:54).  That is the
+        # documented convention everywhere else too: one seed per sample
+        # (``generate_samples_from_batch`` asserts ``n_sample == len(seed)``).
+        seeds = [int(seed) + index for index in range(len(layout))]
+        result = self.sampler(
+            context.joint_velocity, joint, num_steps=int(steps), shift=float(context.shift), seed=seeds
+        )
+        # UniPCSampler mirrors its input container, so a list in gives a list out.
+        if not isinstance(result, list) or len(result) != len(layout):
+            raise ValueError(f"joint sampler returned {type(result).__name__}, expected a list of {len(layout)}")
+
+        vision, action, pointflow, fk_parts = [], [], [], []
+        for i in range(len(layout)):
+            # Both bounds from THIS sample's span.  ``start`` used to be whatever the
+            # layout-building loop above happened to leave behind, which is right for a
+            # single sample and silently wrong for more: the width would be another
+            # sample's, and the view only raises when it fails to divide the slice.
+            start, end = layout.spans[i]
+            n_vision = layout.vision_sizes[i]
+            cursor = n_vision
+            vision.append(result[i][:n_vision].view(shapes[i]))
+            if context.joint_action:
+                n_action = layout.action_sizes[i]
+                action.append(result[i][cursor : cursor + n_action].view(action_shapes[i]))
+                cursor += n_action
+            if with_pointflow:
+                n_pointflow = layout.pointflow_sizes[i]
+                from cosmos_framework.model.generator.pointflow_scale import broadcast_scale
+
+                value = result[i][cursor : cursor + n_pointflow].view(pointflow_shapes[i])
+                pointflow.append(
+                    value
+                    * broadcast_scale(
+                        self.config.rectified_flow_training_config.pointflow_displacement_scale,
+                        value.shape[0],
+                        value.device,
+                    )
+                )
+                cursor += n_pointflow
+            # Bounded by FK's own size rather than by the end of the vector.  This
+            # is derived from ``fk_sizes``, the same table ``flatten_pieces`` checks
+            # against, so the two cannot drift apart -- which is what makes it safe
+            # for FK to be last with a segment in front of it: an unbounded ``[cursor:]``
+            # would read the *next* segment's bytes whenever the one before is empty.
+            fk_parts.append(result[i][cursor : cursor + layout.fk_sizes[i]].view(horizon, int(end - start), 3))
+        # Checked per tensor, never stacked together.  ``torch.stack`` needs equal
+        # sizes and these are different *segments*: vision 646272 vs action 2112 is
+        # what killed the first joint_action rollout (2026-09-24 03:02:30).  Stacking
+        # is only meaningful within one segment type, which is how the FK-only arm
+        # wrote it before the action segment was added.
+        finite = all(bool(torch.isfinite(p.reshape(-1)).all()) for p in (*vision, *action, *pointflow, *fk_parts))
+        return SimpleNamespace(
+            fk=reassemble_fk(fk_parts, horizon) * context.scale,
+            vision=vision,
+            action=action or None,
+            pointflow=pointflow or None,
+            finite=finite,
+        )
+
+    def _seed_vision_from_noise(self, packed, clean, *, seed):
+        """i2v starting state: condition frames hold their clean latent, the rest is noise.
+
+        Same blend ``_prepare_inference_data`` uses for the main video path
+        (``cond_mask * x0 + (1 - cond_mask) * pure``), so the condition frame -- the
+        one the packer marked -- starts at the ground truth and never moves.  That
+        is the "keep the first frame clean" behaviour, and it comes from the
+        existing mask rather than from new logic here.
+        """
+        states = []
+        for i, (x0_token, cond_mask) in enumerate(
+            zip(clean.x0_tokens_vision, packed.vision.condition_mask, strict=True)
+        ):
+            pure = misc.arch_invariant_rand(
+                tuple(x0_token.shape),
+                self.tensor_kwargs_fp32["dtype"],
+                self.tensor_kwargs_fp32["device"],
+                int(seed) + i,
+            )  # [C,T,H,W]
+            states.append(cond_mask * x0_token + (1.0 - cond_mask) * pure)  # [C,T,H,W]
+        packed.vision.tokens = states
+        return states
+
+    def _seed_action_from_noise(self, packed, clean, *, seed):
+        """Joint-arm starting state for the action: condition frames clean, rest noise.
+
+        The deployed counterpart of :meth:`_seed_vision_from_noise`
+        (``_prepare_inference_data`` step 6) -- same blend
+        ``cond_mask * x0 + (1 - cond_mask) * pure`` -- so the conditioning action
+        starts at ground truth and never moves and the predicted future starts at
+        pure noise.  In this recipe the packer marks index 0 conditioning (the
+        initial state, ``use_state=True`` case B in ``build_sequence_plan_from_mode``)
+        and the 32 predicted steps noisy.
+
+        Two details are copied from there rather than re-derived, because both are
+        silent if wrong: the padding columns past ``raw_action_dim`` are zeroed, and
+        the noise comes off its own stream.  The latter matters because
+        ``arch_invariant_rand`` is a ``RandomState`` seeded by the seed alone --
+        handing the action the vision seed would give it the *same leading values*,
+        coupling two draws that are meant to be independent.
+        """
+        if packed.action is None or not packed.action.tokens:
+            raise ValueError("joint action sampling requires packed action tokens")
+        if clean.x0_tokens_action is None or packed.action.condition_mask is None:
+            raise ValueError("joint action sampling requires clean action tokens and their condition mask")
+        raw_action_dim = clean.raw_action_dim
+        states = []
+        for i, (x0_action, cond_mask) in enumerate(
+            zip(clean.x0_tokens_action, packed.action.condition_mask, strict=True)
+        ):
+            pure = misc.arch_invariant_rand(
+                tuple(x0_action.shape),
+                self.tensor_kwargs["dtype"],
+                self.tensor_kwargs["device"],
+                int(seed) + i,
+            )  # [T,action_dim]
+            state = cond_mask * x0_action.to(**self.tensor_kwargs) + (1.0 - cond_mask) * pure  # [T,action_dim]
+            if raw_action_dim is not None and raw_action_dim[i] is not None:
+                state[:, raw_action_dim[i] :] = 0
+            states.append(state)
+        packed.action.tokens = states
+        return states
+
+    def _seed_pointflow_from_noise(self, packed, *, seed):
+        """Joint-arm starting state for PointFlow: pure noise, on its own seed stream.
+
+        Unlike vision and action there is no blend to do, because PointFlow has no
+        conditioning step inside its state: the anchor block is clean *input
+        geometry*, not part of the displacement being denoised, so every future step
+        is a target.  ``_prepare_inference_data`` step 7b draws the whole tensor from
+        ``arch_invariant_rand`` and this does the same, per sample, over that
+        sample's own keypoint span -- which is why the result is a ragged list and
+        not one tensor.
+
+        The seed is offset by a stride of its own for the same reason the action's
+        is: ``arch_invariant_rand`` is a ``RandomState`` keyed by the seed alone, so
+        a shared seed would hand this modality the vision's leading noise values.
+
+        Returns the list of per-sample ``[horizon, n_points_i, 3]`` states.  It is
+        NOT stored on ``packed``: ``_make_joint_velocity`` writes the live state to
+        ``packed.pointflow_noised`` on every evaluation, and the caller needs this
+        one only to build the joint vector's initial value.
+        """
+        if packed.pointflow_data is None:
+            raise ValueError("PointFlow seeding requires a packed PointFlow payload")
+        horizon = int(packed.pointflow_data.displacement.shape[0])
+        states = []
+        for i, (start, end) in enumerate(packed.pointflow_data.point_spans.tolist()):
+            states.append(
+                misc.arch_invariant_rand(
+                    (horizon, int(end) - int(start), 3),
+                    self.tensor_kwargs_fp32["dtype"],
+                    self.tensor_kwargs_fp32["device"],
+                    int(seed) + i,
+                )
+            )
+        return states
+
+    def _attach_clean_fk_state(self, packed, clean):
+        """Give an arm that is not stepping FK the noised state the network demands.
+
+        A packed FK payload makes the network refuse to run without
+        ``fk_displacement``/``fk_sigma`` (cosmos3_vfm_network.py:1041, "never use GT
+        by default"), and ``denoise`` only forwards what ``packed.fk_noised`` holds.
+        An arm that samples some *other* modality -- ``sample_pointflow``,
+        ``pointflow_sigma_scan`` -- therefore has two options: drop the payload, or
+        supply a state.  It supplies: FK is handed over CLEAN at sigma 0, which is
+        exactly the treatment those arms already give the video and the action, and
+        the reason their numbers are read as a ceiling rather than as deployable
+        performance.
+
+        Call after ``packed.to_cuda()``: it reads the CUDA-side payload and builds
+        CUDA tensors.  A no-op when the batch carries no FK, so every FK-free caller
+        is unchanged.  Constant across sampling steps, so set it once, not per step.
+        """
+        fk = packed.fk_data
+        if fk is None or not len(fk.inputs["point_ids"]):
+            return
+        from cosmos_framework.data.fk_batch import FKNoised
+
+        state = fk.displacement.float() / self.config.rectified_flow_training_config.fk_displacement_scale
+        sigma = torch.zeros(int(clean.batch_size), dtype=torch.float32, device=state.device)
+        # epsilon/velocity_target are dummies: denoise reads only xt and sigma.
+        packed.fk_noised = FKNoised(state, state, state, sigma)
+
+    def _make_joint_velocity(self, packed, clean, *, layout, horizon, joint_action, with_pointflow=False):
+        """``velocity(joint, timestep)`` over a joint ``[vision | action | pointflow | FK]`` flat state.
+
+        Unlike the FK-only closure in :meth:`_fk_fitting_context` -- which steps FK
+        alone and leaves the video wherever the pack left it -- this advances every
+        segment on one sigma, which is how ``generate_samples_from_batch`` advances
+        vision+action+sound and what the branch's own docstring calls the deployed
+        form ("the FK tokens are meant to be denoised *inside* that loop").
+
+        Three asymmetries matter and are deliberate:
+
+        * the vision half is masked at the condition frames
+          (``pred * (1 - condition_mask)``, the same expression ``_get_velocity``
+          uses) so the clean first frame is frozen;
+        * the action segment is masked the same way, and its padding columns are
+          zeroed, when ``joint_action`` is on -- ``_get_velocity`` does both, in that
+          order;
+        * the FK half is **not** masked.  FK has no condition segment in the token
+          stream -- its frame-0 anchor rides inside every FK token, not as separate
+          frozen tokens -- so masking it would zero real prediction.
+        * the PointFlow half is likewise not masked, and is present only when
+          ``with_pointflow`` is set -- i.e. in the fused four-modality run, where
+          both extra modalities denoise in this one loop on the shared sigma.
+
+        The video's *and* the action's timesteps must move with their tokens: the
+        network embeds each token's own timestep, and a token that is simultaneously
+        noisy and tagged clean describes a third configuration neither training nor
+        this diagnostic produces.  Both writes go through the same helper the
+        deployed loop uses, so the unit convention cannot drift between them.
+        """
+        from cosmos_framework.data.fk_batch import FKNoised
+        from cosmos_framework.model.generator.fk_sampling import flatten_pieces
+
+        count = int(self.config.rectified_flow_inference_config.num_train_timesteps)
+        # The sampler's timestep space and the trainer's are built from two
+        # different config fields that happen to share a default.  The vision
+        # timestep embedding is silently wrong if they ever diverge (the FK side
+        # would raise), so check rather than assume.
+        training_ticks = int(self.rectified_flow_video.noise_scheduler.config.num_train_timesteps)
+        if count != training_ticks:
+            raise ValueError(
+                f"num_train_timesteps disagrees between the inference sampler ({count}) and "
+                f"the training scheduler ({training_ticks}); the vision timestep embedding "
+                "would be off by that ratio"
+            )
+        if packed.vision is None or not packed.vision.tokens:
+            raise ValueError("generate_video requires packed vision tokens")
+        if clean.num_vision_items_per_sample is not None:
+            # The deployed splitter loops over vision items per sample; this one
+            # assumes one, and a wrong stride here would be invisible.
+            raise ValueError("generate_video assumes one vision item per sample")
+        vision_shapes = [tuple(t.shape) for t in packed.vision.tokens]
+        action_shapes = [tuple(t.shape) for t in packed.action.tokens] if joint_action else []
+        cond_masks = packed.vision.condition_mask
+        action_cond_masks = packed.action.condition_mask if joint_action else None
+        raw_action_dim = clean.raw_action_dim if joint_action else None
+        # The caller's horizon, not a second reading of ``fk_data.displacement``:
+        # the layout was built from that number, and the two readings only agree
+        # because the zeroing above happens to preserve the shape.
+        steps = int(horizon)
+        pointflow_spans: list[tuple[int, int]] = []
+        pointflow_shapes: list[tuple[int, ...]] = []
+        if with_pointflow:
+            if packed.pointflow_data is None:
+                raise ValueError("with_pointflow requires a packed PointFlow payload")
+            # Both extra modalities have to be on the SAME time grid to share one
+            # loop; a mismatch would otherwise surface as a shape error deep inside
+            # the branch, or as a silently wrong number of denoising steps.
+            pointflow_steps = int(packed.pointflow_data.displacement.shape[0])
+            if pointflow_steps != steps:
+                raise ValueError(
+                    f"PointFlow horizon {pointflow_steps} does not match FK's {steps}; "
+                    "the two must share a time grid to be denoised in one loop"
+                )
+            pointflow_spans = [(int(a), int(b)) for a, b in packed.pointflow_data.point_spans]
+            pointflow_shapes = [(steps, end - start, 3) for start, end in pointflow_spans]
+        for i in range(len(layout)):
+            if not bool((1.0 - cond_masks[i]).sum() > 0):
+                raise ValueError(f"sample {i} has no noisy vision frames; nothing to generate")
+            if joint_action and not bool((1.0 - action_cond_masks[i]).sum() > 0):
+                raise ValueError(f"sample {i} has no noisy action frames; nothing to denoise")
+
+        def split(joint):
+            """Flat per-sample vectors -> (vision, action, pointflow, FK [steps, sumN, 3]).
+
+            Every segment is cut with its own size from ``layout`` -- the same table
+            ``flatten_pieces`` validates the pieces against -- so no segment can
+            swallow the ones behind it.  That matters most for FK, which is last:
+            an unbounded tail slice would absorb PointFlow's segment.
+
+            The FK pieces are recombined with ``cat(dim=1)``, not a flatten and
+            reshape: each sample occupies a contiguous run of the *keypoint* axis,
+            and the per-sample flat layout is step-major, so reshaping the
+            concatenation would interleave steps across samples.
+            """
+            vision, action, pointflow, fk = [], [], [], []
+            for i in range(len(layout)):
+                start, end = layout.spans[i]
+                cursor = layout.vision_sizes[i]
+                vision.append(joint[i][:cursor].view(vision_shapes[i]))
+                if joint_action:
+                    n_action = layout.action_sizes[i]
+                    action.append(joint[i][cursor : cursor + n_action].view(action_shapes[i]))
+                    cursor += n_action
+                if with_pointflow:
+                    n_pointflow = layout.pointflow_sizes[i]
+                    pointflow.append(joint[i][cursor : cursor + n_pointflow].view(pointflow_shapes[i]))
+                    cursor += n_pointflow
+                fk.append(joint[i][cursor : cursor + layout.fk_sizes[i]].view(steps, int(end - start), 3))
+            return vision, action, pointflow, torch.cat(fk, dim=1)
+
+        def velocity(joint, timestep):
+            vision, action, pointflow, fk = split(joint)
+            packed.vision.tokens = [v.to(**self.tensor_kwargs) for v in vision]
+            self._copy_timestep_to_template(packed.vision.timesteps, timestep)
+            if joint_action:
+                packed.action.tokens = [a.to(**self.tensor_kwargs) for a in action]
+                self._copy_timestep_to_template(packed.action.timesteps, timestep)
+            sigma = (timestep.reshape(-1)[:1].float() / count).expand(len(layout))
+            # Only xt and sigma are read by denoise; epsilon/velocity_target are
+            # dummies, exactly as in the FK-only closure.
+            packed.fk_noised = FKNoised(fk, fk, fk, sigma)
+            if with_pointflow:
+                # Fused four-modality run: PointFlow is denoised in this same loop, so
+                # its noisy state has to be supplied here too.  ``denoise`` forwards it
+                # as pointflow_displacement/pointflow_sigma, and the network refuses a
+                # packed PointFlow payload without them ("never use GT by default").
+                from cosmos_framework.data.pointflow_batch import PointFlowNoised
+
+                state = torch.cat(pointflow, dim=1).float()
+                packed.pointflow_noised = PointFlowNoised(state, state, state, sigma)
+            out = self.denoise(data_batch_packed=packed)
+            # A no-op today (unpatchify_and_unpack_latents already zeroes the clean
+            # frames) but kept so this mirrors _get_velocity's masking exactly.
+            masked = [
+                pred * (1.0 - cond_mask).to(dtype=pred.dtype, device=pred.device)
+                for pred, cond_mask in zip(out["preds_vision"], cond_masks, strict=True)
+            ]
+            action_velocity: list[torch.Tensor] = []
+            if joint_action:
+                for i, (pred, cond_mask) in enumerate(zip(out["preds_action"], action_cond_masks, strict=True)):
+                    # ``unpack_action`` already zeroes the clean positions, so the
+                    # mask is a no-op there for the same reason it is on the vision
+                    # side; the padding zero is not (it is inside the noisy run).
+                    # The multiplication is what makes the in-place write safe --
+                    # this is not a view of the network's output.
+                    value = pred * (1.0 - cond_mask).to(dtype=pred.dtype, device=pred.device)  # [T,action_dim]
+                    if raw_action_dim is not None and raw_action_dim[i] is not None:
+                        value[:, raw_action_dim[i] :] = 0
+                    action_velocity.append(value)
+            built = []
+            for i in range(len(layout)):
+                pieces = [masked[i]]
+                if joint_action:
+                    pieces.append(action_velocity[i])
+                if with_pointflow:
+                    # Like FK, PointFlow is NOT masked: it has no condition segment.
+                    pf_start, pf_end = pointflow_spans[i]
+                    pieces.append(out["preds_pointflow"][:, pf_start:pf_end, :])
+                # FK is last.  It is NOT masked: it has no condition segment to freeze.
+                pieces.append(out["preds_fk"][:, layout.spans[i][0] : layout.spans[i][1], :])
+                built.append(
+                    torch.cat(
+                        flatten_pieces(
+                            pieces,
+                            layout.segment_sizes(i, with_action=joint_action, with_pointflow=with_pointflow),
+                            what=f"joint velocity, sample {i}",
+                        )
+                    )
+                )
+            return built
+
+        return velocity
+
+    def _fk_fitting_context(
+        self,
+        data_batch,
+        *,
+        probe=None,
+        vision_sigma=None,
+        shift=None,
+        generate_video=False,
+        video_seed=0,
+        joint_action=False,
+    ):
+        """Build the packed conditioning and the ``velocity(state, sigma)`` closure.
+
+        Shared by ``sample_fk`` and ``fk_velocity_field`` so a diagnostic walks
+        the same packed sequence through the same ``denoise`` call the sampler
+        uses.  A diagnostic that rebuilt this for itself would be measuring its
+        own copy of the path, which is exactly the thing under suspicion.
+
+        ``vision_sigma``: when set, the video is noised to that sigma the way
+        ``training_step`` noises it, instead of being packed clean.  This matters
+        because training draws **one** sigma per sample and gives it to both the
+        video and the FK tokens -- ``fk_add_noise`` requires "one shared video
+        sigma per sample" -- with the condition mask zeroing it on the observation
+        frames.  Packing the video clean while the FK state sits at sigma is a
+        (video, state) pair no training step ever produced, so the branch is being
+        asked to extrapolate.  Left ``None`` the behaviour is unchanged, which is
+        what ``sample_fk`` relies on.
+
+        ``shift``: overrides the sigma grid's warp for this context only, leaving
+        the config alone.  Default ``None`` resolves the trained value exactly as
+        before.  It exists so a diagnostic can ask what a *different* grid would
+        have produced -- the grid decides where along sigma the sampler spends its
+        velocity evaluations, and the branch is measurably more accurate at low
+        sigma than at the sigma=1 it starts from.  Sampling off the trained grid
+        is a real trade (the trained marginal is the shifted one), so this is a
+        knob to sweep, not one to set by reasoning.
+
+        ``joint_action``: extends the ``generate_video`` arm to the deployed
+        configuration by seeding the *action* from noise too, so the future action
+        is denoised alongside the video and FK instead of being read clean.  It
+        requires ``generate_video`` and an action-bearing sequence whose packer
+        marked some steps noisy -- the conditioning steps (the initial state here)
+        stay clean, exactly as ``_prepare_inference_data`` blends them.
+
+        PointFlow has no switch: when the batch packs a PointFlow payload the flat
+        vector becomes the fully fused ``[vision | action | pointflow | FK]``
+        (``fk_sampling.JointLayout``) and the fourth modality is carried through the
+        same loop -- denoised with the rest by the joint closure, or handed over
+        clean at sigma 0 by the FK-only closure, exactly as the video is there.
+        """
+        from dataclasses import replace
+        from types import SimpleNamespace
+
+        from cosmos_framework.data.fk_batch import FKNoised
+        from cosmos_framework.model.generator.fk_sampling import MODALITY_SEED_STRIDE, joint_layout, training_shift
+
+        text = self._load_and_tokenize_text_data(data_batch, 0)
+        plans = build_sequence_plans_from_data_batch(
+            data_batch=data_batch,
+            input_video_key=self.input_video_key,
+            input_image_key=self.input_image_key,
+        )
+        clean = self.get_data_and_condition(data_batch, iteration=0)
+        if clean.fk is None or not len(clean.fk.inputs["point_ids"]):
+            raise ValueError("FK fitting evaluation requires anchor geometry")
+        # The PointFlow payload stays.  It used to be stripped here, because the FK
+        # arms' flat vector was [vision | action | FK] and a packed payload makes
+        # ``denoise`` demand a noisy PointFlow state this path never supplied
+        # ("Supply explicit noisy PointFlow displacement and sigma",
+        # cosmos3_vfm_network.py:1064).  Both closures supply it now -- the joint one
+        # denoises PointFlow in the same loop, the FK-only one hands it over clean --
+        # so the payload rides along and there is nothing left to strip.
+
+        # Pack clean conditioning modalities at sigma=0.  Deliberately NOT the
+        # training noise path: that one initialises FK from the future GT labels,
+        # which would make this diagnostic read its own answer.
+        #
+        # ``vision_sigma`` also drives the *timestep* the video tokens carry, not
+        # only whether their content is noised.  The trainer passes the sampled
+        # sigma into this same argument, and ``pack_vision_tokens`` writes it into
+        # ``vision.timesteps`` -- the video token's own timestep embedding.  Noising
+        # the latents while leaving that at zero describes a video that is
+        # simultaneously noisy and fully denoised, which is a third configuration
+        # neither training nor this diagnostic otherwise produces, so it has to
+        # move together with the content.
+        input_timesteps = (
+            torch.zeros((clean.batch_size, 1))
+            if vision_sigma is None
+            else torch.full((clean.batch_size, 1), float(vision_sigma))
+        )
+        packed = self._pack_input_sequence(plans, text, clean, input_timesteps)
+        data = packed.fk_data
+        packed.fk_data = replace(
+            data,
+            displacement=torch.zeros_like(data.displacement),
+            valid=torch.zeros_like(data.valid),
+            labeled=torch.zeros_like(data.labeled),
+        )
+        packed.to_cuda()
+
+        # PointFlow's per-sample keypoint spans exist only on the packed payload, and
+        # the flat vector's PointFlow segment is sized from them.  Read once here and
+        # handed to the layout, so the layout and both closures cannot disagree about
+        # where the segment is.
+        #
+        # ``pointflow_clean`` is what the FK-only closure hands over: the clean
+        # displacement itself at sigma 0, which is what that arm already does for the
+        # video (packed with ``input_timesteps`` 0) and for the action.  It IS the GT,
+        # deliberately -- those arms are conditioned on the answer by construction,
+        # and their numbers are read as a ceiling for exactly that reason.
+        #
+        # ⚠️ Known gap, and it is the ``vision_sigma`` diagnostic only: that argument
+        # noises the video to a probed sigma while this hands PointFlow over at 0, so
+        # the two modalities describe different noise levels.  Training under D4 gives
+        # every modality ONE sigma, so that combination is off-distribution -- the
+        # same trap the ``vision_sigma`` docstring above warns about, now one modality
+        # wider.  No eval path sets ``vision_sigma`` (only ``fk_velocity_field``
+        # does), so nothing measured today is affected; closing it means noising this
+        # state with ``pointflow_add_noise`` at the same level.
+        pointflow_shapes = None
+        pointflow_clean = None
+        if packed.pointflow_data is not None:
+            pointflow_shapes = [
+                (int(packed.pointflow_data.displacement.shape[0]), int(end) - int(start), 3)
+                for start, end in packed.pointflow_data.point_spans.tolist()
+            ]
+            from cosmos_framework.model.generator.pointflow_scale import broadcast_scale
+
+            pointflow_clean = packed.pointflow_data.displacement.float()
+            pointflow_clean = pointflow_clean / broadcast_scale(
+                self.config.rectified_flow_training_config.pointflow_displacement_scale,
+                pointflow_clean.shape[0],
+                pointflow_clean.device,
+            )
+
+        if vision_sigma is not None:
+            # Delegate to the trainer's own noising rather than reimplementing it:
+            # it is the code that decides which frames the FK tokens actually get
+            # to attend to, and a hand-rolled copy of it here could differ from
+            # training in exactly the way this argument exists to test.  [B, 1] is
+            # the shared-sigma mode, so every non-conditioning latent frame of a
+            # sample lands on this sigma -- the same one the FK state is at.
+            # Match the condition mask's device: _add_noise_to_input multiplies the
+            # sigma by (1 - condition_mask) before it ever reaches the latents.
+            broadcast = torch.full(
+                (clean.batch_size, 1),
+                float(vision_sigma),
+                dtype=torch.float32,
+                device=packed.vision.condition_mask[0].device,
+            )
+            self._replace_clean_with_noised(packed, self._add_noise_to_input(clean, packed, broadcast))
+
+        # ``generate_video`` is the third configuration: rather than handing the
+        # branch a video that is clean (the default) or clean-then-noised to one
+        # sigma (``vision_sigma``), it starts the video from noise and denoises it
+        # together with FK, so the branch has to read a *generated* video.  The two
+        # are mutually exclusive -- one generates, the other corrupts a given video.
+        #
+        # The layout is built here, once, and handed to both the seeding and the
+        # velocity closure: they have to agree on where each segment starts, and two
+        # independent derivations of that is exactly how a middle segment would end
+        # up offset by its own length in one of them.
+        joint_velocity = None
+        layout = None
+        horizon = None
+        seeded_pointflow = None
+        if generate_video:
+            if vision_sigma is not None:
+                raise ValueError("generate_video and vision_sigma are mutually exclusive")
+            # One horizon for the whole arm.  ``fk_data.displacement`` is
+            # ``(timing.steps, n, 3)`` -- checked at construction in
+            # ``fk_batch.build_fk_batch`` -- but the layout, the FK noise tensor
+            # ``sample_fk`` draws and the view that reads the result back all have to
+            # agree on it, so it is resolved once here and carried on the context.
+            horizon = int(packed.fk_data.displacement.shape[0])
+            action_shapes = None
+            if joint_action:
+                has_noisy_actions = self.config.action_gen and has_noisy_tokens(packed.action)
+                if not has_noisy_actions:
+                    raise ValueError(
+                        "joint_action needs action tokens the packer marked noisy; this sequence plan "
+                        "has none, so there is no future action to denoise"
+                    )
+                action_shapes = [tuple(t.shape) for t in packed.action.tokens]
+            layout = joint_layout(
+                [tuple(t.shape) for t in packed.vision.tokens],
+                packed.fk_data.point_spans.tolist(),
+                horizon,
+                action_shapes,
+                pointflow_shapes,
+            )
+            # What the flat vector actually is, said out loud.  Every segment here is
+            # DERIVED, so a payload that quietly failed to arrive takes the narrower
+            # layout and the arm still produces plausible-looking numbers -- the
+            # metric cannot tell the two apart.  Reporting the composition is what
+            # turns "the four-modality path ran" into something readable off the log.
+            if distributed.is_rank0():
+                log.info(
+                    f"FK joint arm: flat vector elements (sample 0) = vision {layout.vision_sizes[0]}"
+                    f" | action {layout.action_sizes[0]}"
+                    f" | pointflow {layout.pointflow_sizes[0]}"
+                    f" | FK {layout.fk_sizes[0]}"
+                    + ("" if pointflow_shapes is not None else "   (no PointFlow payload packed)")
+                )
+            self._seed_vision_from_noise(packed, clean, seed=video_seed)
+            if joint_action:
+                # A seed of its own, not ``video_seed``: ``arch_invariant_rand``
+                # draws from a stream fixed by the seed alone, so sharing one would
+                # give the action the vision's leading noise values.
+                self._seed_action_from_noise(packed, clean, seed=video_seed + MODALITY_SEED_STRIDE)
+            if pointflow_shapes is not None:
+                # The fourth modality, off a third stream for the same reason -- and
+                # seeded from NOISE rather than from ``pointflow_clean``: in the fused
+                # loop PointFlow is generated alongside the video and the action, so
+                # handing it the answer here would leave the arm measuring nothing.
+                # Not a switch either: a packed payload means the run is the fused one.
+                seeded_pointflow = self._seed_pointflow_from_noise(packed, seed=video_seed + 2 * MODALITY_SEED_STRIDE)
+            joint_velocity = self._make_joint_velocity(
+                packed,
+                clean,
+                layout=layout,
+                horizon=horizon,
+                joint_action=joint_action,
+                with_pointflow=pointflow_shapes is not None,
+            )
+
+        def velocity(state, sigma):
+            # Only xt and sigma are consumed by denoise; no loss is evaluated.
+            # Set after the vision noising above, which writes fk_noised too.
+            packed.fk_noised = FKNoised(state, state, state, sigma)
+            if pointflow_clean is not None:
+                # This closure never steps PointFlow, but it still has to supply it:
+                # with a PointFlow payload packed, the network refuses to run without
+                # the displacement/sigma pair (cosmos3_vfm_network.py:1064), and
+                # ``denoise`` only forwards what ``pointflow_noised`` holds.  sigma 0
+                # is "given" -- the same thing this arm's video and action are.
+                from cosmos_framework.data.pointflow_batch import PointFlowNoised
+
+                packed.pointflow_noised = PointFlowNoised(
+                    pointflow_clean,
+                    pointflow_clean,
+                    pointflow_clean,
+                    torch.zeros(clean.batch_size, dtype=torch.float32, device=pointflow_clean.device),
+                )
+            value = self.denoise(data_batch_packed=packed)["preds_fk"]
+            if probe is not None:
+                # UniPC may evaluate the field more than once per step; the probe
+                # records every evaluation and lets the reader see that.
+                probe(sigma=sigma, state=state, velocity=value)
+            return value
+
+        return SimpleNamespace(
+            data=data,
+            packed=packed,
+            clean=clean,
+            velocity=velocity,
+            # Present only when generate_video is set; None keeps every existing
+            # caller (sample_fk, fk_velocity_field, fk_sampler_probe) on the FK-only
+            # closure, byte-identical to before this argument existed.  ``layout``
+            # and ``joint_action`` follow the same rule -- ``_sample_joint`` reads
+            # them, and only it needs them.
+            joint_velocity=joint_velocity,
+            layout=layout,
+            joint_action=bool(joint_action),
+            horizon=horizon,
+            # The joint arm's PointFlow starting state, one tensor per sample, or None
+            # when the batch packs no payload.  Carried on the context rather than
+            # re-drawn in ``_sample_joint`` so the two cannot seed different noise --
+            # and its shapes are what the split reads the segment back with.
+            seeded_pointflow=seeded_pointflow,
+            device=packed.fk_data.inputs["anchor_xyz"].device,
+            batch_size=clean.batch_size,
+            scale=self.config.rectified_flow_training_config.fk_displacement_scale,
+            shift=(
+                training_shift(self.config.rectified_flow_training_config.shift, self.config.resolution)
+                if shift is None
+                else float(shift)
+            ),
+        )
+
+    @torch.no_grad()
+    def fk_velocity_field(self, data_batch, states, sigmas, *, vision_sigma=None):
+        """Model velocity at caller-supplied ``(state, sigma)`` points.
+
+        The point is to score the field somewhere other than the sampler's own
+        trajectory: once the walk has drifted, the state it feeds back is not a
+        point the branch was ever trained on, so measuring there confounds "the
+        field is wrong" with "the field is being asked off-distribution".
+        Callers supply points on the *true* path instead.
+
+        ``vision_sigma`` is forwarded to :meth:`_fk_fitting_context`; leaving it
+        ``None`` keeps the clean-video conditioning ``sample_fk`` uses.
+        """
+        if self.training:
+            raise ValueError("FK field evaluation requires model.eval()")
+        context = self._fk_fitting_context(data_batch, vision_sigma=vision_sigma)
+        return [context.velocity(state, sigma) for state, sigma in zip(states, sigmas, strict=True)]
+
+    @torch.no_grad()
     def validation_step(self, data_batch: dict[str, torch.Tensor], iteration: int):
-        # Reuse the exact training data path so validation reports the PointFlow
-        # masked RF loss alongside video/action losses.  The trainer invokes this
-        # method under no_grad; no optimizer or EMA state is modified here.
+        # Reuse the exact training data path so validation reports the extra
+        # modalities' masked RF losses (FK and PointFlow) alongside video/action
+        # losses.  The trainer invokes this method under no_grad; no optimizer or
+        # EMA state is modified here.
+        #
+        # This returning None is not a quiet failure: the trainer unpacks the result
+        # as ``output_batch, loss = model.validation_step(...)``, so a stub raises
+        # "cannot unpack non-iterable NoneType object" the first time validation
+        # runs -- which is at validation_iter, long after a run looks healthy.
         return self.training_step(data_batch, iteration)
 
     @torch.no_grad()
@@ -4003,7 +5133,11 @@ class OmniMoTModel(ImaginaireModel):
             batch_size,
         )
         # Dataset-provided Wan2.2 latents avoid running the frozen VAE every
-        # iteration. The collator may return either a stacked tensor or a list.
+        # iteration.  The collator may return either a stacked tensor or a list.
+        #
+        # Inference keeps the encoder path: ``vision_condition_indexes`` is not None
+        # there, and the prefix-encode optimization in ``_encode_vision_x0_tokens``
+        # needs to see the pixel frames to decide which ones to skip.
         cached_latents = data_batch.get("vae_latent_cache")
         if cached_latents is not None and vision_condition_indexes is None:
             if isinstance(cached_latents, torch.Tensor):
@@ -4111,9 +5245,17 @@ class OmniMoTModel(ImaginaireModel):
                 data_batch.get("pointflow"), batch_size=batch_size, device=self.tensor_kwargs["device"]
             )
         control_weights: list[list[float]] | None = data_batch.get("control_weights", None)
+        # The dataset yields one raw sample dict per slot; this is where they become
+        # the ragged, device-placed FKBatch the packer and the branch consume.  It has
+        # to happen here rather than in the collator because it needs the batch size
+        # and the target device, both of which are only known at this point.
+        from cosmos_framework.data.fk_batch import build_fk_batch
+
+        fk = build_fk_batch(data_batch.get("fk"), batch_size=batch_size, device=self.tensor_kwargs["device"])
         return GenerationDataClean(
             batch_size=batch_size,
             is_image_batch=is_image_batch,
+            fk=fk,
             raw_state_vision=raw_state_vision,
             raw_state_action=raw_state_action,
             raw_state_sound=raw_state_sound,
@@ -4844,8 +5986,15 @@ class OmniMoTModel(ImaginaireModel):
                 "pointflow_displacement": data_batch_packed.pointflow_noised.xt,
                 "pointflow_sigma": data_batch_packed.pointflow_noised.sigma,
             }
+        fk_kwargs = {}
+        if data_batch_packed.fk_noised is not None:
+            fk_kwargs = {
+                "fk_displacement": data_batch_packed.fk_noised.xt,
+                "fk_sigma": data_batch_packed.fk_noised.sigma,
+            }
         out_net = net(
             **point_kwargs,
+            **fk_kwargs,
             packed_seq=data_batch_packed,
             memory=memory,
             video_temporal_causal=video_temporal_causal,
@@ -4854,6 +6003,8 @@ class OmniMoTModel(ImaginaireModel):
         output_dict["preds_vision"] = out_net["preds_vision"]
         if "preds_pointflow" in out_net:
             output_dict["preds_pointflow"] = out_net["preds_pointflow"]
+        if "preds_fk" in out_net:
+            output_dict["preds_fk"] = out_net["preds_fk"]
         if self.config.action_gen and "preds_action" in out_net:
             output_dict["preds_action"] = out_net["preds_action"]
         if self.config.sound_gen and "preds_sound" in out_net:
