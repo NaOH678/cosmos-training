@@ -429,7 +429,9 @@ def pack_input_sequence(
         )
         seq_builder.null_action_supertokens = null_action_flags[0]
 
-    # Preserve the raw ragged contract; learned point tokens attach in the model.
+    # Preserve the raw ragged contract; the learned tokens attach in the model,
+    # for both extra modalities.  ``PackedSequence`` is not slotted, so these
+    # attributes are added here rather than declared on the dataclass.
     pointflow = gen_data_clean.pointflow
     expected = [plan.has_point for plan in sequence_plans]
     actual = pointflow.has_point.tolist() if pointflow is not None else [False] * len(expected)
@@ -442,4 +444,5 @@ def pack_input_sequence(
     )
 
     packed.pointflow_data = pointflow
+    packed.fk_data = gen_data_clean.fk
     return packed

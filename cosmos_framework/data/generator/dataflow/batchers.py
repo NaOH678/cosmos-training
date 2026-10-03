@@ -303,6 +303,12 @@ class SequentialPackingBatcher(SampleBatcher):
         from cosmos_framework.data.pointflow_batch import pointflow_token_upper_bound
 
         num_tokens += pointflow_token_upper_bound(sample.get("pointflow"))
+        # Budget the FK tokens too.  The packer sizes each packed sequence from
+        # this count, so a sample whose FK payload is omitted here silently
+        # under-reserves and the packed sequence overflows later.
+        from cosmos_framework.data.fk_batch import fk_token_upper_bound
+
+        num_tokens += fk_token_upper_bound(sample.get("fk"))
         return num_tokens
 
     def batches(self, samples):

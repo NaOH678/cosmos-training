@@ -11,6 +11,7 @@ NPZ sidecars; videos continue to be decoded from the original episode MP4s.
 from __future__ import annotations
 
 import json
+import os
 import random
 from bisect import bisect_right
 from collections import OrderedDict
@@ -102,6 +103,8 @@ class SingleRightHandRawDataset(Dataset):
         frame_cache_size: int | None = None,
         video_decoder: str = "torchcodec",
         episode_allowlist: str | None = None,
+        fk_root: str | None = None,
+        fk_steps_per_token: int = 4,
         pointflow_manifest: str | None = None,
         pointflow_max_points: int = 8192,
         pointflow_voxel_size: float = 0.02,
@@ -169,6 +172,10 @@ class SingleRightHandRawDataset(Dataset):
             )
             for row in manifest["episodes"]
         ]
+        # Restrict to a named subset before the split: the small-sample workflow
+        # trains on ten episodes, and filtering afterwards would change which
+        # ones the seed assigns to validation.  Unknown names are an error, not a
+        # quiet no-op, because a typo would otherwise shrink the training set.
         if episode_allowlist:
             allow_path = Path(episode_allowlist)
             names = {line.strip() for line in allow_path.read_text().splitlines() if line.strip()}
@@ -211,6 +218,8 @@ class SingleRightHandRawDataset(Dataset):
         selected = order[:num_val] if split_key == "val" else order[num_val:] if split_key == "train" else order
         self._episodes = [all_episodes[idx] for idx in selected]
 
+        # Point-cloud labels are optional and keyed by episode: absent means "this
+        # run does not train the PointFlow modality", never a missing label.
         self._pointflow_source = None
         if pointflow_manifest is not None:
             from cosmos_framework.data.generator.action.pointflow_source import PointFlowSource
@@ -259,6 +268,28 @@ class SingleRightHandRawDataset(Dataset):
                     f"PointFlow manifest must explicitly list selected episodes, including unlabeled: {missing}"
                 )
 
+        # FK labels are optional and keyed by episode, like the point-cloud source:
+        # absent means "this run does not train the FK modality", never a missing label.
+        # Truthy, not ``is not None``: ``${oc.env:FK_ANNOTATION_ROOT,}`` resolves to
+        # the EMPTY STRING when unset, and ``Path('')`` is the current directory --
+        # so an ``is not None`` check would treat "modality disabled" as "annotations
+        # live in the CWD" and fail much later with a confusing missing-file error.
+        self._fk_source = None
+        if fk_root:
+            from cosmos_framework.data.fk_window import FKTiming
+            from cosmos_framework.data.generator.action.fk_source import FKSource
+
+            timing = FKTiming(fps=self._fps, steps=self._chunk_length, steps_per_token=int(fk_steps_per_token))
+            self._fk_source = FKSource(fk_root, timing=timing)
+            missing = [e.name for e in self._episodes if not self._fk_source.path_for(e.name).is_file()]
+            if missing:
+                raise ValueError(f"FK annotations are missing for selected episodes: {missing[:3]}")
+
+        # Precomputed per-window VAE latents.  Without this the frozen Wan2.2 VAE
+        # re-encodes every pixel frame of every window on every step; with it the
+        # dataset hands the model the latent the encode would have produced.
+        # Only the WINDOW cache is accepted -- see the note in ``_read_window_latent``
+        # for why the whole-episode cache is deliberately not an option here.
         self._vae_window_latent_root = Path(vae_window_latent_root) if vae_window_latent_root else None
         self._vae_window_rows: dict[str, dict[str, Any]] = {}
         if self._vae_window_latent_root is not None:
@@ -543,9 +574,19 @@ class SingleRightHandRawDataset(Dataset):
                 episode.source_fps,
                 canvas_size,
             )
+        if self._fk_source is not None:
+            # The window is the dataset's own observation_indices, not a recomputed
+            # one: the labels must describe the same source frames the video does,
+            # or the mRoPE time axis drifts with no shape error to catch it.
+            sample["fk"] = self._fk_source.load(self._episodes[episode_idx].name, observation_indices)
+            if os.environ.get("FK_PROJECT_ANCHORS", "false").lower() == "true":
+                from cosmos_framework.data.generator.action.fk_source import attach_fk_projection
+
+                attach_fk_projection(sample["fk"], sample.get("pointflow"))
         if self._vae_window_latent_root is not None:
-            # Preferred path: the window's own encode, bit-identical to what a
-            # cache-less run computes. See tools/cache_window_vae_latents.py.
+            # This window's own encode.  The model prefers it over running the VAE,
+            # so the video frames above are still decoded -- they feed the eval
+            # renderer and the frame cache -- but they no longer reach the encoder.
             sample["vae_latent_cache"] = self._read_window_latent(self._episodes[episode_idx].name, window_offset)
         elif self._vae_latent_root is not None:
             latent_path = self._vae_latent_root / f"{self._episodes[episode_idx].name}.pt"

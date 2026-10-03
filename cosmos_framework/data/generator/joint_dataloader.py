@@ -40,6 +40,7 @@ def custom_collate_fn(batch):
     """
     list_collate_keys = {
         "pointflow",
+        "fk",
         "text_token_ids",
         "images",
         "video",
@@ -61,7 +62,7 @@ def custom_collate_fn(batch):
     # remaining sound tensors mis-aligned with the plans whose ``has_sound``
     # flag was set BEFORE collation, causing ``sequence_packing`` to index
     # past the end of ``x0_tokens_sound``.
-    sparse_data_keys = {"sound", "pointflow"}
+    sparse_data_keys = {"sound", "pointflow", "fk"}
 
     # Handle the case where the batch is already a dictionary (e.g. column-wise batching)
     if isinstance(batch, dict):
@@ -595,9 +596,11 @@ class JointDataLoader(webdataset.WebLoader):
                     num_sound_tokens = int(audio_duration * self.sound_latent_fps)
                     num_tokens += num_sound_tokens
 
+        from cosmos_framework.data.fk_batch import fk_token_upper_bound
         from cosmos_framework.data.pointflow_batch import pointflow_token_upper_bound
 
         num_tokens += pointflow_token_upper_bound(data_batch.get("pointflow"))
+        num_tokens += fk_token_upper_bound(data_batch.get("fk"))
         return num_tokens
 
     # Keys whose value per sample is a list of tensors to be flattened into one list in the batch
@@ -608,6 +611,10 @@ class JointDataLoader(webdataset.WebLoader):
             output = {**output, "pointflow": None}
         if "pointflow" in output and "pointflow" not in output_batch:
             output_batch["pointflow"] = [None] * len(output_batch.get("video", output_batch.get("images", [])))
+        if "fk" in output_batch and "fk" not in output:
+            output = {**output, "fk": None}
+        if "fk" in output and "fk" not in output_batch:
+            output_batch["fk"] = [None] * len(output_batch.get("video", output_batch.get("images", [])))
         for key, value in output.items():
             if key in _BATCH_TIMING_KEYS:
                 if key not in output_batch:

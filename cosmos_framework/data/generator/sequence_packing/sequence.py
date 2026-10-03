@@ -18,7 +18,9 @@ from cosmos_framework.data.generator.sequence_packing.mrope import (
 )
 
 if TYPE_CHECKING:
+    from cosmos_framework.data.fk_batch import FKBatch, FKNoised
     from cosmos_framework.data.pointflow_batch import PointFlowBatch, PointFlowNoised
+    from cosmos_framework.model.generator.fk_sequence import FKTokenPayload
     from cosmos_framework.model.generator.pointflow_sequence import PointTokenPayload
     from cosmos_framework.model.generator.utils.data_and_condition import GenerationDataClean
 
@@ -931,6 +933,12 @@ class PackedSequence:
     pointflow_noised: PointFlowNoised | None = None
     pointflow_data: PointFlowBatch | None = None  # PointFlowBatch, before learned token encoding
     point: PointTokenPayload | None = None
+    # Raw ragged FK batch, set by the packer before the learned tokens exist.
+    fk_data: "FKBatch | None" = None
+    # Learned FK tokens, attached in the model by attach_fk_tokens.
+    fk: FKTokenPayload | None = None
+    # Noised FK state for the step, so ``denoise`` can hand it to the network.
+    fk_noised: "FKNoised | None" = None
 
     # Multi-control transfer: per-sample list of per-vision-item token counts.
     # For a multi-control transfer sample with N controls + 1 noisy target,
@@ -960,13 +968,26 @@ class PackedSequence:
             )
 
     def to_cuda(self) -> None:
-        """Move all tensor fields to CUDA in-place."""
+        """Move all tensor fields to CUDA in-place.
+
+        The modality payloads are objects, not tensors, so they are easy to forget
+        here -- and the omission is invisible in the training path, where the batch
+        builder already places them.  A caller who builds on CPU and then calls
+        ``to_cuda`` (a validation harness, say) fails later on a device mismatch
+        inside the branch instead of here.
+        """
         if self.pointflow_noised is not None:
             self.pointflow_noised.to_cuda()
         if self.pointflow_data is not None:
             self.pointflow_data.to_cuda()
         if self.point is not None:
             self.point.to_cuda()
+        if self.fk_noised is not None:
+            self.fk_noised.to_cuda()
+        if self.fk_data is not None:
+            self.fk_data.to_cuda()
+        if self.fk is not None:
+            self.fk.to_cuda()
         self.text_ids = self.text_ids.cuda()
         self.text_indexes = self.text_indexes.cuda()
         self.position_ids = self.position_ids.cuda()

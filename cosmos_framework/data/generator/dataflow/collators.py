@@ -52,6 +52,7 @@ def _vfm_inner_collate(batch):
     """
     list_collate_keys = {
         "pointflow",
+        "fk",
         "text_token_ids",
         "images",
         "video",
@@ -71,7 +72,7 @@ def _vfm_inner_collate(batch):
     # remaining sound tensors mis-aligned with the plans whose ``has_sound``
     # flag was set BEFORE collation, causing ``sequence_packing`` to index
     # past the end of ``x0_tokens_sound``.
-    sparse_data_keys = {"sound", "pointflow"}
+    sparse_data_keys = {"sound", "pointflow", "fk"}
 
     # Handle the case where the batch is already a dictionary (e.g. column-wise batching)
     if isinstance(batch, dict):
@@ -158,6 +159,13 @@ def _split_one(batch: dict) -> dict:
 
 def _accumulate(output_batch: dict, output: dict) -> None:
     """Port of _update_output_batch from joint_dataloader.py lines 405-418."""
+    # Keep this in sync with joint_dataloader._update_output_batch: same sparse
+    # "fk" key, same misalignment if a packed group mixes annotated and
+    # unannotated samples.
+    if "fk" in output_batch and "fk" not in output:
+        output = {**output, "fk": None}
+    if "fk" in output and "fk" not in output_batch:
+        output_batch["fk"] = [None] * len(output_batch.get("video", output_batch.get("images", [])))
     for key, value in output.items():
         if key in _BATCH_TIMING_KEYS:
             if key not in output_batch:
@@ -206,6 +214,11 @@ class VFMListCollator(BatchCollator):
         output_batch: dict = {}
         if any("pointflow" in s for s in samples):
             samples = [{**s, "pointflow": s.get("pointflow")} for s in samples]
+        # Materialize the sparse "fk" key on every sample before splitting, so
+        # annotated and unannotated samples take the same path through
+        # _split_one.  _accumulate backfills None as a second line of defence.
+        if any("fk" in s for s in samples):
+            samples = [{**s, "fk": s.get("fk")} for s in samples]
         for s in samples:
             collated = _vfm_inner_collate([s])  # verbatim custom_collate_fn copy
             split = _split_one(collated)  # i=0 split (rules from _get_next_sample)
