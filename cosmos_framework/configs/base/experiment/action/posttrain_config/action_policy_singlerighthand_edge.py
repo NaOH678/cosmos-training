@@ -8,6 +8,8 @@ import os
 
 from hydra.core.config_store import ConfigStore
 
+from cosmos_framework.callbacks.fk_eval import FKEvalCallback
+from cosmos_framework.callbacks.fk_rollout import FKRolloutCallback
 from cosmos_framework.callbacks.gpu_video_augmentation import GPUVideoAugmentation
 from cosmos_framework.callbacks.pointflow_eval import PointFlowEvalCallback
 from cosmos_framework.configs.base.experiment.action.posttrain_config.action_policy_droid_nano import (
@@ -115,8 +117,64 @@ model_config["rectified_flow_training_config"]["pointflow_displacement_scale"] =
 # fitting failure.  The independent draw keeps the sigma marginal identical and only
 # removes the coupling.  Model shapes are unchanged, so runs resume across this flag.
 # See docs/pointflow_per_point_tokens_20260919.md.
-model_config["rectified_flow_training_config"]["independent_pointflow_schedule"] = True
+model_config["rectified_flow_training_config"]["independent_pointflow_schedule"] = os.environ.get(
+    "FK_ENCODER_CHECKPOINT", ""
+).lower() not in {"1", "true", "yes", "on"}
+# ^ 2026-09-29 决定：训练回到原生 Cosmos 的【全共享 σ】——四模态在同一个
+#   σ 下加噪，与四模态联合去噪推理的部署条件一致。独立 σ 当初是为了让
+#   『条件 arm』（干净视频 + 噪声模态）在训练分布里存在；那个条件只在诊断
+#   arm 里出现，不在部署形态里。代价：条件 arm 重新变成分布外，其数字不再
+#   可比（它本来就是上限、不是部署性能）。
 
+
+# FK's clean target must be unit-scale, for the same reason PointFlow's must be:
+# the RF forward process is ``x_sigma = sigma*eps + (1-sigma)*target`` with
+# ``eps`` unit-variance Gaussian, so a target 13x smaller than the noise leaves
+# the branch training almost entirely on the noise term.  Every other modality
+# here is already unit-scale -- the video VAE latent measures std 0.872, the
+# action is normalised by ``quantile_rot`` -- so this restores the convention
+# rather than introducing a special case.
+#
+# 0.083745 is the pooled per-element std of the window displacement over the 101
+# training episodes, n=202,138,272, measured in the camera frame FK actually
+# labels in.  Reproduce:
+#     python tools/scan_fk_displacement_scale.py \
+#         --episodes examples/singlerighthand_101_episodes.txt
+#
+# The 10-episode allowlist this recipe started on measured 0.074450 (n=26,522,496).
+# The two are 12% apart because the wider set carries larger hand motion -- the
+# docstring's point, that this is a property of the *selection*: change the
+# allowlist and it has to be re-measured, and a checkpoint trained under one value
+# cannot be resumed onto the other.
+#
+# Dropping the default 1.0 is a real change to the branch's problem, not a
+# rescaling of the report: checkpoints trained under 1.0 cannot be resumed onto
+# this.  After it the FK loss will READ HIGHER and its "predict zero" baseline
+# grows -- judge the branch by ADE against that baseline, never by the loss
+# value.
+#
+# Env override FK_DISPLACEMENT_SCALE switches the dataset (the value is a property
+# of the data selection, not the model): dropper 101-episode measures 0.040438
+# (n=204,097,824; tools/scan_fk_displacement_scale.py --root .../dropper_fk21
+# --episodes examples/singlerighthand_dropper_101_episodes.txt).
+model_config["rectified_flow_training_config"]["fk_displacement_scale"] = float(
+    os.environ.get("FK_DISPLACEMENT_SCALE", "0.083745")
+)
+
+# Decouple FK's noise level from the video's.  Sharing one sigma per sample lets the
+# model learn "the video is clean => sigma ~ 0 => the answer is the input unchanged",
+# and the eval's condition (clean video + FK from pure noise) is precisely what fires
+# that shortcut: the sampled trajectory collapses onto its own initial noise, which is
+# the "scattered, no hand shape" failure.  Drawing FK's sigma independently keeps the
+# marginal over sigma identical and puts that condition back in the training
+# distribution.  The PointFlow branch hit the identical bug and fixed it this way
+# (independent_pointflow_schedule, docs/pointflow_per_point_tokens_20260919.md).
+model_config["rectified_flow_training_config"]["independent_fk_schedule"] = False
+# ^ 2026-09-29 决定：训练回到原生 Cosmos 的【全共享 σ】——四模态在同一个
+#   σ 下加噪，与四模态联合去噪推理的部署条件一致。独立 σ 当初是为了让
+#   『条件 arm』（干净视频 + 噪声模态）在训练分布里存在；那个条件只在诊断
+#   arm 里出现，不在部署形态里。代价：条件 arm 重新变成分布外，其数字不再
+#   可比（它本来就是上限、不是部署性能）。
 model_config["vlm_config"]["tokenizer"] = L(build_processor_lazy)(tokenizer_type="${oc.env:EDGE_DROID_MODEL_PATH}")
 model_config["vlm_config"]["pretrained_weights"].update(
     enabled=False,
@@ -151,6 +209,47 @@ action_policy_singlerighthand_edge["optimizer"]["lr_multipliers"]["pointflow_bra
 # loading the converted DCP; only EMA is warm-started from the regular network.
 action_policy_singlerighthand_edge["checkpoint"]["keys_to_skip_loading"] = ["net_ema."]
 action_policy_singlerighthand_edge["checkpoint"]["enable_gcs_patch_in_boto3"] = False
+
+# Which components a resume may load.  Empty -- the default -- means all of them,
+# which is what a run resuming its own latest checkpoint wants and what training
+# always uses.
+#
+# tools/run_fk_joint_eval.sh sets this when it evaluates a checkpoint that has been
+# pruned to ``model/`` alone.  These runs delete the training state of older
+# iterations as they go, keeping the weights; a resume, though, asks for all of
+# CHECKPOINT_KEYS unconditionally (utils/checkpoint/dcp.py:737) and a component that
+# is not in the directory does not produce a message naming it -- the reader returns
+# no metadata and torch reports ``AssertionError: metadata is None``, with the real
+# reason ("Global metadata is not found") swallowed by a bare ``except Exception``
+# (torch/distributed/checkpoint/state_dict_loader.py:229-244).
+#
+# Unlike the three flags above, this one applies on the RESUME path as well
+# (dcp.py:777 sits outside the load_path branch), so it narrows the key set without
+# switching to a warm start -- which matters, because a warm start would also apply
+# ``keys_to_skip_loading`` and so evaluate weights other than the checkpointed ones.
+#
+# The cost is the iteration: ``trainer`` is the only component that carries it
+# (dcp.py:920), so dropping it makes the load report 0.  The eval pins max_iter to 0
+# to match; the loop tests ``iteration >= max_iter`` AFTER the start validation
+# (trainer/__init__.py:244 then :288), so the eval still runs and no step does.
+action_policy_singlerighthand_edge["checkpoint"]["keys_not_to_resume"] = [
+    key for key in os.environ.get("FK_SKIP_RESUME_KEYS", "").split(",") if key
+]
+
+# FK trains end to end and has no pretrained part at all: the index embeddings,
+# the position MLP and the decoder are all new.  The optimizer allowlist freezes
+# any parameter whose name matches no key here, so without this entry the branch
+# receives no gradient -- and the failure is silent, since the rest of the model
+# keeps training normally.
+_fk_optimizer_keys = action_policy_singlerighthand_edge["optimizer"]["keys_to_select"]
+if "fk_branch" not in _fk_optimizer_keys:
+    _fk_optimizer_keys.append("fk_branch")
+
+# At the base LR (2e-5) freshly-initialized weights move by ~lr per step and need
+# tens of thousands of steps to emit a unit-scale velocity, so the whole branch
+# gets the boost the PointFlow codec gets.  Lower this to 10.0 if Video Loss
+# starts degrading: the FK gradient also flows into the shared trunk.
+action_policy_singlerighthand_edge["optimizer"]["lr_multipliers"]["fk_branch"] = 25.0
 
 action_policy_singlerighthand_edge["trainer"]["callbacks"]["gpu_video_augmentation"] = L(GPUVideoAugmentation)(
     enabled="${oc.env:COSMOS_GPU_VIDEO_AUGMENTATION,false}",
@@ -192,6 +291,94 @@ action_policy_singlerighthand_edge["trainer"]["callbacks"]["pointflow_eval"] = L
     # training sigma cannot.
     sigma_scan="${oc.env:POINTFLOW_SIGMA_SCAN,false}",
 )
+# Periodic FK fitting evaluation.  ``every_n`` counts *validation* calls, and the
+# trainer runs validation every ``validation_iter`` (100) steps, so this produces a
+# step_XXXXXXXXX/ directory every 100 steps.
+action_policy_singlerighthand_edge["trainer"]["callbacks"]["fk_eval"] = L(FKEvalCallback)(
+    # Main fk_eval artifacts now measure joint generation, at the same paths.
+    # PointFlow joins automatically when the fixed case carries its payload.
+    joint_only=True,
+    every_n="${oc.env:FK_EVAL_EVERY,1}",
+    max_cases="${oc.env:FK_EVAL_CASES,2}",
+    # 4 steps, the same solver (UniPC) and the same shift as the video/action path --
+    # the FK tokens are denoised inside that loop in the deployed system, so the
+    # diagnostic must not integrate them differently.  comparison_steps gives a second
+    # trajectory to see whether the step count is even the binding constraint.
+    sampling_steps="${oc.env:FK_EVAL_STEPS,4}",
+    comparison_steps=16,
+    seed=42,
+    sampler="${oc.env:FK_EVAL_SAMPLER,unipc}",
+    # joint_only uses UniPC for the reference too; this setting is conditional-only.
+    comparison_sampler="${oc.env:FK_EVAL_COMPARISON_SAMPLER,euler}",
+    make_video="${oc.env:FK_EVAL_VIDEO,true}",
+    # Figures and MP4 are matplotlib, and the only CPU-heavy part of the eval:
+    # ~128 renders per validation pass, ~0.4 s/step at validation_iter=100 on a
+    # single GPU.  Off by default -- the eval still writes prediction.npz and
+    # metrics.json (kilobytes, milliseconds), and tools/render_fk_case.py draws
+    # the identical figures offline, for any past step.  Set FK_EVAL_FIGURES=true
+    # to have them during training as before.
+    make_figures="${oc.env:FK_EVAL_FIGURES,false}",
+    # Legacy diagnostic-arm settings apply only with joint_only=False.
+    # The primary joint mode above always generates future action and suppresses
+    # these extra runs, keeping the existing root artifact paths.
+    video_joint="${oc.env:FK_EVAL_JOINT,false}",
+    video_joint_steps="${oc.env:FK_EVAL_JOINT_STEPS,${oc.env:FK_EVAL_STEPS,4}}",
+    joint_action="${oc.env:FK_EVAL_JOINT_ACTION,false}",
+)
+
+# Whole-episode rollout of the val episodes, so the two figures below cover the
+# whole recording rather than one window.  Registered always -- it returns
+# immediately when disabled, so an ordinary run carries no cost -- but enabled only
+# by FK_ROLLOUT=1, because it tiles an episode (~1200 frames) into ~37 windows and
+# samples each: roughly 150 forwards per case against the fixed eval's 4.
+#
+# every_n counts VALIDATION EVENTS, not steps: the point of the gate is to spend the
+# forwards rarely, and an iteration modulus would change cadence with validation_iter.
+action_policy_singlerighthand_edge["trainer"]["callbacks"]["fk_rollout"] = L(FKRolloutCallback)(
+    enabled="${oc.env:FK_ROLLOUT,false}",
+    every_n="${oc.env:FK_ROLLOUT_EVERY,10}",
+    sampling_steps="${oc.env:FK_ROLLOUT_STEPS,${oc.env:FK_EVAL_STEPS,4}}",
+    sampler="${oc.env:FK_EVAL_SAMPLER,unipc}",
+    seed=42,
+    max_episodes="${oc.env:FK_ROLLOUT_EPISODES,2}",
+    # Length of the clip, taken from the middle of the episode.  A whole episode is
+    # ~40 s: long to watch, and ~2.5x the forwards (18 windows vs 8).  Set 0 for the
+    # whole episode.  fps must match the dataset's -- see ``fps=15.0`` above; it is
+    # what converts seconds into the model frames the windows are cut on.
+    seconds="${oc.env:FK_ROLLOUT_SECONDS,16}",
+    fps=15.0,
+    # Joint arm per window: generate the video from noise and denoise FK alongside it,
+    # instead of conditioning FK on the clean GT video.  This is what turns the
+    # rollout into the two-panel form (left real, right generated) and what makes the
+    # clip longer than one window -- one generated video per window, decoded offline
+    # by tools/render_fk_rollout.py.  Sampling switch only; no retraining.
+    generated_video="${oc.env:FK_ROLLOUT_GENERATED,false}",
+    # Same extension as the fixed eval's: denoise the future action alongside the
+    # video and FK, so each window's clip is the deployed configuration rather than
+    # a clean-action approximation of it.  REQUIRES FK_ROLLOUT_GENERATED (it is
+    # rejected on its own, like the eval's -- set both); writes to
+    # ``fk_rollout_joint_action/`` beside the two-segment arm's ``fk_rollout/``,
+    # because both are rollouts of the same episode and one would otherwise replace
+    # the other.
+    joint_action="${oc.env:FK_ROLLOUT_JOINT_ACTION,false}",
+)
+
+# One-off sampler diagnostic.  Off unless FK_SAMPLER_PROBE=1, so an ordinary run
+# carries no extra callbacks: this samples and forwards the fixed case several
+# extra times, which is worth it exactly once and not every validation.
+if os.environ.get("FK_SAMPLER_PROBE", "").strip().lower() in {"1", "true", "yes", "on"}:
+    from cosmos_framework.callbacks.fk_sampler_probe import FKSamplerProbeCallback
+
+    action_policy_singlerighthand_edge["trainer"]["callbacks"]["fk_sampler_probe"] = L(FKSamplerProbeCallback)(
+        every_n=1,
+        max_cases=1,
+        sampling_steps=int(os.environ.get("FK_SAMPLER_PROBE_STEPS", "4")),
+        sampler=os.environ.get("FK_SAMPLER_PROBE_SAMPLER", "unipc"),
+        grid_points=int(os.environ.get("FK_SAMPLER_PROBE_GRID", "13")),
+    )
+
+# Periodic validation is what makes a run readable while it is still going: without it
+# the only signal is a training loss that can fall while the model learns nothing usable.
 action_policy_singlerighthand_edge["trainer"].update(
     run_validation=True,
     # To validate at (re)start — including on resume — pass a tail override:
@@ -234,6 +421,9 @@ dataloader["datasets"] = {
             chunk_length=32,
             split="train",
             split_seed=42,
+            # 0.03 rounds to ZERO validation episodes on a 10-episode allowlist, which
+            # leaves the val dataloader empty and the periodic eval with nothing to run.
+            # 0.2 gives 2 of 10.
             split_val_ratio=0.2,
             sample_stride=1,
             mode="wam",
@@ -252,6 +442,7 @@ dataloader["datasets"] = {
             video_decoder="${oc.env:SINGLERIGHTHAND_VIDEO_DECODER,opencv}",
             episode_allowlist="${oc.env:POINTFLOW_EPISODE_ALLOWLIST,}",
             pointflow_manifest="${oc.env:POINTFLOW_MANIFEST,/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft/pointflow_outputs/task5/mixed_manifest.json}",
+            fk_root="${oc.env:FK_ANNOTATION_ROOT,}",
             pointflow_max_points=8192,
             pointflow_voxel_size=0.02,
             pointflow_seed=42,
