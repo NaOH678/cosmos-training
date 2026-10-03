@@ -58,6 +58,10 @@ class ActivationCheckpointingConfig:
         factory=lambda: ["fmha"],
     )
 
+    # Additional aten.mm saves selected by RHS [input_width, output_width].
+    # Empty preserves the existing policy. Does not select addmm/bmm.
+    save_mm_shapes: list[list[int]] = attrs.field(factory=list)
+
     # Stash and restore RNG state across recompute boundaries. Required for
     # deterministic output vs. non-checkpointed passes; slower otherwise.
     # MoT only — unused on the VLM path.

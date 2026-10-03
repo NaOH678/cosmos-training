@@ -3,12 +3,9 @@
 
 """FSDP / activation-checkpointing / torch.compile pass for the unified MoT.
 
-The activation-checkpointing implementation here mirrors the torchtitan SAC
-design (``torchtitan/distributed/activation_checkpoint.py``):
-
-  * Per-op selective AC saves a curated set of compute and communication ops
-    (SDPA variants, FlexAttention, ``aten.linear``, NCCL collectives,
-    DeepEP/HybridEP) and recomputes everything else.
+Per-op selective AC saves outputs selected by explicit operator-name regexes
+or aten.mm RHS shapes, and recomputes other operations. Full AC uses the
+standard checkpoint wrapper without a per-op policy.
 """
 
 import re
@@ -25,18 +22,18 @@ from torch.utils.checkpoint import (
     create_selective_checkpoint_contexts,
 )
 
-from cosmos_framework.utils import log
 from cosmos_framework.configs.base.defaults.activation_checkpointing import ActivationCheckpointingConfig
 from cosmos_framework.configs.base.defaults.compile import CompileConfig
-from cosmos_framework.model.generator.mot.attention import SplitInfo, dispatch_attention
-from cosmos_framework.model.generator.mot.context_parallel_utils import context_parallel_attention
-from cosmos_framework.model.generator.utils.memory import KVToStore, MemoryValue
 from cosmos_framework.data.generator.sequence_packing.runtime import (
     SequencePack,
     from_und_gen_splits,
     get_gen_seq,
     get_und_seq,
 )
+from cosmos_framework.model.generator.mot.attention import SplitInfo, dispatch_attention
+from cosmos_framework.model.generator.mot.context_parallel_utils import context_parallel_attention
+from cosmos_framework.model.generator.utils.memory import KVToStore, MemoryValue
+from cosmos_framework.utils import log
 from cosmos_framework.utils.generator.parallelism import ParallelDims
 
 
@@ -224,25 +221,34 @@ class ARReplicatedIODispatch(nn.Module):
         return local_output_pack, kv_to_store
 
 
+def _selective_ac_policy(ac: ActivationCheckpointingConfig):
+    """Build the additive name/weight-shape save policy outside compilation."""
+    save_ops_regex = [re.compile(pattern) for pattern in ac.save_ops_regex]
+    save_mm_shapes = tuple(tuple(shape) for shape in ac.save_mm_shapes)
+    if any(len(shape) != 2 or any(not isinstance(d, int) or d <= 0 for d in shape) for shape in save_mm_shapes):
+        raise ValueError("save_mm_shapes must contain positive [input_width, output_width] pairs")
+
+    def wrapped_policy(ctx, func, *args, **kwargs) -> CheckpointPolicy:
+        op_name = getattr(func, "__name__", str(func))
+        if any(pattern.search(op_name) for pattern in save_ops_regex):
+            return CheckpointPolicy.MUST_SAVE
+        if save_mm_shapes and func == torch.ops.aten.mm.default and tuple(args[1].shape) in save_mm_shapes:
+            return CheckpointPolicy.MUST_SAVE
+        return CheckpointPolicy.MUST_RECOMPUTE
+
+    return wrapped_policy
+
+
 def _apply_selective_ac(
     module: nn.Module,
     ac: ActivationCheckpointingConfig,
 ) -> nn.Module:
     """Apply per-op selective activation checkpointing to ``module``."""
-    save_ops_regex = [re.compile(pattern) for pattern in ac.save_ops_regex]
-
-    def _get_custom_policy():
-        def wrapped_policy(ctx, func, *args, **kwargs) -> CheckpointPolicy:
-            op_name = getattr(func, "__name__", str(func))
-            if any(pattern.search(op_name) for pattern in save_ops_regex):
-                return CheckpointPolicy.MUST_SAVE
-            return CheckpointPolicy.MUST_RECOMPUTE
-
-        return wrapped_policy
+    policy = _selective_ac_policy(ac)
 
     return ptd_checkpoint_wrapper(
         module,
-        context_fn=lambda: create_selective_checkpoint_contexts(_get_custom_policy()),
+        context_fn=lambda: create_selective_checkpoint_contexts(policy),
         preserve_rng_state=ac.preserve_rng_state,
         determinism_check=ac.determinism_check,
     )

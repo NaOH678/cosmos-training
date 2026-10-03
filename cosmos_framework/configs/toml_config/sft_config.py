@@ -228,6 +228,13 @@ class ActivationCheckpointingConfig(BaseModel):
             "attention outputs."
         ),
     )
+    save_mm_shapes: list[list[int]] = Field(
+        default_factory=list,
+        description=(
+            "Additional aten.mm outputs to save under selective AC, selected by RHS "
+            "[input_width, output_width]. Does not select addmm/bmm. MoT only."
+        ),
+    )
     preserve_rng_state: bool = Field(
         default=True,
         description=(
