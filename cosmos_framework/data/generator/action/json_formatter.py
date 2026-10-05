@@ -7,9 +7,9 @@ import math
 
 import torch
 
-from cosmos_framework.utils import log
 from cosmos_framework.data.generator.action.viewpoint_utils import DEFAULT_VIEWPOINT_TEMPLATES
 from cosmos_framework.data.generator.utils import VIDEO_RES_SIZE_INFO
+from cosmos_framework.utils import log
 
 
 def _should_append_idle_frame_info(mode: object) -> bool:
@@ -91,7 +91,7 @@ class ActionPromptJsonFormatter:
                 f"ActionPromptJsonFormatter: expected '{self.video_key}' to be a video tensor with shape "
                 f"(C, T, H, W), got {type(video).__name__}"
             )
-        duration_seconds = video.shape[1] / fps
+        duration_seconds = int(data_dict.get("cached_video_num_frames", video.shape[1])) / fps
         duration = self._truncate_seconds(duration_seconds)
         action_end_time = self._round_time_seconds(duration_seconds)
 

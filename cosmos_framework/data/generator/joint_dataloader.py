@@ -547,6 +547,7 @@ class JointDataLoader(webdataset.WebLoader):
                 T = 1
             else:
                 _, T, H, W = media.shape
+                T = int(data_batch.get("cached_video_num_frames", T))
 
             latent_h_shape = H // self.tokenizer_spatial_compression_factor
             latent_w_shape = W // self.tokenizer_spatial_compression_factor

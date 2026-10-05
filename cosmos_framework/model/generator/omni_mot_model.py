@@ -1174,7 +1174,7 @@ class OmniMoTModel(ImaginaireModel):
 
         # Pixel-space video shapes for VAE FLOPs estimation in callbacks (e.g. MFU).
         _vae_pixel_shapes: list[tuple[int, int, int]] = []
-        if gen_data_clean.raw_state_vision is not None:
+        if gen_data_clean.raw_state_vision is not None and data_batch.get("vae_latent_cache") is None:
             for _v in gen_data_clean.raw_state_vision:
                 if _v is not None:
                     assert _v.dim() in [4, 5], (
@@ -5122,6 +5122,13 @@ class OmniMoTModel(ImaginaireModel):
             if log_enc_time:
                 timer = Timer(unit="s")
                 timer.start()
+
+        if "cached_video_num_frames" in data_batch:
+            # A truncated RGB clip must never enter the VAE/inference path.
+            if data_batch.get("vae_latent_cache") is None or vision_condition_indexes is not None:
+                raise ValueError("Cached-video training requires latents; inference requires full RGB")
+            if self.config.diffusion_expert_config.vision_temporal_position_mode != "latent_index":
+                raise ValueError("Cached-video training currently requires latent_index temporal positions")
 
         # Vision (image/video) raw state and tokenized latent state
         self._normalize_video_databatch_inplace(data_batch)

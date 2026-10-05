@@ -81,3 +81,14 @@ def test_outer_packing_budget_includes_fk_anchor_and_motion_tokens():
     video_tokens = loader._compute_num_tokens_per_sample(sample)
     assert video_tokens == 9
     assert loader._compute_num_tokens_per_sample({**sample, "fk": fk_sample()}) == video_tokens + 189
+
+
+def test_cached_video_budget_preserves_full_temporal_extent_after_collation():
+    loader = _loader()
+    loader.buffers = [deque()]
+    samples = [{"video": torch.zeros(3, 1, 16, 16), "cached_video_num_frames": frames} for frames in (33, 17)]
+    loader.dataloaders = [iter(DataLoader(samples, batch_size=2, collate_fn=custom_collate_fn))]
+    for frames in (33, 17):
+        sample = loader._get_next_sample(0)
+        full = {"video": [torch.zeros(3, frames, 16, 16)]}
+        assert loader._compute_num_tokens_per_sample(sample) == loader._compute_num_tokens_per_sample(full)

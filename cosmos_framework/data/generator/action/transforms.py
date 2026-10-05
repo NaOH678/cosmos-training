@@ -684,7 +684,7 @@ class ActionTransformPipeline:
         video = data_dict.get("video")
         action = data_dict.get("action")
         assert video is not None, "video is required"
-        video_length = video.shape[1]  # [C,T,H,W] -> T
+        video_length = int(data_dict.get("cached_video_num_frames", video.shape[1]))
         action_length = action.shape[0] if isinstance(action, torch.Tensor) else max(video_length - 1, 0)
 
         # Prepend history action frames (ground-truth conditioning) if present.
