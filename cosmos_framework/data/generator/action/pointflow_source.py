@@ -67,6 +67,10 @@ class PointFlowSource:
                 if size.shape != (2,) or not np.all(size > 0):
                     raise ValueError(f"{name}: invalid video_size_wh")
                 source["uv_to_video"] = affine
+                offset = float(source.get("timestamp_offset_sec", 0.0))
+                if not np.isfinite(offset):
+                    raise ValueError(f"{name}: invalid timestamp_offset_sec")
+                source["timestamp_offset_sec"] = offset
             self.entries[name] = source
         self.timing, self.max_points, self.voxel_size, self.seed = timing, max_points, voxel_size, seed
         # `${oc.env:...}` in the recipe always yields a STRING, so coerce before
@@ -221,7 +225,8 @@ class PointFlowSource:
             )
         if not np.array_equal(window["raw_frame_ids"], frame_ids):
             raise ValueError(f"{episode}: video and PointFlow frame IDs differ")
-        if not np.allclose(window["timestamps_sec"], np.asarray(frame_ids) / source_fps, atol=1e-4, rtol=0):
+        expected_time = np.asarray(frame_ids) / source_fps + source["timestamp_offset_sec"]
+        if not np.allclose(window["timestamps_sec"], expected_time, atol=1e-4, rtol=0):
             raise ValueError(f"{episode}: video and PointFlow timestamps differ")
         result = pointflow_sample(window, episode, int(frame_ids[0]), seed, self.timing)
         result["metadata"]["source_path"] = str(source["path"])

@@ -84,3 +84,19 @@ def test_source_rejects_misaligned_frames_and_time(tmp_path, monkeypatch):
     assert loaded["metadata"]["video_size_wh"].tolist() == [8, 8]
     assert loaded["metadata"]["returned_video_size_wh"].tolist() == [16, 16]
     np.testing.assert_allclose(loaded["metadata"]["uv_to_video"], [[1, 0, 0], [0, 1, 0]])
+
+    # Simulation capture can start off cadence; its declared constant offset
+    # must be respected without accepting an actual one-frame misalignment.
+    document = json.loads(path.read_text())
+    document["episodes"][0]["pointflow_source"]["timestamp_offset_sec"] = -1 / 60
+    path.write_text(json.dumps(document))
+    source = PointFlowSource(path, timing=PointFlowTiming())
+    window["timestamps_sec"] = ids / 30 - 1 / 60
+    source.load("dense", ids, 30, (8, 8))
+    window["timestamps_sec"] += 1 / 30
+    with pytest.raises(ValueError, match="timestamps"):
+        source.load("dense", ids, 30, (8, 8))
+    document["episodes"][0]["pointflow_source"]["timestamp_offset_sec"] = float("nan")
+    path.write_text(json.dumps(document))
+    with pytest.raises(ValueError, match="timestamp_offset_sec"):
+        PointFlowSource(path, timing=PointFlowTiming())
