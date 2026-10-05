@@ -1,0 +1,1101 @@
+[
+  [
+    "aten::is_nonzero | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/pointflow_branch.py(174): decode > cosmos_framework/model/generator/pointflow_codec.py(159): decode > cosmos_framework/model/generator/pointflow_codec.py(118): _blocks",
+    [
+      2,
+      1582.5066219999999
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/pointflow_branch.py(174): decode > cosmos_framework/model/generator/pointflow_codec.py(159): decode > cosmos_framework/model/generator/pointflow_codec.py(118): _blocks",
+    [
+      2,
+      1582.499762
+    ]
+  ],
+  [
+    "aten::item | json/__init__.py(185): dumps > json/encoder.py(185): encode > json/encoder.py(207): iterencode > wandb/util.py(819): default > wandb/util.py(603): json_friendly > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      2,
+      276.190614
+    ]
+  ],
+  [
+    "aten::is_nonzero | nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/fk_branch.py(161): encode > cosmos_framework/model/generator/fk_branch.py(136): _sigma",
+    [
+      4,
+      144.493899
+    ]
+  ],
+  [
+    "aten::item | nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/fk_branch.py(161): encode > cosmos_framework/model/generator/fk_branch.py(136): _sigma",
+    [
+      4,
+      144.480598
+    ]
+  ],
+  [
+    "aten::item | nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/fk_sequence.py(88): attach_fk_tokens > cosmos_framework/model/generator/fk_sequence.py(147): modality",
+    [
+      2688,
+      49.34070799999997
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_sequence.py(64): attach_point_tokens > cosmos_framework/model/generator/pointflow_sequence.py(120): modality",
+    [
+      2688,
+      47.04800999999993
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/utils/callback.py(452): on_training_step_end > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      24,
+      25.900602999999997
+    ]
+  ],
+  [
+    "aten::item | <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(5057): get_data_and_condition > cosmos_framework/model/generator/omni_mot_model.py(2906): _remove_padding_from_latent > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      64,
+      17.28960199999999
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      288,
+      6.437839000000005
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > cosmos_framework/callbacks/wandb_log.py(74): _reduce_loss_records > cosmos_framework/callbacks/wandb_log.py(30): get_stat > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      256,
+      6.2723809999999975
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_2 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      288,
+      6.168672000000001
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_4 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      288,
+      5.668274999999998
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_6 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      288,
+      5.646781999999997
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_12 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      288,
+      5.541787
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e6950> > torch/_library/autograd.py(108): autograd_impl > torch/_library/autograd.py(34): forward_no_grad > torch/_ops.py(823): redispatch > <built-in method redispatch_boxed of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d8e66536d0> > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      728,
+      2.9800009999999983
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/omni_mot_model.py(1281): _compute_flow_matching_loss > cosmos_framework/model/generator/algorithm/loss/flow_matching.py(18): compute_flow_matching_loss",
+    [
+      32,
+      2.624811
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(689): _pack_input_sequence > cosmos_framework/data/generator/sequence_packing/packers.py(44): pack_input_sequence > cosmos_framework/data/generator/sequence_packing/packers.py(23): _get_optional_fps > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      64,
+      2.2451950000000007
+    ]
+  ],
+  [
+    "aten::item | torch/autograd/profiler.py(800): __enter__ > torch/_ops.py(1197): __call__ > <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > torch/_inductor/utils.py(3216): run > /tmp/torchinductor_root/rz/crzht4bslbzk5kwxxyus5qyt33hgkwruxsrmpgxtn5glz2ijd4fy.py(5656): call > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      504,
+      2.0834189999999984
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/model/generator/pointflow_branch.py(55): video_aligned_point_positions > torch/_jit_internal.py(609): fn > torch/_jit_internal.py(609): fn > torch/functional.py(1041): _return_output > torch/functional.py(786): _unique_impl > <built-in method _unique2 of type object at 0x72d8975f19e0>",
+    [
+      64,
+      1.6445930000000002
+    ]
+  ],
+  [
+    "aten::item | nn.Module: SerializedAttention_6 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse > <built-in method arange of type object at 0x72d8975f19e0>",
+    [
+      68,
+      1.3039689999999997
+    ]
+  ],
+  [
+    "aten::item | nn.Module: SerializedAttention_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse > <built-in method arange of type object at 0x72d8975f19e0>",
+    [
+      68,
+      1.298947
+    ]
+  ],
+  [
+    "aten::item | nn.Module: SerializedAttention_12 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse > <built-in method arange of type object at 0x72d8975f19e0>",
+    [
+      68,
+      1.2950760000000001
+    ]
+  ],
+  [
+    "aten::item | nn.Module: SerializedAttention_4 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse > <built-in method arange of type object at 0x72d8975f19e0>",
+    [
+      68,
+      1.2768480000000002
+    ]
+  ],
+  [
+    "aten::item | nn.Module: SerializedAttention_2 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse > <built-in method arange of type object at 0x72d8975f19e0>",
+    [
+      68,
+      1.2766020000000002
+    ]
+  ],
+  [
+    "aten::item | torch/autograd/profiler.py(800): __enter__ > torch/_ops.py(1197): __call__ > <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      64,
+      1.169851
+    ]
+  ],
+  [
+    "aten::item | torch/autograd/profiler.py(800): __enter__ > torch/_ops.py(1197): __call__ > <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > torch/_inductor/utils.py(3216): run > /tmp/torchinductor_root/f2/cf2h3iqnaplhzmpak7i2xkrxtd554szbne6bwfgoabbdmfthj25k.py(2603): call > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      448,
+      1.0308990000000002
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/pointflow_training.py(58): pointflow_loss > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/model/generator/pointflow_training.py(82): pointflow_ade",
+    [
+      2,
+      0.9596
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/pointflow_training.py(58): pointflow_loss > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/model/generator/pointflow_training.py(82): pointflow_ade",
+    [
+      2,
+      0.9563539999999999
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_branch.py(55): video_aligned_point_positions > <built-in method allclose of type object at 0x72d8975f19e0>",
+    [
+      32,
+      0.8605189999999999
+    ]
+  ],
+  [
+    "aten::item | nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/pointflow_branch.py(55): video_aligned_point_positions > <built-in method allclose of type object at 0x72d8975f19e0>",
+    [
+      32,
+      0.8172450000000002
+    ]
+  ],
+  [
+    "aten::is_nonzero | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_6 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      32,
+      0.7669599999999999
+    ]
+  ],
+  [
+    "aten::is_nonzero | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      32,
+      0.766151
+    ]
+  ],
+  [
+    "aten::is_nonzero | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_4 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      32,
+      0.7441290000000002
+    ]
+  ],
+  [
+    "aten::item | torch/autograd/profiler.py(800): __enter__ > torch/_ops.py(1197): __call__ > <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(1759): _add_noise_to_input",
+    [
+      64,
+      0.743014
+    ]
+  ],
+  [
+    "aten::is_nonzero | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_12 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      32,
+      0.7417370000000001
+    ]
+  ],
+  [
+    "aten::is_nonzero | cosmos_framework/auxiliary/sonata/model.py(367): forward > nn.Module: SerializedAttention_2 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    [
+      32,
+      0.7336109999999999
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > cosmos_framework/callbacks/wandb_log.py(74): _reduce_loss_records > cosmos_framework/callbacks/wandb_log.py(30): get_stat > <built-in method tensor of type object at 0x72d8975f19e0>",
+    [
+      32,
+      0.6640099999999999
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > cosmos_framework/callbacks/wandb_log.py(30): get_stat > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      16,
+      0.58006
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/pointflow_training.py(58): pointflow_loss > cosmos_framework/model/generator/pointflow_training.py(38): sigma_binned_loss",
+    [
+      20,
+      0.42336000000000007
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/fk_training.py(102): fk_loss > cosmos_framework/model/generator/fk_training.py(44): sigma_binned_loss",
+    [
+      20,
+      0.416388
+    ]
+  ],
+  [
+    "aten::is_nonzero | cosmos_framework/auxiliary/sonata/structure.py(64): serialization > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/serialization/default.py(31): encode > cosmos_framework/auxiliary/sonata/serialization/default.py(77): hilbert_encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(106): encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(84): gray2binary",
+    [
+      108,
+      0.3685989999999998
+    ]
+  ],
+  [
+    "aten::is_nonzero | nn.Module: SerializedAttention_13 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440>",
+    [
+      8,
+      0.318275
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(1759): _add_noise_to_input > cosmos_framework/model/generator/pointflow_training.py(9): pointflow_add_noise > cosmos_framework/data/pointflow_batch.py(241): validate",
+    [
+      10,
+      0.30531200000000003
+    ]
+  ],
+  [
+    "aten::item | nn.Module: SerializedAttention_13 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440>",
+    [
+      8,
+      0.305283
+    ]
+  ],
+  [
+    "aten::item | <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(1759): _add_noise_to_input > cosmos_framework/model/generator/pointflow_training.py(9): pointflow_add_noise > cosmos_framework/data/pointflow_batch.py(241): validate",
+    [
+      10,
+      0.290564
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      112,
+      0.286034
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/pointflow_training.py(58): pointflow_loss > cosmos_framework/model/generator/pointflow_training.py(38): sigma_binned_loss",
+    [
+      12,
+      0.26872999999999997
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/fk_training.py(102): fk_loss > cosmos_framework/model/generator/fk_training.py(44): sigma_binned_loss",
+    [
+      12,
+      0.26202400000000003
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/pointflow_branch.py(174): decode > cosmos_framework/model/generator/pointflow_codec.py(159): decode > cosmos_framework/model/generator/pointflow_codec.py(111): _sigma",
+    [
+      4,
+      0.251548
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(1759): _add_noise_to_input > cosmos_framework/model/generator/fk_training.py(15): fk_add_noise > cosmos_framework/data/fk_batch.py(74): validate",
+    [
+      10,
+      0.246887
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/pointflow_branch.py(174): decode > cosmos_framework/model/generator/pointflow_codec.py(159): decode > cosmos_framework/model/generator/pointflow_codec.py(111): _sigma",
+    [
+      4,
+      0.244205
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/pointflow_training.py(58): pointflow_loss > cosmos_framework/data/pointflow_batch.py(241): validate",
+    [
+      10,
+      0.24406599999999998
+    ]
+  ],
+  [
+    "aten::item | <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(1759): _add_noise_to_input > cosmos_framework/model/generator/fk_training.py(15): fk_add_noise > cosmos_framework/data/fk_batch.py(74): validate",
+    [
+      10,
+      0.23424099999999998
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/structure.py(64): serialization > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/serialization/default.py(31): encode > cosmos_framework/auxiliary/sonata/serialization/default.py(77): hilbert_encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(106): encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(84): gray2binary",
+    [
+      108,
+      0.2336979999999999
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/pointflow_training.py(58): pointflow_loss > cosmos_framework/data/pointflow_batch.py(241): validate",
+    [
+      10,
+      0.230431
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(418): forward > cosmos_framework/auxiliary/sonata/structure.py(56): __init__ > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/utils.py(51): batch2offset > <built-in method bincount of Tensor object at 0x72d596da9310>",
+    [
+      8,
+      0.22846499999999997
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse > torch/nn/functional.py(5337): pad > <built-in function pad>",
+    [
+      10,
+      0.22566299999999997
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/fk_training.py(102): fk_loss > cosmos_framework/data/fk_batch.py(74): validate",
+    [
+      10,
+      0.224454
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/fk_training.py(102): fk_loss > cosmos_framework/data/fk_batch.py(74): validate",
+    [
+      10,
+      0.212821
+    ]
+  ],
+  [
+    "aten::item | torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/serialization/default.py(31): encode > cosmos_framework/auxiliary/sonata/serialization/default.py(77): hilbert_encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(106): encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(84): gray2binary > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(27): right_shift",
+    [
+      176,
+      0.21010100000000004
+    ]
+  ],
+  [
+    "aten::is_nonzero | cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_branch.py(55): video_aligned_point_positions > cosmos_framework/model/generator/pointflow_sequence.py(30): point_positions",
+    [
+      8,
+      0.20740599999999998
+    ]
+  ],
+  [
+    "aten::is_nonzero | nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/pointflow_branch.py(55): video_aligned_point_positions > cosmos_framework/model/generator/pointflow_sequence.py(30): point_positions",
+    [
+      8,
+      0.206357
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_branch.py(55): video_aligned_point_positions > cosmos_framework/model/generator/pointflow_sequence.py(30): point_positions",
+    [
+      8,
+      0.194847
+    ]
+  ],
+  [
+    "aten::item | nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/pointflow_branch.py(55): video_aligned_point_positions > cosmos_framework/model/generator/pointflow_sequence.py(30): point_positions",
+    [
+      8,
+      0.19406099999999998
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/_ops.py(1197): __call__ > <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(5057): get_data_and_condition > cosmos_framework/data/pointflow_batch.py(137): build_pointflow_batch",
+    [
+      68,
+      0.17827800000000002
+    ]
+  ],
+  [
+    "aten::is_nonzero | cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > cosmos_framework/callbacks/wandb_log.py(74): _reduce_loss_records > torch/distributed/c10d_logger.py(80): wrapper > torch/distributed/distributed_c10d.py(3176): all_gather_object > <built-in function max>",
+    [
+      7,
+      0.167899
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > cosmos_framework/callbacks/wandb_log.py(74): _reduce_loss_records > torch/distributed/c10d_logger.py(80): wrapper > torch/distributed/distributed_c10d.py(3176): all_gather_object > <built-in function max>",
+    [
+      7,
+      0.160652
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/serialization/default.py(31): encode > cosmos_framework/auxiliary/sonata/serialization/default.py(77): hilbert_encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(106): encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(84): gray2binary > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(27): right_shift",
+    [
+      88,
+      0.15834400000000004
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/grad_clip.py(247): on_before_optimizer_step > cosmos_framework/callbacks/grad_clip.py(48): get_stat > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      6,
+      0.158341
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > torch/distributed/c10d_logger.py(80): wrapper > torch/distributed/distributed_c10d.py(3176): all_gather_object > torch/distributed/distributed_c10d.py(3162): _tensor_to_object",
+    [
+      8,
+      0.146801
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > cosmos_framework/callbacks/wandb_log.py(74): _reduce_loss_records > torch/distributed/c10d_logger.py(80): wrapper > torch/distributed/distributed_c10d.py(3176): all_gather_object > torch/distributed/distributed_c10d.py(3162): _tensor_to_object",
+    [
+      8,
+      0.14422100000000002
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > torch/distributed/c10d_logger.py(80): wrapper > torch/distributed/distributed_c10d.py(3176): all_gather_object > <built-in function max>",
+    [
+      7,
+      0.13699
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > torch/distributed/c10d_logger.py(80): wrapper > torch/distributed/distributed_c10d.py(3176): all_gather_object > <built-in function max>",
+    [
+      7,
+      0.130123
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/iter_speed.py(36): on_training_step_end > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      2,
+      0.114189
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/fk_branch.py(179): decode > cosmos_framework/model/generator/fk_branch.py(149): _blocks",
+    [
+      2,
+      0.11366000000000001
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(1759): _add_noise_to_input > <built-in function all> > cosmos_framework/model/generator/omni_mot_model.py(1865): <genexpr> > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      2,
+      0.113016
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/fk_branch.py(179): decode > cosmos_framework/model/generator/fk_branch.py(149): _blocks",
+    [
+      2,
+      0.10824800000000001
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end",
+    [
+      4,
+      0.10539500000000002
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/serialization/default.py(77): hilbert_encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(106): encode > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(84): gray2binary > cosmos_framework/auxiliary/sonata/serialization/hilbert.py(27): right_shift > torch/nn/functional.py(5337): pad > <built-in function pad>",
+    [
+      88,
+      0.103339
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(1197): __call__ > <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(5057): get_data_and_condition > cosmos_framework/data/pointflow_batch.py(137): build_pointflow_batch",
+    [
+      68,
+      0.10193
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/skip_nan_step.py(46): on_before_optimizer_step > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      2,
+      0.100341
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end",
+    [
+      4,
+      0.099856
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(745): forward > cosmos_framework/auxiliary/sonata/structure.py(56): __init__ > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/auxiliary/sonata/utils.py(43): offset2batch > <built-in method repeat_interleave of Tensor object at 0x72d596e634d0>",
+    [
+      4,
+      0.099252
+    ]
+  ],
+  [
+    "aten::is_nonzero | nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/fk_branch.py(161): encode > cosmos_framework/model/generator/fk_branch.py(149): _blocks",
+    [
+      2,
+      0.09516
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/skip_nan_step.py(37): on_before_backward",
+    [
+      4,
+      0.09395400000000001
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_geometry.py(17): summarize_geometry > <built-in method equal of type object at 0x72d8975f19e0>",
+    [
+      2,
+      0.09224099999999999
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method apply of FunctionMeta object at 0x3d2e7440> > nn.Module: PointFlowCodec_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/model/generator/pointflow_codec.py(199): forward > cosmos_framework/model/generator/pointflow_codec.py(124): encode > cosmos_framework/model/generator/pointflow_codec.py(111): _sigma",
+    [
+      4,
+      0.090272
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/fk_branch.py(179): decode > cosmos_framework/model/generator/fk_branch.py(136): _sigma",
+    [
+      4,
+      0.090015
+    ]
+  ],
+  [
+    "aten::item | nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/fk_branch.py(161): encode > cosmos_framework/model/generator/fk_branch.py(149): _blocks",
+    [
+      2,
+      0.08980099999999999
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_fk_attention.py(69): make_partition",
+    [
+      2,
+      0.089362
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/skip_nan_step.py(37): on_before_backward",
+    [
+      4,
+      0.088555
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_geometry.py(17): summarize_geometry > <built-in method bincount of type object at 0x72d8975f19e0>",
+    [
+      4,
+      0.087359
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/fk_branch.py(179): decode > cosmos_framework/model/generator/fk_branch.py(136): _sigma",
+    [
+      4,
+      0.085845
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_fk_attention.py(69): make_partition",
+    [
+      2,
+      0.08466399999999999
+    ]
+  ],
+  [
+    "aten::item | <built-in method apply of FunctionMeta object at 0x3d2e7440> > nn.Module: PointFlowCodec_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/model/generator/pointflow_codec.py(199): forward > cosmos_framework/model/generator/pointflow_codec.py(124): encode > cosmos_framework/model/generator/pointflow_codec.py(111): _sigma",
+    [
+      4,
+      0.084181
+    ]
+  ],
+  [
+    "aten::is_nonzero | <built-in method apply of FunctionMeta object at 0x3d2e7440> > nn.Module: PointFlowCodec_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/model/generator/pointflow_codec.py(199): forward > cosmos_framework/model/generator/pointflow_codec.py(124): encode > cosmos_framework/model/generator/pointflow_codec.py(118): _blocks",
+    [
+      2,
+      0.075681
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/pointflow_branch.py(174): decode > cosmos_framework/model/generator/pointflow_codec.py(159): decode",
+    [
+      2,
+      0.073792
+    ]
+  ],
+  [
+    "aten::item | <built-in method apply of FunctionMeta object at 0x3d2e7440> > nn.Module: PointFlowCodec_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/model/generator/pointflow_codec.py(199): forward > cosmos_framework/model/generator/pointflow_codec.py(124): encode > cosmos_framework/model/generator/pointflow_codec.py(118): _blocks",
+    [
+      2,
+      0.071153
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/pointflow_branch.py(174): decode > cosmos_framework/model/generator/pointflow_codec.py(159): decode",
+    [
+      2,
+      0.070189
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/module.py(82): forward > nn.Module: GridPooling_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(418): forward > cosmos_framework/auxiliary/sonata/structure.py(64): serialization",
+    [
+      2,
+      0.06890099999999999
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/pointflow_branch.py(149): encode > nn.Module: SonataGeometryEncoder_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/model/generator/pointflow_geometry.py(121): forward > <built-in method equal of type object at 0x72d8975f19e0>",
+    [
+      2,
+      0.068312
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(689): _pack_input_sequence > cosmos_framework/data/generator/sequence_packing/packers.py(44): pack_input_sequence > cosmos_framework/data/generator/sequence_packing/sequence.py(345): pack_action_tokens > cosmos_framework/data/generator/sequence_packing/mrope.py(75): get_3d_mrope_ids_vae_tokens > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      32,
+      0.06739900000000001
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/model/generator/pointflow_geometry.py(121): forward > nn.Module: PointTransformerV3_0 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(745): forward > cosmos_framework/auxiliary/sonata/structure.py(64): serialization",
+    [
+      2,
+      0.06495
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/module.py(82): forward > nn.Module: GridPooling_2 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(418): forward > cosmos_framework/auxiliary/sonata/structure.py(64): serialization",
+    [
+      2,
+      0.064206
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/module.py(82): forward > nn.Module: GridPooling_3 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(418): forward > cosmos_framework/auxiliary/sonata/structure.py(64): serialization",
+    [
+      2,
+      0.063796
+    ]
+  ],
+  [
+    "aten::item | <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(689): _pack_input_sequence > cosmos_framework/data/generator/sequence_packing/packers.py(44): pack_input_sequence > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      32,
+      0.063018
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/module.py(82): forward > nn.Module: GridPooling_1 > torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(418): forward > cosmos_framework/auxiliary/sonata/structure.py(64): serialization",
+    [
+      2,
+      0.062397999999999995
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(689): _pack_input_sequence > cosmos_framework/data/generator/sequence_packing/packers.py(44): pack_input_sequence > cosmos_framework/data/generator/sequence_packing/sequence.py(242): pack_vision_tokens > cosmos_framework/data/generator/sequence_packing/mrope.py(75): get_3d_mrope_ids_vae_tokens > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      32,
+      0.060929
+    ]
+  ],
+  [
+    "aten::is_nonzero | cosmos_framework/model/generator/omni_mot_model.py(5956): denoise > nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/fk_sequence.py(88): attach_fk_tokens",
+    [
+      2,
+      0.05631
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_geometry.py(17): summarize_geometry",
+    [
+      2,
+      0.05383
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/model/generator/omni_mot_model.py(5956): denoise > nn.Module: FSDPCosmos3VFMNetwork_0 > torch/nn/modules/module.py(1780): _call_impl > torch/nn/modules/module.py(1792): inner > cosmos_framework/model/generator/mot/cosmos3_vfm_network.py(1035): forward > cosmos_framework/model/generator/fk_sequence.py(88): attach_fk_tokens",
+    [
+      2,
+      0.05291
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_sequence.py(64): attach_point_tokens",
+    [
+      2,
+      0.052014000000000005
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/fk_training.py(102): fk_loss > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/model/generator/fk_training.py(138): fk_ade",
+    [
+      2,
+      0.051477999999999996
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_geometry.py(17): summarize_geometry",
+    [
+      2,
+      0.050218
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_branch.py(55): video_aligned_point_positions > cosmos_framework/model/generator/pointflow_branch.py(21): check_points_inside_video_grid",
+    [
+      2,
+      0.050137
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/fk_training.py(102): fk_loss > torch/utils/_contextlib.py(120): decorate_context > cosmos_framework/model/generator/fk_training.py(138): fk_ade",
+    [
+      2,
+      0.048696
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1780): _call_impl > cosmos_framework/auxiliary/sonata/model.py(210): forward > flash_attn/flash_attn_interface.py(1217): flash_attn_varlen_qkvpacked_func > torch/autograd/function.py(567): apply > <built-in method apply of FunctionMeta object at 0x3d2e7440> > cosmos_framework/model/generator/pointflow_sequence.py(64): attach_point_tokens",
+    [
+      2,
+      0.048659999999999995
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > cosmos_framework/callbacks/wandb_log.py(30): get_stat > <built-in method tensor of type object at 0x72d8975f19e0>",
+    [
+      2,
+      0.043432
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(2003): _replace_clean_with_noised > <built-in function all> > cosmos_framework/model/generator/omni_mot_model.py(2014): <genexpr> > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      2,
+      0.043327000000000004
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/pointflow_training.py(58): pointflow_loss > <built-in method bincount of type object at 0x72d8975f19e0>",
+    [
+      2,
+      0.041505
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_18 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.041309
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/model/generator/omni_mot_model.py(1329): _compute_losses > cosmos_framework/model/generator/fk_training.py(102): fk_loss > <built-in method bincount of type object at 0x72d8975f19e0>",
+    [
+      2,
+      0.040166999999999994
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_27 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.02974
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_21 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.02901
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > torch/_ops.py(818): __call__ > <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      1,
+      0.027471
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_25 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.025241999999999997
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_22 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.024944000000000004
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_9 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.024639
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_0 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.024599
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_26 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.024336000000000007
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_19 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.023042000000000007
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_24 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.022535
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_23 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.022361
+    ]
+  ],
+  [
+    "aten::item | cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > cosmos_framework/callbacks/wandb_log.py(74): _reduce_loss_records > torch/distributed/c10d_logger.py(80): wrapper > torch/distributed/distributed_c10d.py(3176): all_gather_object > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      1,
+      0.022137
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_20 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.021804999999999998
+    ]
+  ],
+  [
+    "aten::is_nonzero | torch/_ops.py(1197): __call__ > <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(5057): get_data_and_condition > cosmos_framework/data/fk_batch.py(140): build_fk_batch",
+    [
+      4,
+      0.021439
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_8 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.021046999999999996
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_6 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.020848999999999996
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_1 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.020676
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_2 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.020404000000000002
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_11 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.020350000000000004
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_16 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019855
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_10 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019826999999999997
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_3 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019811000000000002
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_12 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019791
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_14 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019538
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_4 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019523
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_7 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019398
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_13 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019374000000000002
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_17 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019261
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_5 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019200000000000002
+    ]
+  ],
+  [
+    "aten::item | torch/nn/modules/module.py(1792): inner > torch/_dynamo/eval_frame.py(904): compile_wrapper > nn.Module: CheckpointWrapper_15 > torch/nn/modules/module.py(1780): _call_impl > <string>(2): guard > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      14,
+      0.019187
+    ]
+  ],
+  [
+    "aten::item | <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d80f8e62f0> > cosmos_framework/utils/callback.py(95): multi_callback_wrapper > cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end > torch/distributed/c10d_logger.py(80): wrapper > torch/distributed/distributed_c10d.py(3176): all_gather_object > <built-in method item of Tensor object at 0x72d6016c54f0>",
+    [
+      1,
+      0.017667000000000002
+    ]
+  ],
+  [
+    "aten::item | <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(5057): get_data_and_condition > cosmos_framework/data/pointflow_batch.py(137): build_pointflow_batch > <built-in method repeat_interleave of type object at 0x72d8975f19e0>",
+    [
+      8,
+      0.01628
+    ]
+  ],
+  [
+    "aten::item | torch/_ops.py(1197): __call__ > <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(5057): get_data_and_condition > cosmos_framework/data/fk_batch.py(140): build_fk_batch",
+    [
+      4,
+      0.015985
+    ]
+  ],
+  [
+    "aten::item | <built-in method _record_function_enter_new of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp_gxx_abi_1xxx_use_cxx11_abi_1 object at 0x72d85ca23490> > cosmos_framework/trainer/__init__.py(346): training_step > cosmos_framework/model/generator/omni_mot_model.py(913): training_step > cosmos_framework/model/generator/omni_mot_model.py(5057): get_data_and_condition > cosmos_framework/data/fk_batch.py(140): build_fk_batch > <built-in method repeat_interleave of type object at 0x72d8975f19e0>",
+    [
+      4,
+      0.009047
+    ]
+  ]
+]

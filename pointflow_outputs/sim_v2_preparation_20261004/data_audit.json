@@ -1,0 +1,40 @@
+{
+  "status": "passed",
+  "current_worktree": true,
+  "checks": {
+    "train": {
+      "windows": 177,
+      "cache_misses": 0
+    },
+    "validation": {
+      "windows": 43,
+      "cache_misses": 0
+    }
+  },
+  "point_count_range": [
+    4424,
+    8202
+  ],
+  "train_only_std_metres": {
+    "pointflow": 0.041089133704910685,
+    "fk": 0.0748351679186022
+  },
+  "anchor_projection_mean_error_px": [
+    2.7294132266935174e-05,
+    2.8383915956527774e-05,
+    2.323235256980521e-05,
+    2.7463446468039027e-05,
+    2.2572406632504785e-05,
+    2.2966094227126925e-05
+  ],
+  "previews": [
+    "pointflow_outputs/sim_v2_preparation_20261004/train_episode_000000_000001_point_fk.mp4",
+    "pointflow_outputs/sim_v2_preparation_20261004/train_episode_000004_000033_point_fk.mp4",
+    "pointflow_outputs/sim_v2_preparation_20261004/train_episode_000007_000677_point_fk.mp4",
+    "pointflow_outputs/sim_v2_preparation_20261004/validation_episode_000008_000001_point_fk.mp4",
+    "pointflow_outputs/sim_v2_preparation_20261004/validation_episode_000008_000655_point_fk.mp4",
+    "pointflow_outputs/sim_v2_preparation_20261004/validation_episode_000009_000626_point_fk.mp4"
+  ],
+  "selection": "unchanged: no future-motion ranking",
+  "uses_gt_query_mask": true
+}

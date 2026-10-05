@@ -1,0 +1,242 @@
+[
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_codec.py(118): _blocks",
+    "count": 2,
+    "inclusive_ms": 793.661069
+  },
+  {
+    "scope": "cosmos_framework/utils/callback.py(440): on_before_optimizer_step",
+    "count": 1,
+    "inclusive_ms": 141.222348
+  },
+  {
+    "scope": "cosmos_framework/model/generator/fk_branch.py(136): _sigma",
+    "count": 4,
+    "inclusive_ms": 51.963968
+  },
+  {
+    "scope": "cosmos_framework/utils/callback.py(452): on_training_step_end",
+    "count": 12,
+    "inclusive_ms": 19.539592999999993
+  },
+  {
+    "scope": "cosmos_framework/auxiliary/sonata/model.py(152): get_padding_and_inverse",
+    "count": 895,
+    "inclusive_ms": 17.382305000000006
+  },
+  {
+    "scope": "cosmos_framework/callbacks/grad_clip.py(48): get_stat",
+    "count": 3,
+    "inclusive_ms": 5.478617
+  },
+  {
+    "scope": "unattributed",
+    "count": 1089,
+    "inclusive_ms": 3.0729609999999985
+  },
+  {
+    "scope": "cosmos_framework/data/generator/sequence_packing/packers.py(23): _get_optional_fps",
+    "count": 32,
+    "inclusive_ms": 2.078082
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_branch.py(55): video_aligned_point_positions",
+    "count": 64,
+    "inclusive_ms": 1.5643949999999995
+  },
+  {
+    "scope": "cosmos_framework/model/generator/omni_mot_model.py(2906): _remove_padding_from_latent",
+    "count": 32,
+    "inclusive_ms": 1.0878639999999995
+  },
+  {
+    "scope": "cosmos_framework/model/generator/omni_mot_model.py(1759): _add_noise_to_input",
+    "count": 32,
+    "inclusive_ms": 0.951804
+  },
+  {
+    "scope": "cosmos_framework/model/generator/omni_mot_model.py(913): training_step",
+    "count": 32,
+    "inclusive_ms": 0.6228950000000002
+  },
+  {
+    "scope": "cosmos_framework/model/generator/algorithm/loss/flow_matching.py(18): compute_flow_matching_loss",
+    "count": 16,
+    "inclusive_ms": 0.506159
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_training.py(82): pointflow_ade",
+    "count": 1,
+    "inclusive_ms": 0.485938
+  },
+  {
+    "scope": "cosmos_framework/data/pointflow_batch.py(241): validate",
+    "count": 10,
+    "inclusive_ms": 0.362064
+  },
+  {
+    "scope": "cosmos_framework/data/generator/joint_dataloader.py(493): _compute_num_tokens_per_sample",
+    "count": 16,
+    "inclusive_ms": 0.330474
+  },
+  {
+    "scope": "cosmos_framework/data/fk_batch.py(74): validate",
+    "count": 10,
+    "inclusive_ms": 0.253291
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_training.py(38): sigma_binned_loss",
+    "count": 11,
+    "inclusive_ms": 0.24742399999999998
+  },
+  {
+    "scope": "cosmos_framework/model/generator/fk_training.py(44): sigma_binned_loss",
+    "count": 11,
+    "inclusive_ms": 0.244783
+  },
+  {
+    "scope": "cosmos_framework/auxiliary/sonata/serialization/hilbert.py(27): right_shift",
+    "count": 132,
+    "inclusive_ms": 0.22139199999999992
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_sequence.py(31): point_positions",
+    "count": 8,
+    "inclusive_ms": 0.215301
+  },
+  {
+    "scope": "cosmos_framework/data/generator/sequence_packing/mrope.py(75): get_3d_mrope_ids_vae_tokens",
+    "count": 32,
+    "inclusive_ms": 0.213186
+  },
+  {
+    "scope": "cosmos_framework/data/generator/sequence_packing/packers.py(44): pack_input_sequence",
+    "count": 16,
+    "inclusive_ms": 0.162975
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_codec.py(111): _sigma",
+    "count": 4,
+    "inclusive_ms": 0.15809099999999998
+  },
+  {
+    "scope": "cosmos_framework/auxiliary/sonata/structure.py(64): serialization",
+    "count": 5,
+    "inclusive_ms": 0.15116000000000002
+  },
+  {
+    "scope": "cosmos_framework/auxiliary/sonata/serialization/hilbert.py(84): gray2binary",
+    "count": 54,
+    "inclusive_ms": 0.12922499999999998
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_geometry.py(17): summarize_geometry",
+    "count": 4,
+    "inclusive_ms": 0.09218000000000001
+  },
+  {
+    "scope": "cosmos_framework/auxiliary/sonata/utils.py(51): batch2offset",
+    "count": 4,
+    "inclusive_ms": 0.089281
+  },
+  {
+    "scope": "cosmos_framework/data/pointflow_batch.py(137): build_pointflow_batch",
+    "count": 38,
+    "inclusive_ms": 0.08026100000000001
+  },
+  {
+    "scope": "cosmos_framework/model/generator/fk_branch.py(149): _blocks",
+    "count": 2,
+    "inclusive_ms": 0.075117
+  },
+  {
+    "scope": "cosmos_framework/model/generator/omni_mot_model.py(1865): <genexpr>",
+    "count": 1,
+    "inclusive_ms": 0.056513
+  },
+  {
+    "scope": "cosmos_framework/callbacks/iter_speed.py(36): on_training_step_end",
+    "count": 1,
+    "inclusive_ms": 0.052336
+  },
+  {
+    "scope": "cosmos_framework/callbacks/wandb_log.py(106): on_training_step_end",
+    "count": 2,
+    "inclusive_ms": 0.051741999999999996
+  },
+  {
+    "scope": "cosmos_framework/callbacks/skip_nan_step.py(46): on_before_optimizer_step",
+    "count": 1,
+    "inclusive_ms": 0.049375999999999996
+  },
+  {
+    "scope": "cosmos_framework/auxiliary/sonata/utils.py(43): offset2batch",
+    "count": 2,
+    "inclusive_ms": 0.047821
+  },
+  {
+    "scope": "cosmos_framework/callbacks/skip_nan_step.py(37): on_before_backward",
+    "count": 2,
+    "inclusive_ms": 0.045111
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_codec.py(159): decode",
+    "count": 1,
+    "inclusive_ms": 0.033987
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_branch.py(21): check_points_inside_video_grid",
+    "count": 1,
+    "inclusive_ms": 0.032197
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_geometry.py(121): forward",
+    "count": 1,
+    "inclusive_ms": 0.030651
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_fk_attention.py(69): make_partition",
+    "count": 1,
+    "inclusive_ms": 0.028291
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_sequence.py(65): attach_point_tokens",
+    "count": 1,
+    "inclusive_ms": 0.024297
+  },
+  {
+    "scope": "cosmos_framework/model/generator/omni_mot_model.py(2014): <genexpr>",
+    "count": 1,
+    "inclusive_ms": 0.024132
+  },
+  {
+    "scope": "cosmos_framework/model/generator/fk_training.py(138): fk_ade",
+    "count": 1,
+    "inclusive_ms": 0.023972999999999998
+  },
+  {
+    "scope": "cosmos_framework/model/generator/fk_sequence.py(89): attach_fk_tokens",
+    "count": 1,
+    "inclusive_ms": 0.023486999999999997
+  },
+  {
+    "scope": "cosmos_framework/model/generator/pointflow_training.py(58): pointflow_loss",
+    "count": 1,
+    "inclusive_ms": 0.020730000000000002
+  },
+  {
+    "scope": "cosmos_framework/model/generator/fk_training.py(102): fk_loss",
+    "count": 1,
+    "inclusive_ms": 0.020562
+  },
+  {
+    "scope": "cosmos_framework/data/fk_batch.py(140): build_fk_batch",
+    "count": 4,
+    "inclusive_ms": 0.017709000000000003
+  },
+  {
+    "scope": "cosmos_framework/model/generator/mot/unified_mot.py(936): _impl_forward",
+    "count": 7,
+    "inclusive_ms": 0.014604000000000002
+  }
+]

@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "episodes": 10,
+  "windows": 220,
+  "latent_shape_per_window": [
+    48,
+    9,
+    40,
+    40
+  ],
+  "image_size": [
+    640.0,
+    640.0,
+    640.0,
+    569.0
+  ],
+  "total_bytes": 304128000,
+  "independent_bit_exact_windows": 10,
+  "all_values_finite": true,
+  "manifest": "/data/shichaojian/sim_data/bench2dex_task21_pointfk10_rgb3_v2/datasets/bench2dex-task21-cosmos-cache/vae_window_latents/window_manifest.json"
+}

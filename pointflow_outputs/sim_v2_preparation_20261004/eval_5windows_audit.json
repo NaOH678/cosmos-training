@@ -1,0 +1,86 @@
+[
+  {
+    "episode": "episode_000008",
+    "stage": "early",
+    "starts": [
+      97,
+      129,
+      161,
+      193,
+      225
+    ],
+    "frames": 161,
+    "coverage_seconds": 8.0,
+    "mp4_seconds": 8.05
+  },
+  {
+    "episode": "episode_000008",
+    "stage": "middle",
+    "starts": [
+      257,
+      289,
+      321,
+      353,
+      385
+    ],
+    "frames": 161,
+    "coverage_seconds": 8.0,
+    "mp4_seconds": 8.05
+  },
+  {
+    "episode": "episode_000008",
+    "stage": "late",
+    "starts": [
+      449,
+      481,
+      513,
+      545,
+      577
+    ],
+    "frames": 161,
+    "coverage_seconds": 8.0,
+    "mp4_seconds": 8.05
+  },
+  {
+    "episode": "episode_000009",
+    "stage": "early",
+    "starts": [
+      97,
+      129,
+      161,
+      193,
+      225
+    ],
+    "frames": 161,
+    "coverage_seconds": 8.0,
+    "mp4_seconds": 8.05
+  },
+  {
+    "episode": "episode_000009",
+    "stage": "middle",
+    "starts": [
+      257,
+      289,
+      321,
+      353,
+      385
+    ],
+    "frames": 161,
+    "coverage_seconds": 8.0,
+    "mp4_seconds": 8.05
+  },
+  {
+    "episode": "episode_000009",
+    "stage": "late",
+    "starts": [
+      417,
+      449,
+      481,
+      513,
+      545
+    ],
+    "frames": 161,
+    "coverage_seconds": 8.0,
+    "mp4_seconds": 8.05
+  }
+]

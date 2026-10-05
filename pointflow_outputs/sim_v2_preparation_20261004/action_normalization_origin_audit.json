@@ -1,0 +1,20 @@
+{
+  "loaded_stats": "/data/shichaojian/sim_data/bench2dex_task21_pointfk10_rgb3_v2/normalization_train_only.json",
+  "episodes": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "valid_action_rows": 5508,
+  "saved_count": 5508,
+  "max_abs_difference": {
+    "q01": 1.0490417468034252e-07,
+    "q99": 3.3855438186236597e-07,
+    "mean": 0.0
+  }
+}

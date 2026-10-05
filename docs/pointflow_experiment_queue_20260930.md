@@ -20,9 +20,9 @@
 | B | cluster-origin(stage1, 500 点) | 簇 token 原始 decode 基线 | **已完成**(10000 iter,平台高于 A) | — |
 | E1 | per-frame scale × per_point-500 | 前段帧学不出来是归一化问题 | **已完成:证伪**(停 @6312;cond 打平 v2、val_08 略差、joint 破位不稳回退) | ~~t≤2 比值下压~~ 假设不成立:前段帧非瓶颈 |
 | E2s | 方案 C 单机8卡 smoke | PointDecoder 新路径从未上卡 | **已完成**(停 @6800,烟雾通过;相对16卡 E2为半 batch,作为 E2-stage0 的同拓扑对照) | 几十 iter 无 NaN/OOM,loss 正常降 |
-| E2 | cluster + skip(1,2) + 点级 block×4 | 在接近 v2 生成质量的前提下降低开销,作为后续主线底座 | **决定停止**(最后核查 @5852,完整eval @5800;待确认作业退出) | @5500视觉质量接近v2,训练步耗时约减少55%;保留5500 checkpoint |
-| E2-stage0 | stage0 cluster + skip(1,2) + 点级 block×4 | 更细簇能否以小幅计算增量缩小 per-point 差距 | **决定收尾**(完整eval/checkpoint @2000;待确认作业退出) | @2000视觉抽查与E2s接近,未见稳定收益;保留2000 checkpoint,后续优先stage1融合对照 |
-| E2-fusion | stage1 + 池化前几何—运动融合 + skip(1,2) + pb4 | 保留点的几何与运动配对能否改善生成质量 | **已完成**(实验结论归档;视觉@9700,作业核查@9911) | 与E2s质量接近、步耗时相同,未证明稳定增益;主线暂保留原stage1+skip/pb |
+| E2 | cluster + skip(1,2) + 点级 block×4 | 在接近 v2 生成质量的前提下降低开销,作为后续主线底座 | **已收尾**(10-05复核最后训练日志 @5939,不等同于平台退出状态) | @5500视觉质量接近v2,训练步耗时约减少55%;保留5500 checkpoint |
+| E2-stage0 | stage0 cluster + skip(1,2) + 点级 block×4 | 更细簇能否以小幅计算增量缩小 per-point 差距 | **已收尾**(最后训练日志 @2116,保留eval/checkpoint @2000) | @2000视觉抽查与E2s接近,未见稳定收益;保留2000 checkpoint,后续优先stage1融合对照 |
+| E2-fusion | stage1 + 池化前几何—运动融合 + skip(1,2) + pb4 | 保留点的几何与运动配对能否改善生成质量 | **已完成**(训练到10000;视觉结论仍基于9700) | 与E2s质量接近、步耗时相同,未证明稳定增益;主线暂保留原stage1+skip/pb |
 | E3a | N=4000 数据准备(缓存+scale) | 密集版前置,CPU 后台 | **等待中** | 缓存 101 集齐备 + 标量/向量 scale 产出 |
 | E3b | 密集版 N=4000 训练 | 一点一 token 放不下时的形态验证 | **等待中**(依赖 E3a + E1/E2 结果定形态) | 等 iter 对比 A;token 预算可控 |
 | E4 | per-frame scale × cluster(方案 C) | 两个修复叠加 | **已取消**(E1 证伪,framescale 不进任何主配方) | — |
@@ -30,10 +30,12 @@
 | E5b | dropper per-point-500 训练 | sandwich 结论在 dropper 复现 | **等待中**(依赖 E5a) | 与 A 同口径对比 cond ADE/漂移 |
 | E5c | dropper cluster 形态(可选) | E2 结论跨数据集验证 | **等待中**(依赖 sandwich E2) | 与 E5b 对比 |
 | E6-perf | FK＋局部四轴 attention 工程验证 | Flash2 varlen、compile 与 selective 能否满足 batch=16 | **已完成**(单卡冒烟、8卡30步短测) | Flash2＋Q/K/V/O selective:5.53 s/step,分配峰值53.97 GiB;16卡速度待测 |
-| E6-perpoint | 已有per-point＋FK,无local RoPE | 四模态生成质量参考 | **运行中**(10-02核查约13767步,checkpoint13500) | 与cluster配方存在其他差异,不作为纯位置编码消融 |
-| E6a | cluster＋FK,关闭local RoPE | E6b的同配方基线 | **等待中**(16卡指令就绪) | 与E6b仅改变local RoPE开关,固定窗口比较joint dream |
-| E6b | cluster＋FK,开启 local RoPE | 相机空间几何先验能否改善video–pointflow–FK–action一致性 | **运行中**(10-03约8000步,checkpoint8000,近期5.51s/step) | 生成质量接近或改善,开销可接受;不以单项ADE定结论 |
-| E6-dropper-mix | dropper DAgger mix71,cluster＋FK＋local RoPE | 复用E6b配方检查跨任务生成质量 | **等待正式训练**(8卡启动eval＋5步训练通过) | 64条训练/7条验证,启动先eval,生成质量优先 |
+| E6-perpoint | 已有per-point＋FK,无local RoPE | 四模态生成质量参考 | **已完成训练**(20000步,checkpoint20000;10-05核查) | 与cluster配方存在其他差异,不作为纯位置编码消融 |
+| E6a | cluster＋FK,关闭local RoPE | E6b的同配方基线 | **已完成训练**(10000步,checkpoint10000;生成质量待对照) | 与E6b仅改变local RoPE开关,固定窗口比较joint dream |
+| E6b | cluster＋FK,开启 local RoPE | 相机空间几何先验能否改善video–pointflow–FK–action一致性 | **已完成训练**(10000步,checkpoint10000;10-05核查) | 生成质量接近或改善,开销可接受;不以单项ADE定结论 |
+| E6-dropper-1001 | 普通dropper＋PointFlow/FK参考 | 保留已有完整训练作为普通dropper参考 | **已完成训练**(20000步,checkpoint20000) | 1004按重复运行忽略;不与mix71混用 |
+| E6-dropper-mix-b | dropper DAgger mix71,cluster＋FK＋local RoPE | 复用E6b配方检查跨任务生成质量 | **已完成训练**(10000步,checkpoint10000;10-05核查) | 64条训练/7条验证,启动先eval,生成质量优先 |
+| E6-dropper-mix-a | dropper mix71,cluster＋FK,关闭local RoPE | E6-dropper-mix-b的同配方位置编码对照 | **等待中**(16卡指令就绪,未启动) | 同窗口/seed比较joint dream及PF/FK一致性 |
 
 ## A — per_point-500 基线(v2)【已停止 @9200】
 
@@ -115,7 +117,7 @@ OUTPUT_ROOT=/data/shichaojian/runs/cluster_500p_skip_pb4_smoke_20260930 POINTFLO
 - 产物:OUTPUT_ROOT `/data/shichaojian/runs/cluster_500p_skip_pb4_smoke_20260930`,
   eval `…/pointflow_eval/step_0000100~0006800/`。
 
-## E2 — cluster + skip + 点级 block 全量【决定停止,待确认作业退出】
+## E2 — cluster + skip + 点级 block 全量【已收尾,最后训练日志 @5939】
 
 ```
 OUTPUT_ROOT=/data/shichaojian/runs/cluster_500p_skip_pb4_20260930 POINTFLOW_TOKEN_MODE=cluster POINTFLOW_SONATA_STAGE=1 POINTFLOW_CLUSTER_TOKEN_CAP=128 POINTFLOW_DECODE_SKIP_LEVELS=1,2 POINTFLOW_DECODE_POINT_BLOCKS=4 POINTFLOW_DISPLACEMENT_SCALE=0.0528 NNODES=2 bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow/examples/launch_pointflow_sandwich101.sh
@@ -162,7 +164,7 @@ E2/v2 @5500已核对episode、seed、有效点数与zero基线一致。
   默认关闭开关、全新OUTPUT_ROOT。实现与命令见
   [几何—运动融合文档 §8](./pointflow_geometry_motion_encoding_20261001.md#8-实现与启用)。
 
-## E2-stage0 — 更细簇 + skip + 点级 block【决定收尾,待确认作业退出】
+## E2-stage0 — 更细簇 + skip + 点级 block【已收尾,最后训练日志 @2116】
 
 检验 stage1 是否压缩过于激进:适当增加主干 point token,能否以较小成本缩小与
 per-point 的差距。历史 24 窗口扫描中,500 点在 stage1 约 30 簇(4cm)、stage0
@@ -313,7 +315,7 @@ OUTPUT_ROOT=/data/shichaojian/runs/cluster_500p_stage1_geomotion_skip_pb4_202610
 
 ## E6-perpoint / E6a / E6b — FK 四模态生成质量对照
 
-### E6-perpoint — 已有per-point＋FK参考【运行中】
+### E6-perpoint — 已有per-point＋FK参考【已完成训练 @20000】
 
 - OUTPUT_ROOT:`/data/shichaojian/runs/cosmos/fk-point-pp-compile-16gpu-0930`。
   按用户要求从E6a更名为E6-perpoint,保留原运行目录。实际启动工作区为`/mnt/afs/WorldAct-cosmos3-edge-droid-sft_base`
@@ -324,17 +326,15 @@ OUTPUT_ROOT=/data/shichaojian/runs/cluster_500p_stage1_geomotion_skip_pb4_202610
   seed42,compile开启,full activation checkpoint,`in_order=false`。
   FK loss为**Charbonnier**,epsilon=0.01;lr=2e-5,warmup100,最大步数和调度周期均为**20000**。
   PointFlow scale=0.0528、FK scale=0.083745,从Edge-DROID基础checkpoint开始。
-- 用户补充该实验很可能采用per-point,名称也含`pp`;但留存配置未显式记录token_mode/stage。13500步checkpoint的geometry投影
-  输入为32维,与per-point/level0特征相容,不能仅凭权重形状区分per-point与stage0 cluster。
-  当前按很可能per-point的已有基线理解,不把它登记成与E6b相同的stage1 cluster/skip/pb配方。
-  若为per-point,500点对应约4500个PointFlow主干token(500 anchor＋8×500 motion);
+- 用户已确认该实验为per-point、无local RoPE;不登记成stage1 cluster/skip/pb配方。
+  500点对应约4500个PointFlow主干token(500 anchor＋8×500 motion);
   E6b cap128对应最多1152个(128＋8×128)。这会显著增加主干attention及逐token投影/MLP开销,
   是E6-perpoint更慢的主要候选原因;3.9倍是PointFlow token数之比,不是整网加速比。
 - 日志:`logs/action_policy_fk_point_singlerighthand_edge_sft.log`。
   配置、checkpoint和eval均位于OUTPUT_ROOT下
   `cosmos3_action/action_sft/action_policy_fk_point_singlerighthand_edge/`。
 
-### E6a / E6b — cluster＋FK,local RoPE开关对照【E6a等待中,E6b运行中】
+### E6a / E6b — cluster＋FK,local RoPE开关对照【均已完成训练 @10000】
 
 - **配方**:sandwich 101集、strat500、stage1 cluster、cap128、skip(1,2)、pb4、
   fusion=false;PointFlow scale=0.0528、FK scale=0.083745,FK loss=MSE。
@@ -388,7 +388,7 @@ bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_point
 - 产物位于各OUTPUT_ROOT下的`cosmos3_action/action_sft/action_policy_fk_point_singlerighthand_edge/`:
   `pointflow_eval/`、`fk_eval/`及`checkpoints/`。`POINTFLOW_EVAL_JOINT=true`保留PF联合生成,
   FK callback现有`joint_only=true`自动联合生成video/action/FK,有PF载荷时也联合PF。
-- **状态**:E6-perpoint和E6b运行中,E6a尚未确认启动。本次未启动或停止训练。
+- **当前状态(2026-10-05核查)**:E6-perpoint训练到20000步;E6a/E6b均到10000步,latest checkpoint分别对应最终步数。本次未启动或停止训练;训练完成不代表最终生成质量评审已完成。
 - **E6b首轮eval核查(2026-10-02 14:01 UTC)**:OUTPUT_ROOT为上述localrope目录;
   实际配置shard8/replicate2,启动验证为false,100步完成首次常规验证后训练已到144步,
   近期训练步约5.5s。日志未发现Traceback/ERROR;PointFlow输出28份case指标和65个MP4,
@@ -409,7 +409,28 @@ bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_point
 - 记录:`pointflow_outputs/e6b_progress_20261003.json`;抽帧图:`/tmp/e6b_quality_progress.jpg`。
   本次仅核查,未操作训练作业。
 
-## E6-dropper-mix — dropper DAgger mix71【等待中】
+## E6-dropper-1001 — 普通dropper PointFlow＋FK参考【已完成训练 @20000】
+
+- OUTPUT_ROOT:`/data/shichaojian/runs/cosmos/fk-point-dropper-16n-1001`。
+  2026-10-05核查:最后训练日志为10-04 03:21:50 UTC、20000步,
+  `checkpoints/latest_checkpoint.txt`为`iter_000020000`;保留该实验作为参考。
+- 数据为普通dropper,不是DAgger mix71:allowlist为
+  `/mnt/afs/WorldAct-cosmos3-edge-droid-sft_base/examples/singlerighthand_dropper_101_episodes.txt`,
+  FK根目录`/data/shichaojian/raw_data/dropper_fk21`,验证比例0.2。
+  PointFlow使用`dropper_924_20260928/manifest.json`及普通dropper窗口缓存。
+- **重复运行1004忽略**: `/data/shichaojian/runs/cosmos/fk-point-dropper-16n-1004`
+  不单独编号、不纳入后续实验对比或进度跟踪。两份落盘`config.yaml`仅输出路径及
+  1004显式设置的`fk_camera_profile: legacy`不同;legacy返回原有相机外参,
+  数据、划分、seed、初始checkpoint与其余训练配置相同。
+  未据此断言两个运行的历史代码逐字一致。
+- 1004最后核查约9002步、checkpoint9000;按用户要求忽略重复运行。
+  本次只同步实验队列,未执行停止操作,不将“忽略”记作平台作业已退出。
+- 核查依据:两目录下`logs/action_policy_fk_point_singlerighthand_edge_sft.log`,
+  以及`cosmos3_action/action_sft/action_policy_fk_point_singlerighthand_edge/`下的
+  `config.yaml`和`checkpoints/latest_checkpoint.txt`。
+  普通dropper与mix71的数据及划分不同,不能将1001代替mix-a的同数据对照。
+
+## E6-dropper-mix-b — dropper DAgger mix71＋local RoPE【已完成训练 @10000】
 
 - 2026-10-02核验为**71条**,不是70条;按用户要求设seed42、val比例0.1,划分为64条训练、7条验证。
   动作空间从cache manifest读取为joint,任务文本为滴管取液/注液。
@@ -469,7 +490,51 @@ bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_point
 ```
 
 `EXTRA_TAIL_OVERRIDES=''`清除终端可能残留的旧拓扑/短测override;正式配方已写进专用脚本。
-先看启动eval是否完成,之后按1000/2000步固定窗口joint dream判读质量。按用户要求提供指令,未提交作业。
+2026-10-05核查:正式训练已于10-04 02:13:39 UTC到10000步,latest checkpoint为iter_000010000。原名E6-dropper-mix,现记为E6-dropper-mix-b,输出目录不变;最终生成质量待评审。
+
+## E6-dropper-mix-a — dropper mix E6a,关闭local RoPE【等待中】
+
+- 复用E6-dropper-mix-b的数据、scale和训练配方,仅设置`POINTFLOW_FK_LOCAL_ROPE=false`;
+  保留FK输入、相机投影、cluster stage1/cap128/skip1,2/pb4及统一四模态eval。
+- 16卡(2×8),每卡batch16、累积1、compile及selective Flash2＋QKVO;
+  PF scale=0.037493、FK scale=0.043357,seed42,64条训练/7条验证,10000步。
+  开启启动eval,之后每500步eval;21个验证case＋2个训练case,MP4格式。
+- 独立输出目录,从基础checkpoint开始,不续接local RoPE实验。本次只提供指令,未启动作业。
+- 注意当前工作区在旧mix-b启动后已有其他功能改动;此命令保持脚本配方一致,
+  严格单因素结论仍需核对两个作业的实际代码版本与resolved config。
+
+**16卡平台指令**(两节点各8卡,两节点执行同一条):
+
+```bash
+OUTPUT_ROOT=/data/shichaojian/runs/dropper_mix71_fk_nonlocal_qkvo_sac_16gpu_20261005 \
+POINTFLOW_FK_LOCAL_ROPE=false FK_PROJECT_ANCHORS=true POINTFLOW_FK_UNIFIED_EVAL=true \
+EXTRA_TAIL_OVERRIDES='' NNODES=2 NPROC_PER_NODE=8 \
+bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_pointflow_fk_dropper_mix71.sh
+```
+
+### 2026-10-05实际运行核对
+
+以下以各OUTPUT_ROOT的`logs/`训练日志和`checkpoints/latest_checkpoint.txt`为据,
+不把旧视觉评估步数当作最终训练步数:
+
+| 实验 | 最后训练步 | 最后训练日志时间(UTC) | latest checkpoint |
+| ---- | ---- | ---- | ---- |
+| E6-perpoint | 20000 | 10-03 10:06:52 | iter_000020000 |
+| E6a | 10000 | 10-04 01:33:13 | iter_000010000 |
+| E6b | 10000 | 10-03 08:48:07 | iter_000010000 |
+| E6-dropper-mix-b | 10000 | 10-04 02:13:39 | iter_000010000 |
+| E2 | 5939 | 10-01 09:07:47 | 本次未复核 |
+| E2-stage0 | 2116 | 10-01 09:32:36 | 本次未复核 |
+| E2-fusion | 10000 | 10-02 04:40:02 | 本次未复核 |
+
+E6b与perpoint的12个GT叠加对比MP4归档在
+`/data/shichaojian/e6b_vs_perpoint_gt_overlay_20261003/`:
+GT视频＋GT flow＋GT FK / perpoint9000 / E6b9000 / perpoint19000;
+每组dream均叠加GT point(绿)和预测point(紫)。这些窗口来自同一个验证episode;
+旧产物不含同次采样预测FK/action的完整对照,不据此声称已验证完整桥接质量。
+
+共享目录另有sim_v2、dagger-newcam等作业,未核验其完整配方,
+本次不将其归入上述E6消融编号。
 
 ## E3a — N=4000 数据准备【等待中,CPU 后台】
 
@@ -571,3 +636,5 @@ sandwich E2 若证明 skip+点级 block 能救 cluster,再在 dropper 上复现;
 | 2026-10-02 E6命名与消融修正 | 按用户要求将已有`fk-point-pp-compile-16gpu-0930`改记为E6-perpoint。E6a改为本工作区cluster＋FK、关闭local RoPE,其余配方与E6b一致;补充E6a标准16卡指令。仅更新文档,未操作训练作业。 |
 | 2026-10-02 启动验证修正 | E6a/E6b正式指令显式开启trainer.run_validation=true及trainer.run_validation_on_start=true,启动时先检查eval/生成路径;此前8卡短测不代表eval已通过。 |
 | 2026-10-02 dropper mix迁移 | 核验71条mix数据及PF/FK/VAE覆盖,复核两项scale,新增E6-dropper-mix和专用16卡E6b配方脚本;按用户要求只提供平台指令,未启动训练。 |
+| 2026-10-05 | 复核实际日志: E6-perpoint到20000,E6a/E6b/mix-b到10000;更新E2系列最终日志步数,登记dropper-mix-a nonlocal对照及16卡指令。未操作训练作业。 |
+| 2026-10-05 dropper去重 | 登记普通dropper 1001已完成20000步;按用户要求将1004作为重复运行忽略,不纳入后续对比。与mix71实验区分;未执行停止作业。 |

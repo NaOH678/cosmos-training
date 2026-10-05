@@ -1,0 +1,12 @@
+{
+  "equal_sample_and_packed_indices": [
+    0,
+    17,
+    176
+  ],
+  "eval_rgb_frames": {
+    "train": 33,
+    "val": 33
+  },
+  "note": "Exact equality except RGB contains the identical first frame and explicit full-frame-count metadata. GPU model execution not covered."
+}

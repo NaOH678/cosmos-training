@@ -1,0 +1,193 @@
+{
+  "run": "/data/shichaojian/runs/sim_v2_stage2_cached_rgb_30step_20261005",
+  "step_range": [
+    6,
+    26
+  ],
+  "wall_seconds": {
+    "n": 21,
+    "mean": 5.821904761904762,
+    "median": 5.83,
+    "minimum": 5.74,
+    "maximum": 5.9
+  },
+  "timers": {
+    "timer/dataloader_train": {
+      "n": 21,
+      "mean": 0.00269906861441476,
+      "median": 0.002701282501220703,
+      "minimum": 0.002225637435913086,
+      "maximum": 0.0034537315368652344
+    },
+    "timer/forward": {
+      "n": 21,
+      "mean": 1.801931313105992,
+      "median": 1.802861213684082,
+      "minimum": 1.7561933994293213,
+      "maximum": 1.8495469093322754
+    },
+    "timer/backward": {
+      "n": 21,
+      "mean": 3.7897368045080277,
+      "median": 3.786999225616455,
+      "minimum": 3.762434959411621,
+      "maximum": 3.8282971382141113
+    },
+    "timer/optimizer_step": {
+      "n": 21,
+      "mean": 0.2032206966763451,
+      "median": 0.20272588729858398,
+      "minimum": 0.1919257640838623,
+      "maximum": 0.22127604484558105
+    }
+  },
+  "steps": {
+    "6": {
+      "wall_seconds": 5.87,
+      "timer/dataloader_train": 0.0027642250061035156,
+      "timer/optimizer_step": 0.19532990455627441,
+      "timer/backward": 3.825129985809326,
+      "timer/forward": 1.8215906620025635
+    },
+    "7": {
+      "wall_seconds": 5.81,
+      "timer/backward": 3.77616810798645,
+      "timer/dataloader_train": 0.0024671554565429688,
+      "timer/forward": 1.793642282485962,
+      "timer/optimizer_step": 0.20272588729858398
+    },
+    "8": {
+      "wall_seconds": 5.8,
+      "timer/backward": 3.7853426933288574,
+      "timer/dataloader_train": 0.002284526824951172,
+      "timer/forward": 1.796497106552124,
+      "timer/optimizer_step": 0.20775151252746582
+    },
+    "9": {
+      "wall_seconds": 5.79,
+      "timer/forward": 1.7857916355133057,
+      "timer/backward": 3.770042896270752,
+      "timer/dataloader_train": 0.002842426300048828,
+      "timer/optimizer_step": 0.20354413986206055
+    },
+    "10": {
+      "wall_seconds": 5.82,
+      "timer/backward": 3.7885544300079346,
+      "timer/optimizer_step": 0.19789695739746094,
+      "timer/dataloader_train": 0.002701282501220703,
+      "timer/forward": 1.8158464431762695
+    },
+    "11": {
+      "wall_seconds": 5.78,
+      "timer/dataloader_train": 0.0024254322052001953,
+      "timer/optimizer_step": 0.1982724666595459,
+      "timer/forward": 1.7744061946868896,
+      "timer/backward": 3.7683217525482178
+    },
+    "12": {
+      "wall_seconds": 5.78,
+      "timer/forward": 1.795095682144165,
+      "timer/backward": 3.7749884128570557,
+      "timer/optimizer_step": 0.19527554512023926,
+      "timer/dataloader_train": 0.0034537315368652344
+    },
+    "13": {
+      "wall_seconds": 5.83,
+      "timer/dataloader_train": 0.0023844242095947266,
+      "timer/optimizer_step": 0.22127604484558105,
+      "timer/forward": 1.7793278694152832,
+      "timer/backward": 3.795210361480713
+    },
+    "14": {
+      "wall_seconds": 5.84,
+      "timer/optimizer_step": 0.2106480598449707,
+      "timer/dataloader_train": 0.0024259090423583984,
+      "timer/forward": 1.8171422481536865,
+      "timer/backward": 3.796710252761841
+    },
+    "15": {
+      "wall_seconds": 5.84,
+      "timer/backward": 3.786999225616455,
+      "timer/optimizer_step": 0.20675086975097656,
+      "timer/dataloader_train": 0.002485513687133789,
+      "timer/forward": 1.8045251369476318
+    },
+    "16": {
+      "wall_seconds": 5.78,
+      "timer/dataloader_train": 0.0027942657470703125,
+      "timer/optimizer_step": 0.19295382499694824,
+      "timer/backward": 3.764037847518921,
+      "timer/forward": 1.8070385456085205
+    },
+    "17": {
+      "wall_seconds": 5.81,
+      "timer/forward": 1.7935209274291992,
+      "timer/dataloader_train": 0.0029206275939941406,
+      "timer/optimizer_step": 0.1919257640838623,
+      "timer/backward": 3.7918949127197266
+    },
+    "18": {
+      "wall_seconds": 5.78,
+      "timer/backward": 3.779353380203247,
+      "timer/optimizer_step": 0.1986067295074463,
+      "timer/forward": 1.790891408920288,
+      "timer/dataloader_train": 0.002750873565673828
+    },
+    "19": {
+      "wall_seconds": 5.84,
+      "timer/backward": 3.762434959411621,
+      "timer/optimizer_step": 0.19655394554138184,
+      "timer/dataloader_train": 0.0032508373260498047,
+      "timer/forward": 1.8495469093322754
+    },
+    "20": {
+      "wall_seconds": 5.83,
+      "timer/optimizer_step": 0.20473647117614746,
+      "timer/forward": 1.802861213684082,
+      "timer/dataloader_train": 0.002416849136352539,
+      "timer/backward": 3.801753044128418
+    },
+    "21": {
+      "wall_seconds": 5.84,
+      "timer/dataloader_train": 0.0025587081909179688,
+      "timer/optimizer_step": 0.20516228675842285,
+      "timer/forward": 1.8164324760437012,
+      "timer/backward": 3.7784790992736816
+    },
+    "22": {
+      "wall_seconds": 5.74,
+      "timer/forward": 1.7561933994293213,
+      "timer/dataloader_train": 0.002225637435913086,
+      "timer/optimizer_step": 0.1964561939239502,
+      "timer/backward": 3.770979881286621
+    },
+    "23": {
+      "wall_seconds": 5.88,
+      "timer/forward": 1.8111658096313477,
+      "timer/backward": 3.8282971382141113,
+      "timer/dataloader_train": 0.0023353099822998047,
+      "timer/optimizer_step": 0.20369863510131836
+    },
+    "24": {
+      "wall_seconds": 5.83,
+      "timer/optimizer_step": 0.19979286193847656,
+      "timer/backward": 3.8181209564208984,
+      "timer/forward": 1.7921900749206543,
+      "timer/dataloader_train": 0.0033884048461914062
+    },
+    "25": {
+      "wall_seconds": 5.9,
+      "timer/forward": 1.8162951469421387,
+      "timer/optimizer_step": 0.21834039688110352,
+      "timer/backward": 3.8135292530059814,
+      "timer/dataloader_train": 0.0028176307678222656
+    },
+    "26": {
+      "wall_seconds": 5.87,
+      "timer/optimizer_step": 0.21993613243103027,
+      "timer/forward": 1.820556402206421,
+      "timer/dataloader_train": 0.0029866695404052734,
+      "timer/backward": 3.808124303817749
+    }
+  }
+}

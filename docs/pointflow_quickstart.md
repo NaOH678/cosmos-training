@@ -3,42 +3,42 @@
 > 面向刚拿到这套代码的机器/人:从 clone 到跑起 pointflow 训练的最短路径。
 > 本文档只做索引和关键操作,细节全部链接到现有文档。
 >
-> 分支:`WorldAct-cosmos3-edge-droid-sft-pointflow`(基于 `cosmos3-edge-droid-sft`,
-> 包含此前全部训练代码 + pointflow 全部工作)。
+> 当前工作区：`/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk`。
+> 下文保留原pointflow分支的安装与实机入口；仿真实验使用§3的pointflow-fk入口。
 
 ## 0. 这是什么
 
-主线:现有的World-action-model（wam）会对video和action联合建模，但是训练过程中我们发现了video和action不一致的情况。即video预测的内容是正确的，但是action不正确。我们把这个成为video-action gap。本项目而目的是在video和action之间加入桥梁缓解gap。具体的，在 cosmos3 edge 的 action policy SFT 里接入 **point(pointflow 轨迹)+
-FK(urdf 正运动学 21 关键点)两种 3D 模态,并配 (t,h,w,z) 位置编码**把两者在
-相机坐标系下桥接起来——point 与 FK 共用一套 3D token 化/位置编码体系,与
-video/action 在主循环里联合去噪。
+项目目标是缓解video与action预测不一致的问题：从video提取PointFlow，
+由action和URDF计算FK，将两种3D模态作为video与action之间的桥梁。
+FK每手21个关键点，双手共42个；PointFlow与FK分别编码，通过局部(t,h,w,z)
+位置编码建立空间关联，并与video/action联合去噪。
 
-当前进度:point 侧已实现两种 token 形态并完成了系统对比——**per_point**
-(一点一 token,500 点)与 **cluster**(sonata 空间池化簇 token + 点级 decode),
-含 per-frame scale 归一化、dream canvas 联合去噪可视化、窗口缓存管线;
-纯 FK 已在相邻 `_mano` 工作区接入,普通 point-FK 四模态已在 `_base` 工作区接入;
-当前 `pointflow-fk` worktree 已组合 FK 路径，复用已有 FK 投影，并接入局部四轴
-分组 attention，当前使用纯 Flash2 varlen，局部合并不调用 NATTEN。
-CPU 网络测试、A800 BF16 前向/反向及梯度检查点检查通过；8 卡 FSDP 已分别完成
-eager 两步和 torch.compile 三步训练、DCP 保存、整轮验证及四模态联合生成（均 exit 0）。
-当前启动入口默认开启 Transformer block 的 fullgraph、动态尺寸编译，保留完整梯度检查点。
-已完成局部四轴开关各 30 步对照：8 卡、每卡 batch=16，中位步耗时关闭 5.24 s、开启 6.00 s；
-短 profile 指向索引重排及反向写回的额外开销。关闭组含慢步，均值及测量限制见运行记录；
-尚未测量长时间稳定训练速度。
-后续索引优化的分组版中位耗时为 5.65 s；新增 `POINTFLOW_FK_ATTN_IMPL=lifted160`
-已通过数值、compile 及 8 卡 batch=16 的 30 步训练，但中位耗时 6.26 s，暂未加速，
-默认仍为 `partition`。实现和短测限制见局部四轴文档末节。
-当前分组版合并 Q 置换后的补测也已完成：中位仍为 5.65 s，无明确速度收益；
-分配显存峰值从 47.22 降至 40.26 GiB，每卡 batch=16 正常运行。
-Selective checkpoint 也已验证：仅保存 Flash2 输出可在 batch=16 下跑通，但中位 5.70 s
-未提速；保存全部矩阵乘法加 Flash2 则显存不足。默认保持 full，配置方法见局部四轴文档末节。
-随后直接补测仓库默认 selective（只改 mode，保留 `[fmha]`）：30 步通过，
-中位 6.00 s、分配显存峰值 25.06 GiB，同样未提速。
-另新增按矩阵形状保存 Q/K/V/O、同时保存 Flash2 的 selective 选项，已通过物理 GPU 1
-上的整网冒烟和 8 卡 batch=16 的 30 步测试：中位 5.53 s，分配显存峰值 53.97 GiB，
-本轮平均步耗时比 full 减少约 2.1%。默认仍为 full，启用参数和短测限制见局部四轴文档末节。
+当前主线已在 `pointflow-fk` 工作区接入 video/action/PointFlow/FK 四模态联合去噪，
+局部四轴位置编码使用 `partition` + Flash2 varlen，开启torch.compile。
+PointFlow支持per-point和cluster；当前仿真实验采用cluster stage2 + skip1/2 + PB4。
+实机500点的full/selective、lifted160等历史对照见
+[局部四轴实验记录](./pointflow_fk_local_mrope_20261002.md)，不作为所有数据集的默认配方。
 
-几何检查：PointFlow 保留自己的 DA3 内参，FK 沿用已有投影代码；
+### 当前仿真实验（2026-10-05）
+
+先用10条仿真数据（8训练、2验证）检查拟合和联合生成质量，效果通过后扩到100条。
+当前保留：8×A800、每卡batch16、累积1、selective AC（Flash2+QKVO）、1024点、
+双手FK42点、local RoPE、compile。训练读取完整VAE latent cache及首帧RGB；eval保留33帧。
+默认20000步，学习率周期20000、warmup50，开启val on start，每500步eval/save。
+验证集每个early/middle/late阶段取4个连续窗口，覆盖6.4秒（拼接MP4为6.45秒）；
+两条验证episode共24个窗口，另有2个训练case。每窗独立联合生成，再拼接，非连续自回归。
+中途主要根据joint dream生成质量判断是否停止，有效果则训满两万步。
+
+30步短测第6–26步均值5.65s，范围5.60–5.71s；显存抽查约59.6GiB/卡。
+这不是长训速度保证。缓存路径的联合eval已在full AC下验证；selective短测验证了
+训练与checkpoint。详见[仿真数据与实验记录](./pointflow_sim_v2_data_20261004.md)。
+
+Action保留Bench2Dex的action-only q01/q99归一化，scale下限0.05 rad，无硬截断；
+当前统计仅来自8条训练episode。另一仓库WorldAct-bench2dex使用action/state联合
+范围并按极值扩大scale，二者不要混用。代码、公式、文件路径和扩容步骤见
+[两套action归一化对照](./pointflow_action_normalization_comparison_20261005.md)。
+
+实机几何检查：PointFlow 保留自己的 DA3 内参，FK 沿用已有投影代码；
 已核验各自重投影及进入视频 patch 的像素变换。检查范围和结果详见
 [pointflow_fk_local_mrope_20261002.md](./pointflow_fk_local_mrope_20261002.md)。
 形态对比的全部数据见
@@ -46,6 +46,8 @@ Selective checkpoint 也已验证：仅保存 Flash2 输出可在 batch=16 下�
 数据管线和实验记录见[文档地图](#文档地图)。
 
 ## 1. 拿代码 + 装环境
+
+以下clone命令为原pointflow分支入口；当前已配置的pointflow-fk工作区可直接使用§3仿真命令。
 
 ```bash
 git clone https://github.com/liuhangxu-robin/WorldAct.git
@@ -56,7 +58,7 @@ cd WorldAct && git checkout WorldAct-cosmos3-edge-droid-sft-pointflow
   `uv sync` 填满 cache → 拷 cache → 离线机 `uv sync --offline --locked`。
 - 有网 → 按 [docs/setup.md](./setup.md):`uv sync --all-extras --group=cu130-train`。
 - 驱动 CUDA 13.2 兼容 cu130 wheel(驱动 ≥ 构建版本即可)。
-- **每次开 shell 必做**:`source .venv/bin/activate && export LD_LIBRARY_PATH=''`。
+- **手动运行Python前**:`source .venv/bin/activate && export LD_LIBRARY_PATH=''`；仿真启动脚本已自动处理。
 
 **pointflow 追加依赖**(sonata 编码器需要,不在 base 环境/lock 里):
 
@@ -129,6 +131,21 @@ bash examples/launch_pointflow_labeled29_sandwich.sh
 
 ## 3. 启动训练
 
+### 仿真 PointFlow-FK（当前配方）
+
+```bash
+OUTPUT_ROOT="/data/shichaojian/runs/sim_v2_stage2_bs16_20k_$(date +%Y%m%d_%H%M%S)" \
+EXTRA_TAIL_OVERRIDES='' \
+bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_sim_pointfk_v2.sh --background
+```
+
+上面的时间戳为新实验生成独立目录；续训时将OUTPUT_ROOT改为原目录。脚本已设置工作目录、共享venv、LD_LIBRARY_PATH、
+数据路径及PointFlow/FK尺度，不必另行source环境。该入口固定单机8卡。
+同目录重跑会自动resume；更换stage、选点或归一化统计应使用新实验目录。
+配置：[TOML](../examples/toml/sft_config/action_policy_sim_pointfk_edge.toml)。
+
+### 实机 sandwich/dropper（原有入口）
+
 ```bash
 # 本集群(A800/SenseCore)全量 101 集:一切配置已固化,只给 OUTPUT_ROOT
 OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow/examples/launch_pointflow_sandwich101.sh
@@ -153,7 +170,9 @@ OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash /mnt/afs/WorldA
 - WANDB 默认 offline;更多开关见脚本内注释和
   [docs/pointflow_data_pipeline.md 步骤 5](./pointflow_data_pipeline.md)。
 
-### 关键 env / override 速查(训练常用)
+### 关键 env / override 速查(实机通用入口)
+
+以下为通用配置/历史入口默认值；仿真wrapper的有效配方以本页“当前仿真实验”为准。
 
 | 开关 | 默认 | 作用 |
 | ---- | ---- | ---- |
@@ -172,10 +191,15 @@ OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash /mnt/afs/WorldA
 
 - **自动 resume**:同一 `OUTPUT_ROOT` 重跑同一命令 → 从最新 DCP 续训,模型/优化器/调度器/dataloader 状态全恢复;dataloader 有 per-rank pickle 状态,**续训不重复取数**;
 - **skip 只有 EMA**:`keys_to_skip_loading=["net_ema."]`(experiment config:146),EMA 从主网络热启动。**pointflow 权重 resume 时完整恢复**;首次从 base DCP 加载时 pointflow 键不存在于 base,走 partial load 保持随机初始化(日志里的 "Skipping loading of key: net_ema.pointflow_branch..." 是 EMA 跳过,属正常);
-- **eval case 固定**:`fixed_cases.json` 钉在 OUTPUT_ROOT 下,resume 时校验——改 case 数量/窗口数会报 "Existing fixed_cases.json has different case counts",此时必须换新 OUTPUT_ROOT;
+- **eval case 固定**：普通模式使用`fixed_cases.json`；阶段模式使用`fixed_cases_stages_<N>windows.json`。同名清单会校验case数量与身份。窗口数1→4使用新的清单，可保留旧清单；更换episode数量等导致同名清单不兼容时，应使用新实验目录。
 - **改 FSDP 拓扑**(shard 度数)后 resume 旧 checkpoint 由 DCP resharding 支持,但同一 run 内别改。
 
 ## 4. 看训练效果
+
+仿真产物：`<OUTPUT_ROOT>/cosmos3_action/action_sft/action_policy_sim_pointfk_edge/pointflow_eval/step_*/`。
+直接查看各case的MP4（包括`<case>_joint/dream_canvas/comparison.mp4`），保留现有视频格式。
+结合GT视频、GT PointFlow投影、生成PointFlow与FK/action的协调性判断桥接质量；
+指标仅作参考。以下为实机历史入口的产物约定：
 
 - eval 产物:`<OUTPUT_ROOT>/cosmos3_action/action_sft/action_policy_singlerighthand_edge/pointflow_eval/step_*/`,
   含逐 case mp4、`validation_stages.html`(浏览器打开看网格);
@@ -189,7 +213,14 @@ OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash /mnt/afs/WorldA
 (cache 骨架 → allowlist → **9.24 efep 转换(步骤 1b)** → manifest → window
 latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 
-## 6. 当前状态(2026-09-28,新集群已贯通)
+仿真双手数据的固定窗口例外及已生成的 v2 缓存，见
+[Bench2Dex task21 v2 数据准备](./pointflow_sim_v2_data_20261004.md)。
+
+## 6. 历史状态快照（不是实时运行状态）
+
+当前仿真配方见§0和§3，以下保留早期集群与实机实验背景。
+
+### 6.0 2026-09-28：新集群贯通
 
 - sandwich/dropper 的 cosmos 缓存(manifest/video/window latents)**已就绪**;
 - 9.24 labeled 转换**已完成**(sandwich/dropper 各 101 集,`video` 字段已补),
@@ -201,9 +232,9 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 - 主干文档 `docs/pointflow_per_point_tokens_20260919.md` 有全部实验结论与
   待办(幻影守卫、scale 重标定、位置编码、FK 模态)。
 
-### 6.1 最新实验状态(2026-10-01)
+### 6.1 2026-10-01：实机实验历史快照
 
-- **在跑(16卡×2)**:E1 framescale(`perpoint_strat500_framescale_20260930` @5100,
+- **当时在跑(16卡×2)**:E1 framescale(`perpoint_strat500_framescale_20260930` @5100,
   cond 平台与 v2 打平,但 val_02_joint 短板治好)、E2 cluster+skip+pb4 全量
   (`cluster_500p_skip_pb4_20260930` @3000,~5000 步见平台);
 - **已结束**:v2(per_point 基线,停 @9200,平台化后回退)、B(cluster-origin,
@@ -212,7 +243,7 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
   case 差距不收敛;joint 口径 case 分化,cluster 在 val_02/04 有固有优势;静态漂移
   是 cluster 系系统病灶。详见
   [pointflow_form_comparison_observations_20261001.md](./pointflow_form_comparison_observations_20261001.md);
-- **下一步**:E3(n4000 密集 cluster)一把定胜负 → point 形态定稿 → 切入
+- **当时计划**:E3(n4000 密集 cluster)一把定胜负 → point 形态定稿 → 切入
   FK/thwz 实施;dropper 迁移(E5 系列)数据准备可随时起(CPU)。
   队列与启动命令见 [pointflow_experiment_queue_20260930.md](./pointflow_experiment_queue_20260930.md)。
 
@@ -231,15 +262,17 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 
 ## 文档地图
 
-**新来的 agent 推荐阅读顺序**:本页 §0/§6.1 →
-[形态对比观测档案](./pointflow_form_comparison_observations_20261001.md)(最新数据与未解问题)→
-[实验队列](./pointflow_experiment_queue_20260930.md)(在跑什么、怎么起)→
-[主线实验记录](./pointflow_per_point_tokens_20260919.md)(完整历史)→ 按需查专题文档。
+**新来的 agent 推荐阅读顺序**：本页§0/§3 →
+[仿真数据与当前配方](./pointflow_sim_v2_data_20261004.md) →
+[action归一化对照](./pointflow_action_normalization_comparison_20261005.md) →
+[数据pipeline](./pointflow_data_pipeline.md)。实机历史按需查形态对比与实验队列。
 
 ### 入口与状态(先读)
 
 | 文档 | 内容 |
 | ---- | ---- |
+| [pointflow_sim_v2_data_20261004.md](./pointflow_sim_v2_data_20261004.md) | 当前仿真配方、数据路径、选点、性能与联合eval验证历史 |
+| [pointflow_action_normalization_comparison_20261005.md](./pointflow_action_normalization_comparison_20261005.md) | 两套仓库的action统计/公式差异、实际加载文件、扩容约定 |
 | [pointflow_form_comparison_observations_20261001.md](./pointflow_form_comparison_observations_20261001.md) | **形态对比观测档案**:per_point/cluster 四形态全 case 数据(cond/joint/漂移)、架构事实(file:line)、未解问题清单、方案池、数据位置 |
 | [pointflow_experiment_queue_20260930.md](./pointflow_experiment_queue_20260930.md) | **实验队列**:A/B/E1~E5 状态与启动命令、产物路径、sandwich 共享数据产物 |
 | [pointflow_per_point_tokens_20260919.md](./pointflow_per_point_tokens_20260919.md) | 主线实验记录(最长最全):从 300 点验证到 101 集全量的全部结论与误差分析 |

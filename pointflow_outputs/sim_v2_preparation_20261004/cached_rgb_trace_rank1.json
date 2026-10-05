@@ -1,0 +1,1874 @@
+{
+  "trace": "/data/shichaojian/runs/sim_v2_cached_rgb_profile_20261005/cosmos3_action/action_sft/action_policy_sim_pointfk_edge/torch_trace/iteration_9/rank1_trace.json.gz",
+  "gpu_span_ms": 6173.420039001465,
+  "gpu_activity_union_ms": 5458.946673156738,
+  "gpu_activity_fraction": 0.8842661990710273,
+  "gaps_over_1ms": 69,
+  "gaps_over_1ms_total_ms": 311.34267443847654,
+  "tables": {
+    "kernel": [
+      {
+        "name": "ampere_bf16_s16816gemm_bf16_128x256_ldg8_f2f_stages_64x3_tn",
+        "count": 560,
+        "inclusive_ms": 1073.4917379999986
+      },
+      {
+        "name": "void flash::flash_bwd_dq_dk_dv_loop_seqk_parallel_kernel<Flash_bwd_kernel_traits<128, 64, 128, 8, 2, 4, 2, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 8, cutlass::bfloat16_t> >, false, false, false, false, false, true, false>(flash::Flash_bwd_params)",
+        "count": 84,
+        "inclusive_ms": 980.972593
+      },
+      {
+        "name": "ampere_bf16_s16816gemm_bf16_256x128_ldg8_f2f_stages_64x3_nt",
+        "count": 112,
+        "inclusive_ms": 568.2196349999997
+      },
+      {
+        "name": "void flash::flash_fwd_kernel<Flash_fwd_kernel_traits<128, 128, 64, 4, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 128, 64, 4, cutlass::bfloat16_t> >, false, false, false, false, false, true, false, false>(flash::Flash_fwd_params)",
+        "count": 84,
+        "inclusive_ms": 342.06257700000003
+      },
+      {
+        "name": "ampere_bf16_s16816gemm_bf16_256x128_ldg8_f2f_stages_32x3_nn",
+        "count": 210,
+        "inclusive_ms": 294.52442799999994
+      },
+      {
+        "name": "ampere_bf16_s16816gemm_bf16_256x128_ldg8_f2f_stages_64x3_tn",
+        "count": 56,
+        "inclusive_ms": 277.16259599999995
+      },
+      {
+        "name": "ampere_bf16_s16816gemm_bf16_256x128_ldg8_f2f_stages_64x3_nn",
+        "count": 56,
+        "inclusive_ms": 273.47294800000003
+      },
+      {
+        "name": "ncclDevKernel_ReduceScatter_Sum_bf16_RING_LL(ncclDevKernelArgsStorage<4096ul>)",
+        "count": 29,
+        "inclusive_ms": 251.3803839999999
+      },
+      {
+        "name": "ampere_bf16_s16816gemm_bf16_128x128_ldg8_f2f_stages_32x5_nn",
+        "count": 146,
+        "inclusive_ms": 184.01191900000015
+      },
+      {
+        "name": "ncclDevKernel_AllGather_RING_LL(ncclDevKernelArgsStorage<4096ul>)",
+        "count": 57,
+        "inclusive_ms": 168.631288
+      },
+      {
+        "name": "ampere_bf16_s16816gemm_bf16_128x256_ldg8_f2f_stages_64x3_nt",
+        "count": 58,
+        "inclusive_ms": 120.120082
+      },
+      {
+        "name": "void (anonymous namespace)::indexing_backward_kernel<c10::BFloat16, 4>(long const*, long const*, c10::BFloat16 const*, c10::BFloat16*, long, long, long, long, bool)",
+        "count": 76,
+        "inclusive_ms": 84.837875
+      },
+      {
+        "name": "triton_poi_fused_mul_pow_relu_threshold_backward_2",
+        "count": 28,
+        "inclusive_ms": 81.12226699999998
+      },
+      {
+        "name": "void at::native::reduce_kernel<128, 4, at::native::ReduceOp<c10::BFloat16, at::native::func_wrapper_t<c10::BFloat16, at::native::sum_functor<c10::BFloat16, float, c10::BFloat16>::operator()(at::TensorIterator&)::{lambda(float, float)#1}>, unsigned int, c10::BFloat16, 4, 8> >(at::native::ReduceOp<c10::BFloat16, at::native::func_wrapper_t<c10::BFloat16, at::native::sum_functor<c10::BFloat16, float, c10::BFloat16>::operator()(at::TensorIterator&)::{lambda(float, float)#1}>, unsigned int, c10::BFloat16, 4, 8>)",
+        "count": 433,
+        "inclusive_ms": 61.52402700000004
+      },
+      {
+        "name": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_sum_54",
+        "count": 28,
+        "inclusive_ms": 53.354017999999996
+      },
+      {
+        "name": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_slice_slice_backward_sum_6",
+        "count": 28,
+        "inclusive_ms": 49.88375999999999
+      },
+      {
+        "name": "triton_poi_fused_pow_relu_34",
+        "count": 28,
+        "inclusive_ms": 40.836647
+      },
+      {
+        "name": "triton_poi_fused__to_copy_add_index_put_mean_mul_pow_rsqrt_slice_unsqueeze_view_14",
+        "count": 56,
+        "inclusive_ms": 34.400644
+      },
+      {
+        "name": "triton_red_fused__to_copy_add_div_expand_index_mean_mul_neg_pow_rsqrt_slice_slice_backward_squeeze_sum_unsqueeze_view_47",
+        "count": 28,
+        "inclusive_ms": 32.153448999999995
+      },
+      {
+        "name": "ncclDevKernel_AllReduce_Sum_f32_RING_LL(ncclDevKernelArgsStorage<4096ul>)",
+        "count": 9,
+        "inclusive_ms": 28.585306
+      },
+      {
+        "name": "triton_red_fused__to_copy_add_div_expand_index_mean_mul_neg_pow_rsqrt_slice_slice_backward_sum_unsqueeze_view_48",
+        "count": 28,
+        "inclusive_ms": 28.543612000000007
+      },
+      {
+        "name": "triton_red_fused__to_copy_add_div_expand_mean_mul_pow_rsqrt_slice_slice_backward_sum_8",
+        "count": 28,
+        "inclusive_ms": 27.278552
+      },
+      {
+        "name": "triton_red_fused__to_copy_add_div_expand_mean_mul_pow_rsqrt_sum_55",
+        "count": 28,
+        "inclusive_ms": 27.181692000000005
+      },
+      {
+        "name": "void flash::flash_bwd_dot_do_o_kernel<true, Flash_bwd_kernel_traits<128, 64, 128, 8, 2, 4, 2, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 8, cutlass::bfloat16_t> > >(flash::Flash_bwd_params)",
+        "count": 112,
+        "inclusive_ms": 24.904879000000008
+      },
+      {
+        "name": "ampere_sgemm_128x64_tn",
+        "count": 2,
+        "inclusive_ms": 22.868173000000002
+      },
+      {
+        "name": "triton_poi_fused_cat_index_new_zeros_select_unsqueeze_view_0",
+        "count": 56,
+        "inclusive_ms": 21.706864999999993
+      },
+      {
+        "name": "ampere_sgemm_128x32_sliced1x4_nt",
+        "count": 1,
+        "inclusive_ms": 21.614676
+      },
+      {
+        "name": "ampere_sgemm_128x64_nn",
+        "count": 2,
+        "inclusive_ms": 21.294678
+      },
+      {
+        "name": "triton_red_fused__to_copy_mean_mul_pow_rsqrt_2",
+        "count": 56,
+        "inclusive_ms": 20.198135
+      },
+      {
+        "name": "void flash::flash_bwd_convert_dq_kernel<Flash_bwd_kernel_traits<128, 64, 128, 8, 2, 4, 2, false, false, cutlass::bfloat16_t, Flash_kernel_traits<128, 64, 128, 8, cutlass::bfloat16_t> > >(flash::Flash_bwd_params, int)",
+        "count": 112,
+        "inclusive_ms": 19.199166000000005
+      }
+    ],
+    "cuda_runtime": [
+      {
+        "name": "cudaLaunchKernel",
+        "count": 14153,
+        "inclusive_ms": 1606.6424259999965
+      },
+      {
+        "name": "cudaStreamSynchronize",
+        "count": 1567,
+        "inclusive_ms": 995.910425
+      },
+      {
+        "name": "cudaMemsetAsync",
+        "count": 1020,
+        "inclusive_ms": 232.05989399999987
+      },
+      {
+        "name": "cudaMemcpyAsync",
+        "count": 2334,
+        "inclusive_ms": 106.73347399999992
+      },
+      {
+        "name": "cudaLaunchKernelExC",
+        "count": 222,
+        "inclusive_ms": 26.309049999999996
+      },
+      {
+        "name": "cudaEventQuery",
+        "count": 1422,
+        "inclusive_ms": 2.9414329999999933
+      },
+      {
+        "name": "cudaOccupancyMaxActiveBlocksPerMultiprocessor",
+        "count": 1589,
+        "inclusive_ms": 2.323121999999998
+      },
+      {
+        "name": "cudaFuncSetAttribute",
+        "count": 294,
+        "inclusive_ms": 0.9424929999999999
+      },
+      {
+        "name": "cudaPointerGetAttributes",
+        "count": 144,
+        "inclusive_ms": 0.8711460000000005
+      },
+      {
+        "name": "cudaEventRecordWithFlags",
+        "count": 675,
+        "inclusive_ms": 0.8020079999999999
+      },
+      {
+        "name": "cudaStreamWaitEvent",
+        "count": 571,
+        "inclusive_ms": 0.7892910000000003
+      },
+      {
+        "name": "cudaStreamIsCapturing",
+        "count": 1355,
+        "inclusive_ms": 0.7168970000000006
+      },
+      {
+        "name": "cudaDeviceGetAttribute",
+        "count": 1376,
+        "inclusive_ms": 0.6643320000000003
+      },
+      {
+        "name": "cudaThreadExchangeStreamCaptureMode",
+        "count": 1802,
+        "inclusive_ms": 0.6484169999999971
+      },
+      {
+        "name": "cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags",
+        "count": 236,
+        "inclusive_ms": 0.461127
+      },
+      {
+        "name": "cudaEventRecord",
+        "count": 320,
+        "inclusive_ms": 0.3582079999999999
+      },
+      {
+        "name": "cudaGetFuncBySymbol",
+        "count": 97,
+        "inclusive_ms": 0.20976599999999995
+      },
+      {
+        "name": "cudaPeekAtLastError",
+        "count": 1305,
+        "inclusive_ms": 0.16110199999999955
+      },
+      {
+        "name": "INVALID",
+        "count": 97,
+        "inclusive_ms": 0.10176799999999998
+      },
+      {
+        "name": "cudaDeviceSynchronize",
+        "count": 2,
+        "inclusive_ms": 0.051858
+      }
+    ],
+    "cpu_op": [
+      {
+        "name": "autograd::engine::evaluate_function: CompiledFunctionBackward",
+        "count": 28,
+        "inclusive_ms": 2958.5028089999996
+      },
+      {
+        "name": "CompiledFunctionBackward",
+        "count": 28,
+        "inclusive_ms": 2779.173279
+      },
+      {
+        "name": "aten::item",
+        "count": 2601,
+        "inclusive_ms": 844.7853060000007
+      },
+      {
+        "name": "aten::_local_scalar_dense",
+        "count": 2601,
+        "inclusive_ms": 838.5040200000014
+      },
+      {
+        "name": "aten::is_nonzero",
+        "count": 281,
+        "inclusive_ms": 783.2739369999999
+      },
+      {
+        "name": "aten::mm",
+        "count": 1462,
+        "inclusive_ms": 762.8922800000003
+      },
+      {
+        "name": "triton_red_fused__to_copy_mean_pow_view_26",
+        "count": 28,
+        "inclusive_ms": 579.315069
+      },
+      {
+        "name": "Torch-Compiled Region: 0/0",
+        "count": 28,
+        "inclusive_ms": 512.909676
+      },
+      {
+        "name": "CompiledFunction",
+        "count": 28,
+        "inclusive_ms": 499.401647
+      },
+      {
+        "name": "aten::_index_put_impl_",
+        "count": 139,
+        "inclusive_ms": 389.59541700000005
+      },
+      {
+        "name": "aten::copy_",
+        "count": 2666,
+        "inclusive_ms": 309.5223070000001
+      },
+      {
+        "name": "aten::index_put_",
+        "count": 100,
+        "inclusive_ms": 300.3592000000001
+      },
+      {
+        "name": "aten::to",
+        "count": 3372,
+        "inclusive_ms": 237.2662859999992
+      },
+      {
+        "name": "aten::_to_copy",
+        "count": 1217,
+        "inclusive_ms": 232.069961
+      },
+      {
+        "name": "autograd::engine::evaluate_function: SliceBackward0",
+        "count": 130,
+        "inclusive_ms": 219.8366759999999
+      },
+      {
+        "name": "triton_red_fused__to_copy_add_mean_mul_pow_rsqrt_sum_54",
+        "count": 28,
+        "inclusive_ms": 211.77002600000003
+      },
+      {
+        "name": "autograd::engine::evaluate_function: AddmmBackward0",
+        "count": 237,
+        "inclusive_ms": 195.916984
+      },
+      {
+        "name": "triton_red_fused__to_copy_add_div_expand_mean_mul_pow_rsqrt_sum_56",
+        "count": 28,
+        "inclusive_ms": 193.38899199999997
+      },
+      {
+        "name": "aten::sum",
+        "count": 523,
+        "inclusive_ms": 185.0417339999999
+      },
+      {
+        "name": "SliceBackward0",
+        "count": 130,
+        "inclusive_ms": 175.881271
+      },
+      {
+        "name": "aten::slice_backward",
+        "count": 130,
+        "inclusive_ms": 175.56495500000003
+      },
+      {
+        "name": "triton_poi_fused_cat_index_new_zeros_select_unsqueeze_view_0",
+        "count": 56,
+        "inclusive_ms": 172.85445300000003
+      },
+      {
+        "name": "flash_attn::_flash_attn_varlen_backward",
+        "count": 150,
+        "inclusive_ms": 146.36534300000005
+      },
+      {
+        "name": "fsdp::split_with_sizes_copy",
+        "count": 57,
+        "inclusive_ms": 137.03500899999997
+      },
+      {
+        "name": "aten::split_with_sizes_copy",
+        "count": 57,
+        "inclusive_ms": 135.585525
+      },
+      {
+        "name": "aten::fill_",
+        "count": 552,
+        "inclusive_ms": 135.1958219999999
+      },
+      {
+        "name": "aten::zero_",
+        "count": 331,
+        "inclusive_ms": 134.08547900000002
+      },
+      {
+        "name": "AddmmBackward0",
+        "count": 237,
+        "inclusive_ms": 126.24479499999998
+      },
+      {
+        "name": "aten::zeros",
+        "count": 263,
+        "inclusive_ms": 107.94543900000001
+      },
+      {
+        "name": "autograd::engine::evaluate_function: IndexBackward0",
+        "count": 39,
+        "inclusive_ms": 101.88560199999999
+      }
+    ],
+    "gpu_memcpy": [
+      {
+        "name": "Memcpy DtoD (Device -> Device)",
+        "count": 536,
+        "inclusive_ms": 22.511060999999955
+      },
+      {
+        "name": "Memcpy DtoH (Device -> Pinned)",
+        "count": 1258,
+        "inclusive_ms": 2.4485209999999893
+      },
+      {
+        "name": "Memcpy HtoD (Pinned -> Device)",
+        "count": 262,
+        "inclusive_ms": 2.385335999999998
+      },
+      {
+        "name": "Memcpy HtoD (Pageable -> Device)",
+        "count": 229,
+        "inclusive_ms": 2.1134049999999993
+      },
+      {
+        "name": "Memcpy DtoH (Device -> Pageable)",
+        "count": 49,
+        "inclusive_ms": 0.10569400000000004
+      }
+    ]
+  },
+  "largest_gaps": [
+    {
+      "start_us": 314950511572.865,
+      "duration_ms": 39.989009033203125,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 39.989009033203125
+        },
+        {
+          "name": "Optimizer.step#FusedAdam.step",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 39.989009033203125
+        },
+        {
+          "name": "_ToTorchTensor",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0765689697265625
+        },
+        {
+          "name": "_ToTorchTensor",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0759329833984375
+        },
+        {
+          "name": "_ToTorchTensor",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0750560302734375
+        },
+        {
+          "name": "_ToTorchTensor",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.07471697998046875
+        },
+        {
+          "name": "_ToTorchTensor",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0741500244140625
+        },
+        {
+          "name": "_ToTorchTensor",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.07398297119140625
+        },
+        {
+          "name": "_ToTorchTensor",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.073468017578125
+        },
+        {
+          "name": "_ToTorchTensor",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.07340301513671875
+        },
+        {
+          "name": "aten::view_as",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.06995001220703125
+        },
+        {
+          "name": "aten::view_as",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.06896600341796875
+        }
+      ]
+    },
+    {
+      "start_us": 314944608617.348,
+      "duration_ms": 36.05868395996094,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 36.05868395996094
+        },
+        {
+          "name": "aten::cat",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 8.805700012207032
+        },
+        {
+          "name": "aten::randn",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.134947998046875
+        },
+        {
+          "name": "aten::narrow",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.12233502197265625
+        },
+        {
+          "name": "aten::normal_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.084583984375
+        },
+        {
+          "name": "cudaLaunchKernel",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.04735198974609375
+        },
+        {
+          "name": "aten::narrow",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.04203497314453125
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.040343994140625
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.03948394775390625
+        },
+        {
+          "name": "aten::copy_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0374429931640625
+        },
+        {
+          "name": "aten::narrow",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.03690802001953125
+        },
+        {
+          "name": "aten::empty",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0360250244140625
+        }
+      ]
+    },
+    {
+      "start_us": 314950564523.172,
+      "duration_ms": 26.357858032226563,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 26.357858032226563
+        },
+        {
+          "name": "aten::_foreach_mul_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 1.1164030151367188
+        },
+        {
+          "name": "cudaLaunchKernel",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.02311004638671875
+        },
+        {
+          "name": "aten::result_type",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0011259765625
+        },
+        {
+          "name": "aten::result_type",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00026800537109375
+        },
+        {
+          "name": "aten::result_type",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00022100830078125
+        },
+        {
+          "name": "aten::result_type",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00020501708984375
+        },
+        {
+          "name": "aten::result_type",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00020098876953125
+        },
+        {
+          "name": "aten::result_type",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00019500732421875
+        },
+        {
+          "name": "aten::result_type",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0001920166015625
+        },
+        {
+          "name": "aten::result_type",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00019000244140625
+        },
+        {
+          "name": "aten::result_type",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00019000244140625
+        }
+      ]
+    },
+    {
+      "start_us": 314944484182.447,
+      "duration_ms": 14.399370971679687,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 14.399370971679687
+        },
+        {
+          "name": "aten::cat",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 1.9915339965820313
+        },
+        {
+          "name": "aten::amin",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 1.1640360107421874
+        },
+        {
+          "name": "aten::amax",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 1.0212990112304687
+        },
+        {
+          "name": "aten::cat",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.2315150146484375
+        },
+        {
+          "name": "aten::repeat_interleave",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.19414599609375
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.17708599853515625
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.153948974609375
+        },
+        {
+          "name": "aten::repeat_interleave",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.1322559814453125
+        },
+        {
+          "name": "aten::isfinite",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.124406005859375
+        },
+        {
+          "name": "aten::isfinite",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.12157098388671875
+        },
+        {
+          "name": "aten::copy_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.11352899169921875
+        }
+      ]
+    },
+    {
+      "start_us": 314945017326.59296,
+      "duration_ms": 13.536750061035157,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 13.536750061035157
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0525770263671875
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.05069403076171875
+        },
+        {
+          "name": "aten::copy_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.03046099853515625
+        },
+        {
+          "name": "cudaMemcpyAsync",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.02036602783203125
+        },
+        {
+          "name": "aten::empty_strided",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.015405029296875
+        },
+        {
+          "name": "aten::is_nonzero",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.011987060546875
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.01159405517578125
+        },
+        {
+          "name": "aten::_local_scalar_dense",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.01102801513671875
+        },
+        {
+          "name": "cudaStreamSynchronize",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.00929803466796875
+        },
+        {
+          "name": "aten::empty",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.009073974609375
+        },
+        {
+          "name": "cudaStreamSynchronize",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.001738037109375
+        }
+      ]
+    },
+    {
+      "start_us": 314950448241.795,
+      "duration_ms": 11.81963800048828,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 11.81963800048828
+        },
+        {
+          "name": "aten::nan_to_num",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.11498095703125
+        },
+        {
+          "name": "PythonSubclass",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.10694000244140625
+        },
+        {
+          "name": "aten::nan_to_num",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0492919921875
+        },
+        {
+          "name": "cudaLaunchKernel",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.02539495849609375
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0097330322265625
+        },
+        {
+          "name": "aten::_local_scalar_dense",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0090870361328125
+        },
+        {
+          "name": "cudaEventQuery",
+          "cat": "cuda_runtime",
+          "tid": 1258280512,
+          "overlap_ms": 0.0069000244140625
+        },
+        {
+          "name": "cudaStreamSynchronize",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.00635205078125
+        },
+        {
+          "name": "cudaEventQuery",
+          "cat": "cuda_runtime",
+          "tid": 1258280512,
+          "overlap_ms": 0.00258197021484375
+        },
+        {
+          "name": "cudaEventQuery",
+          "cat": "cuda_runtime",
+          "tid": 1258280512,
+          "overlap_ms": 0.002052978515625
+        },
+        {
+          "name": "cudaEventQuery",
+          "cat": "cuda_runtime",
+          "tid": 1258280512,
+          "overlap_ms": 0.00197198486328125
+        }
+      ]
+    },
+    {
+      "start_us": 314945005613.357,
+      "duration_ms": 11.596372985839844,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 11.596372985839844
+        },
+        {
+          "name": "aten::isfinite",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.04838299560546875
+        },
+        {
+          "name": "aten::abs",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.04664801025390625
+        },
+        {
+          "name": "aten::abs",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.032074951171875
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0235150146484375
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.02316900634765625
+        },
+        {
+          "name": "aten::copy_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.02241302490234375
+        },
+        {
+          "name": "cudaMemcpyAsync",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.01708599853515625
+        },
+        {
+          "name": "cudaLaunchKernel",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.01433099365234375
+        },
+        {
+          "name": "aten::empty",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00820501708984375
+        },
+        {
+          "name": "aten::resize_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.005697998046875
+        },
+        {
+          "name": "cudaStreamSynchronize",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.00347998046875
+        }
+      ]
+    },
+    {
+      "start_us": 314944549018.94403,
+      "duration_ms": 7.551619995117187,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 7.551619995117187
+        },
+        {
+          "name": "aten::expand",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.9852230224609375
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.35561199951171873
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.294573974609375
+        },
+        {
+          "name": "aten::_local_scalar_dense",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.2880969848632812
+        },
+        {
+          "name": "aten::contiguous",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.275656982421875
+        },
+        {
+          "name": "aten::expand",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.27557000732421877
+        },
+        {
+          "name": "aten::clone",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.24552301025390624
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.1933780517578125
+        },
+        {
+          "name": "aten::_local_scalar_dense",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.18939404296875
+        },
+        {
+          "name": "aten::max",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.17136798095703126
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.15456097412109376
+        }
+      ]
+    },
+    {
+      "start_us": 314950480726.031,
+      "duration_ms": 7.123398986816406,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 7.123398986816406
+        },
+        {
+          "name": "aten::stack",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 3.1427990112304687
+        },
+        {
+          "name": "PythonSubclass",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 3.111489990234375
+        },
+        {
+          "name": "aten::_foreach_norm",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 2.7105870361328126
+        },
+        {
+          "name": "PythonSubclass",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 2.689434997558594
+        },
+        {
+          "name": "aten::stack",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 1.0989940185546876
+        },
+        {
+          "name": "aten::cat",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.077708984375
+        },
+        {
+          "name": "cudaLaunchKernel",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.0196829833984375
+        },
+        {
+          "name": "aten::unsqueeze",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.01317401123046875
+        },
+        {
+          "name": "aten::unsqueeze",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0090889892578125
+        },
+        {
+          "name": "aten::unsqueeze",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00402197265625
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0036729736328125
+        }
+      ]
+    },
+    {
+      "start_us": 314944576205.724,
+      "duration_ms": 6.573031982421875,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 6.573031982421875
+        },
+        {
+          "name": "aten::div",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 1.3224940185546874
+        },
+        {
+          "name": "aten::expand",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.23000799560546875
+        },
+        {
+          "name": "aten::contiguous",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.2187230224609375
+        },
+        {
+          "name": "aten::flatten",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.21346697998046876
+        },
+        {
+          "name": "aten::_reshape_alias",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.2059849853515625
+        },
+        {
+          "name": "aten::clone",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.158219970703125
+        },
+        {
+          "name": "aten::expand",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.15570501708984374
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.15447100830078125
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.1453790283203125
+        },
+        {
+          "name": "aten::_local_scalar_dense",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.139280029296875
+        },
+        {
+          "name": "aten::mul",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.10205902099609375
+        }
+      ]
+    },
+    {
+      "start_us": 314944560433.782,
+      "duration_ms": 6.537736022949219,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 6.537736022949219
+        },
+        {
+          "name": "aten::view",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.8684749755859374
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.18044500732421875
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.1748380126953125
+        },
+        {
+          "name": "aten::flatten",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.1737979736328125
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.15976300048828124
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.14566998291015626
+        },
+        {
+          "name": "aten::view",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.10752197265625
+        },
+        {
+          "name": "aten::max",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0956810302734375
+        },
+        {
+          "name": "aten::expand",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.095677001953125
+        },
+        {
+          "name": "aten::expand",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.08211102294921875
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.06764898681640626
+        }
+      ]
+    },
+    {
+      "start_us": 314944997208.716,
+      "duration_ms": 4.462382995605469,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 4.462382995605469
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.06004998779296875
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0583790283203125
+        },
+        {
+          "name": "aten::copy_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.04294598388671875
+        },
+        {
+          "name": "cudaMemcpyAsync",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.03681298828125
+        },
+        {
+          "name": "aten::empty_strided",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0108790283203125
+        },
+        {
+          "name": "aten::empty",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00637701416015625
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.005594970703125
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00533099365234375
+        },
+        {
+          "name": "aten::copy_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0048349609375
+        },
+        {
+          "name": "cudaStreamSynchronize",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.00375
+        },
+        {
+          "name": "aten::detach_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00118402099609375
+        }
+      ]
+    },
+    {
+      "start_us": 314944591767.747,
+      "duration_ms": 4.279151977539063,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 4.279151977539063
+        },
+        {
+          "name": "aten::flatten",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.31042999267578125
+        },
+        {
+          "name": "aten::clone",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.28533001708984373
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.1259339599609375
+        },
+        {
+          "name": "aten::div",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.1114169921875
+        },
+        {
+          "name": "aten::expand",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.10481597900390625
+        },
+        {
+          "name": "aten::flatten",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.10324700927734375
+        },
+        {
+          "name": "aten::clone",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0885679931640625
+        },
+        {
+          "name": "aten::_local_scalar_dense",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0720369873046875
+        },
+        {
+          "name": "aten::add",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.05771600341796875
+        },
+        {
+          "name": "aten::flatten",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0572869873046875
+        },
+        {
+          "name": "cudaMemcpyAsync",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.050822998046875
+        }
+      ]
+    },
+    {
+      "start_us": 314945039281.90405,
+      "duration_ms": 4.250384948730469,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 4.250384948730469
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.085572021484375
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.083656982421875
+        },
+        {
+          "name": "aten::copy_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0683480224609375
+        },
+        {
+          "name": "cudaMemcpyAsync",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.06209197998046875
+        },
+        {
+          "name": "aten::empty",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0119739990234375
+        },
+        {
+          "name": "aten::empty_strided",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.01041900634765625
+        },
+        {
+          "name": "cudaStreamSynchronize",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 7.000732421875e-05
+        }
+      ]
+    },
+    {
+      "start_us": 314944726592.113,
+      "duration_ms": 4.059730041503906,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 4.059730041503906
+        },
+        {
+          "name": "aten::cat",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.073592041015625
+        },
+        {
+          "name": "cudaLaunchKernel",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.03920404052734375
+        }
+      ]
+    },
+    {
+      "start_us": 314944955526.469,
+      "duration_ms": 4.054577026367188,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 4.054577026367188
+        },
+        {
+          "name": "aten::index",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.030884033203125
+        },
+        {
+          "name": "cudaLaunchKernel",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.0101090087890625
+        },
+        {
+          "name": "aten::reshape",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.002166015625
+        },
+        {
+          "name": "aten::as_strided",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0009329833984375
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0008389892578125
+        },
+        {
+          "name": "aten::view",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00081298828125
+        }
+      ]
+    },
+    {
+      "start_us": 314945044994.459,
+      "duration_ms": 3.884530029296875,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 3.884530029296875
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0647850341796875
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0629620361328125
+        },
+        {
+          "name": "aten::copy_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.04935504150390625
+        },
+        {
+          "name": "cudaMemcpyAsync",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.04353497314453125
+        },
+        {
+          "name": "aten::empty_strided",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00906597900390625
+        },
+        {
+          "name": "aten::empty",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.00285101318359375
+        },
+        {
+          "name": "cudaStreamSynchronize",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.00022900390625
+        }
+      ]
+    },
+    {
+      "start_us": 314944601019.681,
+      "duration_ms": 3.8643049926757813,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 3.8643049926757813
+        },
+        {
+          "name": "aten::add",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.16848797607421875
+        },
+        {
+          "name": "aten::flatten",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.14390399169921875
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.13907000732421876
+        },
+        {
+          "name": "aten::clone",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.1179639892578125
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.117718017578125
+        },
+        {
+          "name": "aten::to",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.11251898193359375
+        },
+        {
+          "name": "aten::flatten",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.09742498779296875
+        },
+        {
+          "name": "aten::reshape",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0917509765625
+        },
+        {
+          "name": "aten::empty_like",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.08977801513671875
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.088448974609375
+        },
+        {
+          "name": "aten::_to_copy",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0804429931640625
+        }
+      ]
+    },
+    {
+      "start_us": 314950475725.98505,
+      "duration_ms": 3.797041931152344,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 3.797041931152344
+        },
+        {
+          "name": "aten::_foreach_norm",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 2.1625199584960937
+        },
+        {
+          "name": "PythonSubclass",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 2.1147039794921874
+        },
+        {
+          "name": "aten::_foreach_norm",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.0749759521484375
+        },
+        {
+          "name": "aten::zeros",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.05552099609375
+        },
+        {
+          "name": "aten::zero_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.03271197509765625
+        },
+        {
+          "name": "aten::fill_",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.03016094970703125
+        },
+        {
+          "name": "cudaLaunchKernel",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.02011102294921875
+        },
+        {
+          "name": "aten::empty",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.01541998291015625
+        },
+        {
+          "name": "cudaEventQuery",
+          "cat": "cuda_runtime",
+          "tid": 1753225664,
+          "overlap_ms": 0.006844970703125
+        },
+        {
+          "name": "cudaEventQuery",
+          "cat": "cuda_runtime",
+          "tid": 1753225664,
+          "overlap_ms": 0.0022769775390625
+        },
+        {
+          "name": "cudaEventQuery",
+          "cat": "cuda_runtime",
+          "tid": 1753225664,
+          "overlap_ms": 0.00198199462890625
+        }
+      ]
+    },
+    {
+      "start_us": 314944596514.513,
+      "duration_ms": 3.7869940185546875,
+      "overlapping_cpu": [
+        {
+          "name": "ProfilerStep#8",
+          "cat": "user_annotation",
+          "tid": 693420,
+          "overlap_ms": 3.7869940185546875
+        },
+        {
+          "name": "aten::unsqueeze",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 1.0656519775390625
+        },
+        {
+          "name": "aten::as_strided",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.3937139892578125
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.15386602783203124
+        },
+        {
+          "name": "aten::item",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.148916015625
+        },
+        {
+          "name": "aten::contiguous",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.134739013671875
+        },
+        {
+          "name": "aten::clone",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.1270150146484375
+        },
+        {
+          "name": "aten::_local_scalar_dense",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.06860198974609374
+        },
+        {
+          "name": "cudaMemcpyAsync",
+          "cat": "cuda_runtime",
+          "tid": 693420,
+          "overlap_ms": 0.04949102783203125
+        },
+        {
+          "name": "aten::add",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.03988800048828125
+        },
+        {
+          "name": "aten::expand",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.03976202392578125
+        },
+        {
+          "name": "aten::add",
+          "cat": "cpu_op",
+          "tid": 693420,
+          "overlap_ms": 0.038291015625
+        }
+      ]
+    }
+  ],
+  "note": "CPU durations are inclusive; GPU activity includes NCCL wait kernels, not just useful compute."
+}
