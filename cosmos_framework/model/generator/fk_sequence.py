@@ -17,6 +17,7 @@ import torch
 
 from cosmos_framework.data.generator.sequence_packing.mrope import get_3d_mrope_ids_vae_tokens
 from cosmos_framework.data.generator.sequence_packing.sequence import PackedSequence
+from cosmos_framework.model.generator.sequence_span_remap import SpanRemapper
 
 # Cosmos's FPS modulation reference point; the video path asserts the latent
 # timeline it implies, so a change here without a change there would be caught.
@@ -144,23 +145,16 @@ def attach_fk_tokens(sequence: PackedSequence, encoded, positions) -> PackedSequ
     def mapped(index):
         return None if index is None else remap[index.to(device)]
 
+    remap_spans = SpanRemapper(sequence.sample_lens, lengths)
+
     def modality(data):
         if data is None:
             return None
-        spans = []
-        for span in data.spans:
-            start = int(remap[span.sequence_start])
-            if (
-                span.sequence_len
-                and int(remap[span.sequence_start + span.sequence_len - 1]) != start + span.sequence_len - 1
-            ):
-                raise ValueError("A modality span crosses sample boundaries")
-            spans.append(replace(span, sequence_start=start))
         return replace(
             data,
             sequence_indexes=mapped(data.sequence_indexes),
             mse_loss_indexes=mapped(data.mse_loss_indexes),
-            spans=spans,
+            spans=remap_spans(data.spans),
         )
 
     def carried_tokens(payload):

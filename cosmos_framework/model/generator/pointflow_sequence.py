@@ -6,6 +6,7 @@ import torch
 
 from cosmos_framework.data.generator.sequence_packing.sequence import PackedSequence
 from cosmos_framework.model.generator.pointflow_attention import default_attention_mode
+from cosmos_framework.model.generator.sequence_span_remap import SpanRemapper
 
 
 @dataclass
@@ -117,23 +118,16 @@ def attach_point_tokens(sequence: PackedSequence, encoded, positions, *, attenti
     def mapped(index):
         return None if index is None else remap[index.to(device)]
 
+    remap_spans = SpanRemapper(sequence.sample_lens, lengths)
+
     def modality(data):
         if data is None:
             return None
-        spans = []
-        for span in data.spans:
-            start = int(remap[span.sequence_start])
-            if (
-                span.sequence_len
-                and int(remap[span.sequence_start + span.sequence_len - 1]) != start + span.sequence_len - 1
-            ):
-                raise ValueError("A modality span crosses sample boundaries")
-            spans.append(replace(span, sequence_start=start))
         return replace(
             data,
             sequence_indexes=mapped(data.sequence_indexes),
             mse_loss_indexes=mapped(data.mse_loss_indexes),
-            spans=spans,
+            spans=remap_spans(data.spans),
         )
 
     def carried_tokens(payload):
