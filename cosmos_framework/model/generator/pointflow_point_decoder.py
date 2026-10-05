@@ -13,6 +13,20 @@ from torch import nn
 from torch.nn import functional as F
 
 
+def _varlen_layout(point_offsets, n, device):
+    # Empty samples carry no tokens; omit duplicate offsets for Flash2.
+    ends = [0]
+    for end in point_offsets:
+        if end < ends[-1] or end > n:
+            raise ValueError("Invalid point offsets")
+        if end > ends[-1]:
+            ends.append(end)
+    if ends[-1] != n:
+        raise ValueError("Point offsets must cover all points")
+    maximum = max((b - a for a, b in zip(ends, ends[1:])), default=0)
+    return torch.tensor(ends, dtype=torch.int32, device=device), maximum
+
+
 class PointDecoderBlock(nn.Module):
     def __init__(self, dim, heads):
         super().__init__()
@@ -25,10 +39,21 @@ class PointDecoderBlock(nn.Module):
         self.norm2 = nn.LayerNorm(dim)
         self.ffn = nn.Sequential(nn.Linear(dim, dim * 4), nn.SiLU(), nn.Linear(dim * 4, dim))
 
-    def _attention(self, x, point_offsets):
+    def _attention(self, x, point_offsets, varlen_layout=None):
         """Full self-attention within each sample's point segment (ragged batch)."""
         n, d = x.shape
-        qkv = self.qkv(x).reshape(n, 3, self.heads, d // self.heads).permute(1, 2, 0, 3)
+        qkv = self.qkv(x).reshape(n, 3, self.heads, d // self.heads)
+        if n and qkv.is_cuda and qkv.dtype in (torch.float16, torch.bfloat16):
+            from flash_attn.flash_attn_interface import flash_attn_varlen_qkvpacked_func
+
+            cu_seqlens, max_seqlen = (
+                varlen_layout if varlen_layout is not None else _varlen_layout(point_offsets, n, x.device)
+            )
+            return flash_attn_varlen_qkvpacked_func(qkv, cu_seqlens, max_seqlen, dropout_p=0.0, causal=False).reshape(
+                n, d
+            )
+        # CPU/float32 reference path, also used by numerical regression tests.
+        qkv = qkv.permute(1, 2, 0, 3)
         outputs = []
         start = 0
         for end in point_offsets:
@@ -38,8 +63,8 @@ class PointDecoderBlock(nn.Module):
             start = end
         return torch.cat(outputs) if outputs else x.new_zeros((0, d))
 
-    def forward(self, x, point_offsets):
-        x = x + self.proj(self._attention(self.norm1(x), point_offsets))
+    def forward(self, x, point_offsets, varlen_layout=None):
+        x = x + self.proj(self._attention(self.norm1(x), point_offsets, varlen_layout))
         return x + self.ffn(self.norm2(x))
 
 
@@ -59,6 +84,7 @@ class PointDecoder(nn.Module):
 
     def forward(self, fused, anchor, point_offsets):
         x = self.in_proj(fused) + self.anchor_encoder(anchor)
+        layout = _varlen_layout(point_offsets, len(x), x.device) if x.is_cuda else None
         for block in self.blocks:
-            x = block(x, point_offsets)
+            x = block(x, point_offsets, layout)
         return self.out(x)
