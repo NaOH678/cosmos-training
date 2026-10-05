@@ -222,7 +222,13 @@ def render_case(record, video_path, output_dir, *, max_points=96, width=320, err
                     uv = record[f"fk_{kind}_uv"][step]
                     mask = record[f"fk_{kind}_valid"][step]
                     color = (0, 220, 255) if kind == "gt" else (255, 180, 0)
-                    for a, b in EDGES:
+                    hand_edges = [
+                        (a + offset, b + offset)
+                        for offset in range(0, len(uv), 21)
+                        for a, b in EDGES
+                        if b + offset < len(uv)
+                    ]
+                    for a, b in hand_edges:
                         if mask[a] and mask[b]:
                             xy = np.rint(np.clip(uv[[a, b]], -100000, 100000)).astype(int)
                             accepted, left, right = cv2.clipLine((0, 0, width, height), tuple(xy[0]), tuple(xy[1]))

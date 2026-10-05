@@ -49,7 +49,11 @@ def make_preview(
     pixels only overlay consistently on the dreamed canvas)."""
     metadata, inputs, targets = sample["metadata"], sample["inputs"], sample["targets"]
     source = Path(metadata["source_path"])
-    video, tracker_w, tracker_h = _episode_metadata(source)
+    if "preview_video" in metadata:
+        video = metadata["preview_video"]
+        tracker_w, tracker_h = metadata["tracker_size_wh"]
+    else:
+        video, tracker_w, tracker_h = _episode_metadata(source)
     frame_ids = _numpy(metadata["raw_frame_ids"]).astype(int)
     source_ids = np.load(source / "frame_indices.npy", allow_pickle=False)
     rows = np.searchsorted(source_ids, frame_ids)

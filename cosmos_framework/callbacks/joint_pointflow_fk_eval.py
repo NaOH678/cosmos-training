@@ -46,15 +46,24 @@ def attach_fk_overlay(record, fk, prediction, pointflow, *, dream_hw=None):
     valid = np.concatenate([valid[:1], valid])
     for name, displacement in (("gt", target), ("pred", pred)):
         xyz = anchor[None] + np.concatenate([np.zeros_like(anchor)[None], displacement])
-        uv, front = project(xyz.reshape(-1, 3))
+        if "intrinsics_px" in fk.get("metadata", {}):
+            k = numpy(fk["metadata"]["intrinsics_px"])
+            projected = xyz.reshape(-1, 3) @ k.T
+            with np.errstate(divide="ignore", invalid="ignore"):
+                uv = projected[:, :2] / projected[:, 2:]
+            front = projected[:, 2] > 0
+            source_wh = numpy(fk["metadata"]["image_size_wh"])
+        else:
+            uv, front = project(xyz.reshape(-1, 3))
+            source_wh = np.array([IMG_W, IMG_H])
         uv, front = uv.reshape(*xyz.shape[:-1], 2), front.reshape(xyz.shape[:-1])
         height, width = record["frames_bgr"][0].shape[:2]
         if dream_hw is None:
-            uv = (uv + 0.5) * [width / IMG_W, height / IMG_H] - 0.5
+            uv = (uv + 0.5) * np.array([width, height]) / source_wh - 0.5
         else:
             tracker_wh = numpy(pointflow["inputs"]["image_size_wh"])
             affine = numpy(pointflow["metadata"]["uv_to_video"])
-            tracker_centers = (uv + 0.5) * tracker_wh / [IMG_W, IMG_H]
+            tracker_centers = (uv + 0.5) * tracker_wh / source_wh
             uv = (tracker_centers @ affine[:, :2].T + affine[:, 2]) * [width / dream_hw[1], height / dream_hw[0]] - 0.5
         record[f"fk_{name}_uv"] = uv
         record[f"fk_{name}_valid"] = valid & front & np.isfinite(uv).all(-1)

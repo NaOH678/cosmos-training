@@ -63,3 +63,17 @@ def test_shared_fk_writer_persists_metrics(tmp_path):
     metrics = json.loads((tmp_path / "fk_eval/step_0000000/val_00/metrics.json").read_text())
     assert metrics["sampling_mode"] == "joint"
     assert metrics["all_ade_mm"] > 0
+
+
+def test_simulation_overlay_uses_recorded_intrinsics_for_both_hands():
+    fk = {
+        "inputs": {"anchor_xyz": np.tile([0.0, 0.0, 1.0], (42, 1))},
+        "targets": {"displacement": np.zeros((32, 42, 3)), "valid": np.ones((32, 42), bool)},
+        "metadata": {
+            "intrinsics_px": np.array([[100.0, 0, 200], [0, 100, 120], [0, 0, 1]]),
+            "image_size_wh": [640, 480],
+        },
+    }
+    record = {"frames_bgr": [np.zeros((480, 640, 3), np.uint8)] * 33}
+    attach_fk_overlay(record, fk, fk["targets"]["displacement"], {})
+    np.testing.assert_allclose(record["fk_pred_uv"], np.broadcast_to([200, 120], (33, 42, 2)))
