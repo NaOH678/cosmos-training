@@ -149,3 +149,8 @@ torch URDF FK与numpy `KinematicTree` 误差<1e-4 mm；相机旋转由对FK锚�
 - 独立action sigma须同时设 `model.config.rectified_flow_training_config.shift_action=5`（480分辨率的视频shift）；否则因全局 `shift` 为按分辨率的dict而报 `shift_action=None requires the global shift to be an int`。FK/PointFlow的独立sigma自动沿用视频shift。
 - 一致性损失量级：未加权约0.03（总损失约1），权重0.1仅占约0.2%，实际使用权重3（约8%）。
 - 推理时一致性引导（基于URDF梯度，非CFG）待独立sigma模型就绪后评估。
+- 40k复现（待20k一轮全部结束后启动，与20k结果并列比较）。依据：4090上 `task27_cosmos_{raw,local,nolocal}_s4_*` 的200条binomial5评测，task27 nolocal在25k–40k平均SR 47.3%、LSCR 80.4%，raw为43.8%、76.0%；20k以内PF/FK不占优。单个checkpoint 200条SR标准误约3.5个点，比较以LSCR和逐球漏斗为主。起点：`/data/shichaojian/runs/sim_task27_ptfk_nonlocal_8gpu_40k_20261010`、`sim_task27_wam_8gpu_40k_20261010` 的 iter 40000（配置与20k相同，仅训练步数与学习率周期为40000）。20k做过的逐项在40k上重做：
+  - 离线：§3种子探针、§5模态间消融（默认 / `action<-pointflow,action<-fk` / `action<-vision`，dAct、MAE、PF/FK ADE、lag-1自相关、二阶/一阶），先复现训练期验证指标。
+  - 4000步微调：control、indep（独立sigma，`shift_action=5`）、indep_cons（+一致性损失，权重3）、固定mask M1 `geom_readonly` / M2 `action_no_geom` / M3 `physical_split`、cons_all（L1+L3+L4）、smooth_only（L4），以及原生WAM control；输出 `/data/shichaojian/runs/ft_40k_<日期>/`。
+  - 微调后离线消融同上；交接到4090（`bench2dex-cloud-handoff` skill），按 `deployment/cosmos/TASK27_INFERENCE.md` 记录的命令做200条binomial5闭环评测，并跑逐球漏斗（接近/接触/抬起/搬运/放置、按真实球心的放置率）。
+  - 20k一轮对应记录：微调 `/data/shichaojian/runs/ft_20261012/`；离线消融 `/data/shichaojian/runs/xmodal_ft4k_20261013/`（脚本 `/mnt/afs/clusterx/xmodal-20261013/`）；4090 rollout `/oss-shichaojian/outputs/infer/task27/task27_cosmos_nolocal_{20000,ft4k_*}/runs/eval_200_8gpu_b5/`。

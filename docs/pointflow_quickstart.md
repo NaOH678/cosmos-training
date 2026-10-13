@@ -378,6 +378,7 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 | [pointflow_fk_local_mrope_20261002.md](./pointflow_fk_local_mrope_20261002.md) | **局部四轴 RoPE 方案 A**:共享相机位置、24/16/16/8通道、分组attention、FK接入、CPU/GPU验证与投影审计(§7) |
 | [pointflow_fk_action_coupling_20261012.md](./pointflow_fk_action_coupling_20261012.md) | **PointFK与action耦合分析**:rollout统计口径、单窗口时间轴/条件/噪声契约、联合采样种子探针(离线eval须加载EMA)、诊断、模态间消融与新开关 |
 | [sim_task27_rollout_failure_analysis_20261013.md](./sim_task27_rollout_failure_analysis_20261013.md) | **task27 rollout失败分析**:200局×3模型的数据与FK口径、lag-1对齐(tracking 7.6 mm)、action/dream/实测三类差距、drop检测器的坑与目视验证、校正球心的逐球漏斗、篮子位移、阶段依赖闸门(送到篮子未计分的原因) |
+| [sim_task27_improvement_experiments_20261013.md](./sim_task27_improvement_experiments_20261013.md) | **task27改进实验记录**:40k数据核对、raw/local/nolocal逐球漏斗与配对比较、20k/40k微调(独立sigma/一致性/mask/平滑)离线与闭环结果、进行中实验与产物位置 |
 | [pointflow_position_encoding.md](./pointflow_position_encoding.md) | 原三轴(t,h,w)位置与action–point交互规则设计;实际legacy路径见其核查说明 |
 | [pointflow_cluster_decode_20260929.md](./pointflow_cluster_decode_20260929.md) | 簇 token + 点级 decode(skip/pb):方案、实现、env 清单 |
 | [pointflow_ptv3_cosmos_design.md](./pointflow_ptv3_cosmos_design.md) | sonata(PTv3)接入 cosmos 的原始设计 |
