@@ -122,6 +122,8 @@ python tools/compare_joint_seed_probe.py --base ${R}_base --geom ${R}_geom --all
 
 torch URDF FK与numpy `KinematicTree` 误差<1e-4 mm；相机旋转由对FK锚点的Kabsch拟合得到。不建议用 `gt` 模式：命令action与实际qpos的FK存在约16 mm的稳态跟踪偏差（各滞后中位数均≈16 mm），以GT FK为目标会引入此偏差。
 
+> **更正（2026-10-13）**：上述约16 mm是把action[t]与qpos[t]比较（错开1步）的结果。action[t]驱动qpos[t]→qpos[t+1]，按qpos[t+1]对齐后，200局rollout的tracking差为7.6 mm（中位6.5 mm，p90 11.7 mm；1步错位口径为15.1–15.3 mm）。详见 [task27 rollout失败分析](./sim_task27_rollout_failure_analysis_20261013.md#3-三个差距lag-1对齐)。
+
 **消融结果**：task27 nonlocal iter 20000，加载EMA，24个验证窗口；用法 `JOINT_ATTN_BLOCK="action<-pointflow,action<-fk" bash ev.sh NAME`，`ev.sh` 即§3探针命令加 `trainer.max_iter=1`，脚本在服务器 `/root/claude_tmp/diag_20261012/`。dAct为与默认eval的action RMS差（噪声底约0.0017）。
 
 | 设置 | dAct | action MAE (rad) | PointFlow ADE (mm) | lag-1自相关 | 二阶/一阶 |
