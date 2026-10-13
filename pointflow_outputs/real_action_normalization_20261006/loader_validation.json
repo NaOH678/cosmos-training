@@ -1,0 +1,30 @@
+[
+  {
+    "dataset": "sandwich101_val5pct",
+    "split": "train",
+    "episodes": 96,
+    "windows": 95426,
+    "roundtrip": "passed"
+  },
+  {
+    "dataset": "sandwich101_val5pct",
+    "split": "val",
+    "episodes": 5,
+    "windows": 4841,
+    "roundtrip": "passed"
+  },
+  {
+    "dataset": "dropper_mix71_val5pct",
+    "split": "train",
+    "episodes": 67,
+    "windows": 64658,
+    "roundtrip": "passed"
+  },
+  {
+    "dataset": "dropper_mix71_val5pct",
+    "split": "val",
+    "episodes": 4,
+    "windows": 3586,
+    "roundtrip": "passed"
+  }
+]

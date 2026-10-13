@@ -92,6 +92,8 @@ class SingleRightHandRawDataset(Dataset):
         split: str = "train",
         split_seed: int = 42,
         split_val_ratio: float = 0.03,
+        action_stats_path: str | None = None,
+        action_stats_sha256: str | None = None,
         sample_stride: int = 1,
         mode: str = "wam",
         use_state: bool = True,
@@ -215,11 +217,30 @@ class SingleRightHandRawDataset(Dataset):
         order = torch.randperm(len(all_episodes), generator=torch.Generator().manual_seed(split_seed)).tolist()
         selected = order[:num_val] if split_key == "val" else order[num_val:] if split_key == "train" else order
         self._episodes = [all_episodes[idx] for idx in selected]
+        self.action_normalizer = None
+        if action_stats_path:
+            from cosmos_framework.data.generator.action.real_normalization import RealActionNormalizer
+
+            self.action_normalizer = RealActionNormalizer(action_stats_path, expected_sha256=action_stats_sha256)
+            self.action_normalizer.validate_dataset(
+                cache_root=self._cache_root,
+                all_episodes=all_episodes,
+                order=order,
+                num_val=num_val,
+                split_seed=split_seed,
+                split_val_ratio=split_val_ratio,
+                action_names=self.action_names,
+                arm_action_space=self.arm_action_space,
+            )
+        elif action_stats_sha256:
+            raise ValueError("action_stats_sha256 requires action_stats_path")
 
         # Point-cloud labels are optional and keyed by episode: absent means "this
         # run does not train the PointFlow modality", never a missing label.
         self._pointflow_source = None
-        if pointflow_manifest is not None:
+        # An empty environment override disables PointFlow (e.g. the WAM baseline).
+        # Path("") would otherwise resolve to the working directory.
+        if pointflow_manifest:
             from cosmos_framework.data.generator.action.pointflow_source import PointFlowSource
             from cosmos_framework.data.pointflow_window import PointFlowTiming
 
@@ -408,6 +429,9 @@ class SingleRightHandRawDataset(Dataset):
                 f"Episode {episode.name}: expected state/action {(episode.num_frames, self.action_dim)}, "
                 f"got {state.shape}/{action.shape}"
             )
+        if self.action_normalizer is not None:
+            state = self.action_normalizer.normalize(state)
+            action = self.action_normalizer.normalize(action)
         cached = (state, action)
         self._array_cache[episode_idx] = cached
         while len(self._array_cache) > self._array_cache_size:

@@ -14,6 +14,7 @@ falling loss says nothing about whether the motion is right.
 import copy
 import json
 import logging
+import os
 from pathlib import Path
 
 import numpy as np
@@ -130,6 +131,8 @@ class FKEvalCallback(callback.Callback):
         self._done = False
 
     def on_validation_step_end(self, model, data_batch, output_batch, loss, iteration=0):
+        if os.environ.get("REAL_ACTION_VARIANT") == "wam":
+            return
         if self.reuse_pointflow_joint or iteration % self.every_n or self._done:
             return
         value = output_batch.get("flow_matching_loss_fk")

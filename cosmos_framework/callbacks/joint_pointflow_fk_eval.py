@@ -2,6 +2,7 @@
 
 import copy
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -116,7 +117,17 @@ def run_joint_eval(callback, model, iteration):
             (directory / "joint_sample.json").write_text(json.dumps(provenance, indent=2) + "\n")
             fk_directory = root / "fk_eval" / f"step_{iteration:07d}" / case_id
             (fk_directory / "joint_sample.json").write_text(json.dumps(provenance, indent=2) + "\n")
-            np.savez_compressed(directory / "joint_prediction.npz", **{k: numpy(v[0]) for k, v in samples.items()})
+            prediction_arrays = {k: numpy(v[0]) for k, v in samples.items()}
+            if os.environ.get("REAL_ACTION_STATS_PATH"):
+                from cosmos_framework.data.generator.action.real_normalization import RealActionNormalizer
+
+                normalizer = RealActionNormalizer(
+                    os.environ["REAL_ACTION_STATS_PATH"],
+                    expected_sha256=os.environ.get("REAL_ACTION_STATS_SHA256"),
+                )
+                prediction_arrays["action_physical"] = normalizer.denormalize(prediction_arrays["action"])
+                prediction_arrays["action_stats_sha256"] = np.asarray(normalizer.sha256)
+            np.savez_compressed(directory / "joint_prediction.npz", **prediction_arrays)
             frames = _decode_dream_frames(model, samples)
             dream_dir = directory / "dream_canvas"
             dream_dir.mkdir(parents=True, exist_ok=True)

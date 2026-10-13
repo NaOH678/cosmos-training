@@ -7,6 +7,7 @@ import json
 from types import MethodType
 
 import numpy as np
+import pytest
 import torch
 
 from cosmos_framework.data.generator.action.action_spec import DimType
@@ -14,7 +15,11 @@ from cosmos_framework.data.generator.action.datasets.singlerighthand_raw_dataset
 
 
 def _build_dataset(
-    tmp_path, *, use_precomputed_video: bool = False, arm_action_space: str | None = None
+    tmp_path,
+    *,
+    use_precomputed_video: bool = False,
+    arm_action_space: str | None = None,
+    pointflow_manifest: str | None = None,
 ) -> tuple[SingleRightHandRawDataset, list[tuple[np.ndarray, np.ndarray]]]:
     raw_root = tmp_path / "raw"
     cache_root = tmp_path / "cache"
@@ -59,6 +64,7 @@ def _build_dataset(
         use_image_augmentation=False,
         use_precomputed_video=use_precomputed_video,
         video_cache_resolution="480" if use_precomputed_video else None,
+        pointflow_manifest=pointflow_manifest,
     )
 
     def fake_load_video(self, episode_idx: int, observation_indices: np.ndarray) -> torch.Tensor:
@@ -68,6 +74,13 @@ def _build_dataset(
     if not use_precomputed_video:
         dataset._load_video = MethodType(fake_load_video, dataset)
     return dataset, arrays
+
+
+@pytest.mark.parametrize("pointflow_manifest", [None, ""])
+def test_wam_disables_pointflow_with_absent_manifest(tmp_path, pointflow_manifest) -> None:
+    dataset, _ = _build_dataset(tmp_path, pointflow_manifest=pointflow_manifest)
+    assert dataset._pointflow_source is None
+    assert dataset[0]["action"].shape == (33, 27)
 
 
 def test_official_temporal_window_and_episode_boundaries(tmp_path) -> None:

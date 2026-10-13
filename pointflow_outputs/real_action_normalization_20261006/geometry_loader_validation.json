@@ -1,0 +1,290 @@
+[
+  {
+    "dataset": "sandwich",
+    "variant": "nonlocal",
+    "split": "train",
+    "windows": 95426,
+    "fields": {
+      "video": [
+        3,
+        33,
+        716,
+        544
+      ],
+      "action": [
+        33,
+        27
+      ],
+      "conditioning_fps": [],
+      "domain_id": [],
+      "raw_frame_ids": [
+        33
+      ],
+      "action_frame_ids": [
+        32
+      ],
+      "timestamps_sec": [
+        33
+      ],
+      "vae_latent_cache": [
+        1,
+        48,
+        9,
+        46,
+        34
+      ]
+    }
+  },
+  {
+    "dataset": "sandwich",
+    "variant": "nonlocal",
+    "split": "val",
+    "windows": 4841,
+    "fields": {
+      "video": [
+        3,
+        33,
+        716,
+        544
+      ],
+      "action": [
+        33,
+        27
+      ],
+      "conditioning_fps": [],
+      "domain_id": [],
+      "raw_frame_ids": [
+        33
+      ],
+      "action_frame_ids": [
+        32
+      ],
+      "timestamps_sec": [
+        33
+      ],
+      "vae_latent_cache": [
+        1,
+        48,
+        9,
+        46,
+        34
+      ]
+    }
+  },
+  {
+    "dataset": "sandwich",
+    "variant": "local",
+    "split": "train",
+    "windows": 95426,
+    "fields": {
+      "video": [
+        3,
+        33,
+        716,
+        544
+      ],
+      "action": [
+        33,
+        27
+      ],
+      "conditioning_fps": [],
+      "domain_id": [],
+      "raw_frame_ids": [
+        33
+      ],
+      "action_frame_ids": [
+        32
+      ],
+      "timestamps_sec": [
+        33
+      ],
+      "vae_latent_cache": [
+        1,
+        48,
+        9,
+        46,
+        34
+      ]
+    }
+  },
+  {
+    "dataset": "sandwich",
+    "variant": "local",
+    "split": "val",
+    "windows": 4841,
+    "fields": {
+      "video": [
+        3,
+        33,
+        716,
+        544
+      ],
+      "action": [
+        33,
+        27
+      ],
+      "conditioning_fps": [],
+      "domain_id": [],
+      "raw_frame_ids": [
+        33
+      ],
+      "action_frame_ids": [
+        32
+      ],
+      "timestamps_sec": [
+        33
+      ],
+      "vae_latent_cache": [
+        1,
+        48,
+        9,
+        46,
+        34
+      ]
+    }
+  },
+  {
+    "dataset": "dropper_mix",
+    "variant": "nonlocal",
+    "split": "train",
+    "windows": 64658,
+    "fields": {
+      "video": [
+        3,
+        33,
+        716,
+        544
+      ],
+      "action": [
+        33,
+        27
+      ],
+      "conditioning_fps": [],
+      "domain_id": [],
+      "raw_frame_ids": [
+        33
+      ],
+      "action_frame_ids": [
+        32
+      ],
+      "timestamps_sec": [
+        33
+      ],
+      "vae_latent_cache": [
+        1,
+        48,
+        9,
+        46,
+        34
+      ]
+    }
+  },
+  {
+    "dataset": "dropper_mix",
+    "variant": "nonlocal",
+    "split": "val",
+    "windows": 3586,
+    "fields": {
+      "video": [
+        3,
+        33,
+        716,
+        544
+      ],
+      "action": [
+        33,
+        27
+      ],
+      "conditioning_fps": [],
+      "domain_id": [],
+      "raw_frame_ids": [
+        33
+      ],
+      "action_frame_ids": [
+        32
+      ],
+      "timestamps_sec": [
+        33
+      ],
+      "vae_latent_cache": [
+        1,
+        48,
+        9,
+        46,
+        34
+      ]
+    }
+  },
+  {
+    "dataset": "dropper_mix",
+    "variant": "local",
+    "split": "train",
+    "windows": 64658,
+    "fields": {
+      "video": [
+        3,
+        33,
+        716,
+        544
+      ],
+      "action": [
+        33,
+        27
+      ],
+      "conditioning_fps": [],
+      "domain_id": [],
+      "raw_frame_ids": [
+        33
+      ],
+      "action_frame_ids": [
+        32
+      ],
+      "timestamps_sec": [
+        33
+      ],
+      "vae_latent_cache": [
+        1,
+        48,
+        9,
+        46,
+        34
+      ]
+    }
+  },
+  {
+    "dataset": "dropper_mix",
+    "variant": "local",
+    "split": "val",
+    "windows": 3586,
+    "fields": {
+      "video": [
+        3,
+        33,
+        716,
+        544
+      ],
+      "action": [
+        33,
+        27
+      ],
+      "conditioning_fps": [],
+      "domain_id": [],
+      "raw_frame_ids": [
+        33
+      ],
+      "action_frame_ids": [
+        32
+      ],
+      "timestamps_sec": [
+        33
+      ],
+      "vae_latent_cache": [
+        1,
+        48,
+        9,
+        46,
+        34
+      ]
+    }
+  }
+]

@@ -36,6 +36,12 @@
 | E6-dropper-1001 | 普通dropper＋PointFlow/FK参考 | 保留已有完整训练作为普通dropper参考 | **已完成训练**(20000步,checkpoint20000) | 1004按重复运行忽略;不与mix71混用 |
 | E6-dropper-mix-b | dropper DAgger mix71,cluster＋FK＋local RoPE | 复用E6b配方检查跨任务生成质量 | **已完成训练**(10000步,checkpoint10000;10-05核查) | 64条训练/7条验证,启动先eval,生成质量优先 |
 | E6-dropper-mix-a | dropper mix71,cluster＋FK,关闭local RoPE | E6-dropper-mix-b的同配方位置编码对照 | **等待中**(16卡指令就绪,未启动) | 同窗口/seed比较joint dream及PF/FK一致性 |
+| E8-sandwich-wam | sandwich96/5归一化,原始video–action | 统一归一化后的同配方对照 | **启动失败,已修复待重试**(空PF路径误读目录) | 验证loss辅助,生成质量优先 |
+| E8-sandwich-nonlocal | sandwich96/5归一化,cluster＋skip＋PB＋FK,nonlocal | 统一归一化后的同配方对照 | **等待中**(启动指令就绪,未启动) | 验证loss辅助,生成质量优先 |
+| E8-sandwich-local | sandwich96/5归一化,cluster＋skip＋PB＋FK,local | 统一归一化后的同配方对照 | **等待中**(启动指令就绪,未启动) | 验证loss辅助,生成质量优先 |
+| E8-dropper_mix-wam | dropper mix67/4归一化,原始video–action | 统一归一化后的同配方对照 | **等待中**(启动指令就绪,未启动) | 验证loss辅助,生成质量优先 |
+| E8-dropper_mix-nonlocal | dropper mix67/4归一化,cluster＋skip＋PB＋FK,nonlocal | 统一归一化后的同配方对照 | **等待中**(启动指令就绪,未启动) | 验证loss辅助,生成质量优先 |
+| E8-dropper_mix-local | dropper mix67/4归一化,cluster＋skip＋PB＋FK,local | 统一归一化后的同配方对照 | **等待中**(启动指令就绪,未启动) | 验证loss辅助,生成质量优先 |
 
 ## A — per_point-500 基线(v2)【已停止 @9200】
 
@@ -536,6 +542,69 @@ GT视频＋GT flow＋GT FK / perpoint9000 / E6b9000 / perpoint19000;
 共享目录另有sim_v2、dagger-newcam等作业,未核验其完整配方,
 本次不将其归入上述E6消融编号。
 
+## E8 — 真机归一化重训系列【等待中】
+
+- **范围**:sandwich与dropper mix分别运行WAM、nonlocal PointFlow/FK、local PointFlow/FK,共6组。使用cluster＋skip＋PB,不跑per-point。
+- **数据与划分**:seed42、val_ratio0.05;sandwich101为96训练/5验证,dropper mix71为67/4。
+  同一数据集三组共用episode划分与统计;原先20%/10%验证的旧实验只能作历史参考。
+- **归一化**:训练集action-only q01/q99,scale下限0.05,不clip;state复用action统计。
+  sandwich为xyz(m)＋quat_xyzw＋手关节(rad),四元数保持原值;dropper mix为27维关节角。
+  [统计/划分/校验](../pointflow_outputs/real_action_normalization_20261006/README.md)。
+  REAL_ACTION_STATS_PATH为新入口,不是仿真的BENCH2DEX_ACTION_STATS_PATH。
+  启动时在OUTPUT_ROOT固定action_stats.json和SHA256,loader校验训练划分、manifest和训练NPZ哈希。
+- **模型对照**:WAM关闭PF/FK安装和数据源,跳过几何eval回调;其余两组为stage1、cap128、N500、skip1/2、PB4、fusion=false。
+  nonlocal/local仅切换POINTFLOW_FK_LOCAL_ROPE,local使用Flash2 partition/varlen实现。
+- **共同训练配方**:默认单机8卡,下方标准指令显式16卡(2×8);每卡batch16、梯度累积1,16卡全局batch256;
+  compile language/dynamic、Flash2、Q/K/V/O selective AC,lr2e-5、warmup100、20000步scheduler/max_iter、每500步保存。
+  对比时六组GPU数保持一致;均从基础DCP开始,不能续旧未归一化checkpoint。
+- **尺度**:PF/FK沿用各数据集原有几何单位和scale:sandwich 0.0528/0.083745,
+  mix 0.037493/0.043357。action缩放不改变点/FK标签坐标。
+- **FK相机修正(2026-10-06)**:E8入口显式设置sandwich为`FK_CAMERA_PROFILE=legacy`,dropper mix为`dagger`。
+  复用base的`assets/dagger_fk`与`fk_camera_profiles.py`,训练和eval通过同一FKSource使用新外参生成anchor/displacement。
+  基座系FK标注不变,无需重做PF/VAE缓存;71条新外参复扫记录在`pointflow_outputs/real_action_normalization_20261006/dagger_fk_scale_scan.log`。
+  启动入口拒绝在旧camera profile的输出目录继续几何实验,应另设OUTPUT_ROOT;WAM不受此变化影响。
+- **评估**:所有组run_validation=true、val_on_start=true、validation_iter=500。
+  WAM执行常规validation loss,当前无新增专用joint dream回调,生成质量需另做采样评审;
+  PF/FK组使用统一joint dream,覆盖全部保留验证episode的early/middle/late固定窗口(val_windows=1)。
+  联合采样NPZ保留归一化action,另存action_physical和统计SHA256。几何ADE仍为物理单位。
+  部署/其他离线动作评估需调用RealActionNormalizer.denormalize,不能直接将归一化动作送到机器人。
+- **状态**:sandwich WAM在2026-10-06首次启动时,数据集初始化将空的POINTFLOW_MANIFEST当成目录读取,报IsADirectoryError,尚未进入训练。已修复为空字符串/None均禁用PointFlow;8项数据集测试通过,并用两数据集WAM实际配置分别初始化train/val、读取首个样本通过。等待平台重试,完整GPU训练和启动eval尚待验证;其余五组尚未确认启动。
+- **日志**:前台输出、Loguru彩色,共享launcher通过tee保存各节点stdout/stderr,每次启动使用带时间戳的独立日志,重试不覆盖旧报错。
+- **产物**:默认OUTPUT_ROOT=`/data/shichaojian/runs/real_normalized/<数据>_<模式>_20k_20261006`;
+  stats在根目录,日志在logs/,配置及checkpoint在cosmos3_action/action_sft/action_policy_real_<数据>_<模式>/。
+  可显式设置OUTPUT_ROOT;每组新目录,同一双节点任务共用同一目录。
+
+**标准16卡指令**(六条分别提交独立实验,不要在同一组卡上同时启动;平台须提供节点rank/master地址):
+
+```bash
+# E8-sandwich-wam
+OUTPUT_ROOT=/data/shichaojian/runs/real_normalized/sandwich_wam_20k_20261006 \
+NNODES=2 NPROC_PER_NODE=8 bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_real_normalized.sh sandwich wam
+
+# E8-sandwich-nonlocal
+OUTPUT_ROOT=/data/shichaojian/runs/real_normalized/sandwich_nonlocal_20k_20261006 \
+NNODES=2 NPROC_PER_NODE=8 bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_real_normalized.sh sandwich nonlocal
+
+# E8-sandwich-local
+OUTPUT_ROOT=/data/shichaojian/runs/real_normalized/sandwich_local_20k_20261006 \
+NNODES=2 NPROC_PER_NODE=8 bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_real_normalized.sh sandwich local
+
+# E8-dropper_mix-wam
+OUTPUT_ROOT=/data/shichaojian/runs/real_normalized/dropper_mix_wam_20k_20261006 \
+NNODES=2 NPROC_PER_NODE=8 bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_real_normalized.sh dropper_mix wam
+
+# E8-dropper_mix-nonlocal
+OUTPUT_ROOT=/data/shichaojian/runs/real_normalized/dropper_mix_nonlocal_20k_20261006 \
+NNODES=2 NPROC_PER_NODE=8 bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_real_normalized.sh dropper_mix nonlocal
+
+# E8-dropper_mix-local
+OUTPUT_ROOT=/data/shichaojian/runs/real_normalized/dropper_mix_local_20k_20261006 \
+NNODES=2 NPROC_PER_NODE=8 bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_real_normalized.sh dropper_mix local
+```
+
+单机8卡将NNODES改为1;脚本已经处理工作目录、共享venv与LD_LIBRARY_PATH。
+可用`DRY_RUN=1`解析配置,其结果只写当前仓库pointflow_outputs/real_action_normalization_20261006/resolved_configs/。
+
 ## E3a — N=4000 数据准备【等待中,CPU 后台】
 
 ```
@@ -638,3 +707,4 @@ sandwich E2 若证明 skip+点级 block 能救 cluster,再在 dropper 上复现;
 | 2026-10-02 dropper mix迁移 | 核验71条mix数据及PF/FK/VAE覆盖,复核两项scale,新增E6-dropper-mix和专用16卡E6b配方脚本;按用户要求只提供平台指令,未启动训练。 |
 | 2026-10-05 | 复核实际日志: E6-perpoint到20000,E6a/E6b/mix-b到10000;更新E2系列最终日志步数,登记dropper-mix-a nonlocal对照及16卡指令。未操作训练作业。 |
 | 2026-10-05 dropper去重 | 登记普通dropper 1001已完成20000步;按用户要求将1004作为重复运行忽略,不纳入后续对比。与mix71实验区分;未执行停止作业。 |
+| 2026-10-06 E8真机归一化 | 登记sandwich/dropper mix各WAM、nonlocal PF/FK、local PF/FK六组;5%验证、训练统计固定快照、cluster/skip/PB、统一20000步,补齐16卡命令。仅CPU验证,未启动新训练。 |

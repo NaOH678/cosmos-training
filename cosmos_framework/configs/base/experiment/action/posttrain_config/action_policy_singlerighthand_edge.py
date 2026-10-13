@@ -429,6 +429,8 @@ dataloader["datasets"] = {
             # leaves the val dataloader empty and the periodic eval with nothing to run.
             # 0.2 gives 2 of 10.
             split_val_ratio=0.2,
+            action_stats_path="${oc.env:REAL_ACTION_STATS_PATH,null}",
+            action_stats_sha256="${oc.env:REAL_ACTION_STATS_SHA256,null}",
             sample_stride=1,
             mode="wam",
             use_state=True,

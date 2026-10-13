@@ -148,6 +148,22 @@ bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_sim_p
 同目录重跑会自动resume；更换stage、选点或归一化统计应使用新实验目录。
 配置：[TOML](../examples/toml/sft_config/action_policy_sim_pointfk_edge.toml)。
 
+### 真机归一化重训（E8）
+
+```bash
+# 数据: sandwich 或 dropper_mix; 模式: wam / nonlocal / local
+OUTPUT_ROOT=/data/shichaojian/runs/real_normalized/sandwich_nonlocal_20k_20261006 \
+NNODES=2 NPROC_PER_NODE=8 bash examples/launch_real_normalized.sh sandwich nonlocal
+```
+
+六组完整命令及配方见[实验队列E8](./pointflow_experiment_queue_20260930.md#e8--真机归一化重训系列等待中)。
+入口自动固定5%验证划分、归一化统计快照与20000步,开启启动验证和每500步验证。
+
+真机与仿真启动器共用`tools/prepare_normalized_run.py`，在`$OUTPUT_ROOT/action_stats.json`保存实际使用的统计快照，并将读取路径和SHA256写入实验配置；续训校验一致性，不覆盖不同统计。仿真源统计仍是各任务训练目录的`normalization_train_only.json`，WAM/nonlocal/local均遵循同一归档规则，见[仿真启动步骤](SIM_DATA_PIPELINE.md#86-第五步选择模式并启动训练默认8卡)。
+E8的FK相机按数据集选择:sandwich使用legacy,dropper mix使用dagger新支架外参;FK scale分别为0.083745、0.043357。
+现有基座系FK标注和PF/VAE缓存复用;旧外参实验不能直接续训到dagger配置,须使用新的OUTPUT_ROOT。
+WAM仅常规validation loss;PF/FK组另有joint dream。新入口尚未完成GPU冒烟,不把配置解析当作训练已通过。
+
 ### 实机 sandwich/dropper（原有入口）
 
 ```bash
