@@ -56,9 +56,27 @@ git clone https://github.com/liuhangxu-robin/WorldAct.git
 cd WorldAct && git checkout WorldAct-cosmos3-edge-droid-sft-pointflow
 ```
 
-- 集群公网慢/不通 → 按 [docs/setup_offline.md](./setup_offline.md):有网机
+- **首选:所内 PyPI 镜像快速下载**(使用同一套 pjlab 镜像的集群通常已配置
+  `/etc/pip.conf`,但 uv 需要显式配置):
+
+  ```bash
+  export UV_INDEX_URL=http://mirrors.i.h.pjlab.org.cn/repository/pypi-proxy/simple/
+  export UV_EXTRA_INDEX_URL=http://pypi.i.h.pjlab.org.cn/brain/dev/+simple
+  export UV_INSECURE_HOST="mirrors.i.h.pjlab.org.cn pypi.i.h.pjlab.org.cn"  # 允许上述 HTTP 源
+  uv sync --all-extras --group=cu130-train
+  ```
+
+  镜像用于普通 PyPI 依赖(包括 nvidia-* CUDA 库),不替代项目显式指定的专用源。
+  当前 pointflow-fk 的 `pyproject.toml` 中,torch/triton 等绑定 `download.pytorch.org`,
+  flash-attn/flash-attn-3-nv、transformer-engine 和 natten 绑定
+  `nvidia-cosmos.github.io`。虽然另有 `whl.natten.org` 索引声明,当前 natten 的
+  source 绑定的是 cosmos 索引。Git 依赖仍从对应 Git 仓库获取;
+  以所检出分支的 `[tool.uv.sources]`、`[[tool.uv.index]]` 和 `uv.lock` 为准。
+  因此镜像可加速部分下载,但不代表安装过程完全不需要访问公网。
+- 镜像也不通/缺包 → 按 [docs/setup_offline.md](./setup_offline.md):有网机
   `uv sync` 填满 cache → 拷 cache → 离线机 `uv sync --offline --locked`。
-- 有网 → 按 [docs/setup.md](./setup.md):`uv sync --all-extras --group=cu130-train`。
+- 公网直连 → 按 [docs/setup.md](./setup.md):`uv sync --all-extras --group=cu130-train`。
+  若当前 shell 已设置上述镜像变量,先 `unset UV_INDEX_URL UV_EXTRA_INDEX_URL UV_INSECURE_HOST`。
 - 驱动 CUDA 13.2 兼容 cu130 wheel(驱动 ≥ 构建版本即可)。
 - **手动运行Python前**:`source .venv/bin/activate && export LD_LIBRARY_PATH=''`；仿真启动脚本已自动处理。
 
