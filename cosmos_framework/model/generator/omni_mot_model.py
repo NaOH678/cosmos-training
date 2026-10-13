@@ -1455,6 +1455,25 @@ class OmniMoTModel(ImaginaireModel):
             losses_dict["flow_matching_loss_fk"] = fm_fk
             losses_dict.update(fk_metrics)
 
+        # Opt-in action<->FK consistency (POINTFK_CONSISTENCY_WEIGHT > 0); see pointfk_consistency.py. No-op when unset.
+        from cosmos_framework.model.generator.pointfk_consistency import consistency_weight
+
+        consistency_w = consistency_weight()
+        if (
+            consistency_w > 0
+            and data_batch_packed.fk_data is not None
+            and gen_data_noised.fk is not None
+            and data_batch_packed.action is not None
+            and "preds_fk" in out_net
+        ):
+            from cosmos_framework.model.generator.pointfk_consistency import compute_consistency_losses
+
+            consistency_loss, consistency_metrics = compute_consistency_losses(
+                out_net, data_batch_packed, gen_data_noised, fk_scale=rf_cfg.fk_displacement_scale
+            )
+            total_loss += consistency_w * consistency_loss
+            losses_dict.update(consistency_metrics)
+
         if self.config.sound_gen:
             if data_batch_packed.sound is not None:
                 assert isinstance(data_batch_packed.sound.condition_mask, list), (

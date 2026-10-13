@@ -268,6 +268,7 @@ OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash /mnt/afs/WorldA
 | `JOINT_SAMPLE_SEED_OFFSETS` | 空 | eval探针:只换指定模态的联合采样初始噪声,如 `pointflow:1,fk:1`;用法见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#3-联合采样种子探针) |
 | `JOINT_ATTN_BLOCK` | 空 | eval/推理:屏蔽模态间带噪token的attention,如 `action<-pointflow,action<-fk`;模态 vision/action/pointflow/fk,不支持local RoPE;见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
 | `JOINT_GEOM_LEAD` / `JOINT_SAMPLER_STEPS_OVERRIDE` | 空 | 推理:几何提前k步去噪完 / 覆盖联合采样步数;见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
+| `POINTFK_CONSISTENCY_WEIGHT` / `_MODE` / `_STATS` | 0 / task / 空 | 训练:URDF(action)一致性损失,>0启用,需给action归一化统计;见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
 
 ### resume 语义(查证结论)
 
@@ -375,6 +376,7 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 | 文档 | 内容 |
 | ---- | ---- |
 | [pointflow_fk_local_mrope_20261002.md](./pointflow_fk_local_mrope_20261002.md) | **局部四轴 RoPE 方案 A**:共享相机位置、24/16/16/8通道、分组attention、FK接入、CPU/GPU验证与投影审计(§7) |
+| [pointflow_fk_action_coupling_20261012.md](./pointflow_fk_action_coupling_20261012.md) | **PointFK与action耦合分析**:rollout统计口径、单窗口时间轴/条件/噪声契约、联合采样种子探针(离线eval须加载EMA)、诊断、模态间消融与新开关 |
 | [pointflow_position_encoding.md](./pointflow_position_encoding.md) | 原三轴(t,h,w)位置与action–point交互规则设计;实际legacy路径见其核查说明 |
 | [pointflow_cluster_decode_20260929.md](./pointflow_cluster_decode_20260929.md) | 簇 token + 点级 decode(skip/pb):方案、实现、env 清单 |
 | [pointflow_ptv3_cosmos_design.md](./pointflow_ptv3_cosmos_design.md) | sonata(PTv3)接入 cosmos 的原始设计 |
