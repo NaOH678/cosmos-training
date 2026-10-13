@@ -1,0 +1,218 @@
+[
+  {
+    "task": "03_wine_glass_plate_balance",
+    "expert_steps": 2164,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 17684976380,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/03_wine_glass_plate_balance.yaml"
+  },
+  {
+    "task": "06_fruit_bowl_loading",
+    "expert_steps": 1280,
+    "source": "mean steps_to_stable_success over 50/50 successful demos from origin-generalization",
+    "replay_bytes": 16906017800,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/06_fruit_bowl_loading.yaml"
+  },
+  {
+    "task": "07_citrus_plate_loading",
+    "expert_steps": 1203,
+    "source": "mean steps_to_stable_success over 50/50 successful demos from origin-generalization",
+    "replay_bytes": 9883637051,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/07_citrus_plate_loading.yaml"
+  },
+  {
+    "task": "08_frypan_stand_pour",
+    "expert_steps": 2288,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 13762866313,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/08_frypan_stand_pour.yaml"
+  },
+  {
+    "task": "09_cleaner_moisturizer_box_loading",
+    "expert_steps": 1283,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 9592366236,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/09_cleaner_moisturizer_box_loading.yaml"
+  },
+  {
+    "task": "12_screwdriver_box_and_hammer",
+    "expert_steps": 2297,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 16124015117,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/12_screwdriver_box_and_hammer.yaml"
+  },
+  {
+    "task": "21_condiment_box_loading",
+    "expert_steps": 1654,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 13463088063,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/21_condiment_box_loading.yaml"
+  },
+  {
+    "task": "22_tool_box_loading",
+    "expert_steps": 1361,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 10075817334,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/22_tool_box_loading.yaml"
+  },
+  {
+    "task": "24_stationery_category_sorting",
+    "expert_steps": 3083,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 21325798015,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/24_stationery_category_sorting.yaml"
+  },
+  {
+    "task": "26_canned_food_tray_line_arrangement",
+    "expert_steps": 1742,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 17148096716,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/26_canned_food_tray_line_arrangement.yaml"
+  },
+  {
+    "task": "27_ball_box_loading",
+    "expert_steps": 2380,
+    "source": "mean steps_to_stable_success over 50/50 successful demos from origin-generalization",
+    "replay_bytes": 17890884745,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/27_ball_box_loading.yaml"
+  },
+  {
+    "task": "32_baking_tray_prep_with_tools",
+    "expert_steps": 1703,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from replay-generalization\"",
+    "replay_bytes": 13273586143,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/32_baking_tray_prep_with_tools.yaml"
+  },
+  {
+    "task": "34_fridge_wine_interhand_pour",
+    "expert_steps": 2160,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from replay-generalization\"",
+    "replay_bytes": 18083693953,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/34_fridge_wine_interhand_pour.yaml"
+  },
+  {
+    "task": "42_trash_disposal",
+    "expert_steps": 1336,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 11929336714,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/42_trash_disposal.yaml"
+  },
+  {
+    "task": "43_fridge_fruit_shelf_sorting",
+    "expert_steps": 2750,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 18802071708,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/43_fridge_fruit_shelf_sorting.yaml"
+  },
+  {
+    "task": "44_microwave_bowl_loading",
+    "expert_steps": 2122,
+    "source": "mean steps_to_stable_success over 50/50 successful demos from origin-generalization",
+    "replay_bytes": 14480929648,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/44_microwave_bowl_loading.yaml"
+  },
+  {
+    "task": "51_toilet_lid_cleaner_pour",
+    "expert_steps": 2046,
+    "source": "mean steps_to_stable_success over 50/50 successful demos from origin-generalization",
+    "replay_bytes": 14065526848,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/51_toilet_lid_cleaner_pour.yaml"
+  },
+  {
+    "task": "60_breadbasket_fast_food_loading",
+    "expert_steps": 1989,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 16527696239,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/60_breadbasket_fast_food_loading.yaml"
+  },
+  {
+    "task": "61_medicine_shoebox_pack",
+    "expert_steps": 2067,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from replay-generalization\"",
+    "replay_bytes": 13658192576,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/61_medicine_shoebox_pack.yaml"
+  },
+  {
+    "task": "62_shoebox_accessory_pack",
+    "expert_steps": 2154,
+    "source": "mean steps_to_stable_success over 50/50 successful demos from origin-generalization",
+    "replay_bytes": 14157888514,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/62_shoebox_accessory_pack.yaml"
+  },
+  {
+    "task": "64_sports_ball_cup_sort",
+    "expert_steps": 1329,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from replay-generalization\"",
+    "replay_bytes": 10829923021,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/64_sports_ball_cup_sort.yaml"
+  },
+  {
+    "task": "67_faucet_cup_water_fill",
+    "expert_steps": 1928,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 18427737940,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/67_faucet_cup_water_fill.yaml"
+  },
+  {
+    "task": "73_jigsaw_puzzle_assembly",
+    "expert_steps": 2426,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 22187384142,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/73_jigsaw_puzzle_assembly.yaml"
+  },
+  {
+    "task": "76_soup_serving",
+    "expert_steps": 1972,
+    "source": "\"mean steps_to_stable_success over 49/50 successful demos from origin-generalization\"",
+    "replay_bytes": 14560604744,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/76_soup_serving.yaml"
+  },
+  {
+    "task": "79_bimanual_piano_melody",
+    "expert_steps": 1362,
+    "source": "\"mean steps_to_stable_success over 36/50 successful demos from origin-generalization\"",
+    "replay_bytes": 14912930361,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/79_bimanual_piano_melody.yaml"
+  },
+  {
+    "task": "80_gaming_desk_setup",
+    "expert_steps": 1185,
+    "source": "\"mean steps_to_stable_success over 50/50 successful demos from origin-generalization\"",
+    "replay_bytes": 8793976478,
+    "replay_episodes": 100,
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/80_gaming_desk_setup.yaml"
+  },
+  {
+    "task": "86_short_jigsaw_puzzle",
+    "expert_steps": null,
+    "source": "'TODO: fill from successful demonstration data.'",
+    "replay_bytes": null,
+    "replay_episodes": "HTTP Error 404: Not Found",
+    "url": "https://raw.githubusercontent.com/Bench2Dex/Bench2Dex/main/scenes/86_short_jigsaw_puzzle.yaml"
+  }
+]

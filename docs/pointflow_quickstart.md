@@ -91,6 +91,7 @@ uv pip install --python .venv/bin/python --no-deps --no-index \
 
 真机逐窗口latent统一用`examples/cache_singlerighthand_window_latents.sh sandwich|dropper|dropper_mix`，
 默认跳过已完成episode；完整绝对路径命令、输入输出与覆盖参数见[数据pipeline步骤3](./pointflow_data_pipeline.md#步骤-3window-latent-cachegpu)。
+仿真继续用`examples/cache_bench2dex_task_latents_8gpu.sh <任务ID>`，流程见[云端仿真pipeline](./SIM_DATA_PIPELINE.md#8-云端从上传数据到训练缓存)。
 两入口共用逐窗口VAE编码核心，整段latent的旧入口及训练兼容路径已移除。
 
 **路径不一致时的两处修改**:
