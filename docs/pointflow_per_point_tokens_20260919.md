@@ -528,8 +528,8 @@ eval:`POINTFLOW_EVAL_JOINT=true` → 每 case 输出 <case>_joint/(首帧+state 
 质量过滤,101 集全 labeled,无 legacy);raw `raw_data/singlerighthand_dropper_100`;
 cache `datasets/singlerighthand-dropper-100-cosmos-cache`(manifest/episodes/
 video_frames 早已备好,**只缺 vae_window_latents**,用
-`examples/cache_singlerighthand_window_latents.sh` 换 `VIDEO_CACHE_ROOT` +
-`ALLOWLIST` 两个 env 重跑即可)。三处 episode 名单 101/101/101 完全对齐。
+`bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/cache_singlerighthand_window_latents.sh dropper`
+即可，默认跳过已完成episode)。三处 episode 名单 101/101/101 完全对齐。
 点数规模 4.8k-15.8k/集(sandwich ~55k,稀疏约 4 倍),top-300 无压力,最差
 窗口也能选出 228 点。
 

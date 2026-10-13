@@ -437,12 +437,8 @@ dataloader["datasets"] = {
             shuffle_block_size=256,
             use_image_augmentation=False,
             use_precomputed_video="${oc.env:SINGLERIGHTHAND_USE_VIDEO_CACHE,false}",
-            # Per-window VAE latents: each window's own encode, bit-identical to a
-            # cache-less run. Preferred over vae_latent_root below, which stores a
-            # whole-episode encode and resamples onto the 15 Hz lattice (measured to
-            # differ by about one frame of window shift).
+            # Each cached latent encodes this window's own frames.
             vae_window_latent_root="${oc.env:SINGLERIGHTHAND_VAE_WINDOW_LATENT_ROOT,}",
-            vae_latent_root="${oc.env:SINGLERIGHTHAND_VAE_LATENT_ROOT,}",
             video_decoder="${oc.env:SINGLERIGHTHAND_VIDEO_DECODER,opencv}",
             episode_allowlist="${oc.env:POINTFLOW_EPISODE_ALLOWLIST,}",
             pointflow_manifest="${oc.env:POINTFLOW_MANIFEST,/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft/pointflow_outputs/task5/mixed_manifest.json}",

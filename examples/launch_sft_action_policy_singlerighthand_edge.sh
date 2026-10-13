@@ -12,7 +12,6 @@ TOML_FILE="/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow/examples/toml/sft_
 : "${EDGE_DROID_MODEL_PATH:=/data/shichaojian/models/cosmos3-edge-droid}"
 : "${BASE_CHECKPOINT_PATH:=/data/shichaojian/models/cosmos3-edge-droid-dcp}"
 : "${WAN_VAE_PATH:=$EDGE_DROID_MODEL_PATH/vae/Wan2.2_VAE.pth}"
-: "${SINGLERIGHTHAND_VAE_LATENT_ROOT:=$SINGLERIGHTHAND_CACHE_ROOT/vae_latents}"
 : "${OUTPUT_ROOT:=/data/shichaojian/runs/pointflow_test}"
 : "${NPROC_PER_NODE:=${SENSECORE_ACCELERATE_DEVICE_COUNT:-1}}"
 : "${COSMOS_GPU_VIDEO_AUGMENTATION:=false}"
@@ -47,10 +46,8 @@ TOML_FILE="/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow/examples/toml/sft_
 # Diagnostic: run each eval case a second time with the action zeroed and report how
 # far the prediction moves (action_ablation_dependence; ~0 = the branch ignores it).
 : "${POINTFLOW_ABLATE_ACTION:=false}"
-: "${SINGLERIGHTHAND_VAE_LATENT_ROOT:=$SINGLERIGHTHAND_CACHE_ROOT/vae_latents}"
 # Per-window VAE latents (tools/cache_window_vae_latents.py): each window's own
-# encode, bit-identical to a cache-less run. Takes precedence over the
-# whole-episode vae_latents above when the directory exists.
+# encode, matching the frames used by a cache-less run.
 : "${SINGLERIGHTHAND_VAE_WINDOW_LATENT_ROOT:=$SINGLERIGHTHAND_CACHE_ROOT/vae_window_latents}"
 if [[ -z "${SINGLERIGHTHAND_USE_VIDEO_CACHE:-}" ]]; then
     [[ -f "$SINGLERIGHTHAND_CACHE_ROOT/video_manifest.json" ]] \
@@ -63,9 +60,9 @@ PYTHON_BIN="${PYTHON_BIN:-/mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv/bin/pyt
 export PATH="$(dirname "$PYTHON_BIN"):$PATH"
 
 export SINGLERIGHTHAND_RAW_ROOT SINGLERIGHTHAND_CACHE_ROOT EDGE_DROID_MODEL_PATH
-export WAN_VAE_PATH SINGLERIGHTHAND_VAE_LATENT_ROOT
+export WAN_VAE_PATH
 export POINTFLOW_SONATA_CHECKPOINT POINTFLOW_MANIFEST POINTFLOW_VIDEO_DECODER SINGLERIGHTHAND_VIDEO_DECODER
-export POINTFLOW_EPISODE_ALLOWLIST SINGLERIGHTHAND_VAE_LATENT_ROOT SINGLERIGHTHAND_VAE_WINDOW_LATENT_ROOT
+export POINTFLOW_EPISODE_ALLOWLIST SINGLERIGHTHAND_VAE_WINDOW_LATENT_ROOT
 export POINTFLOW_SELECT_MOTION_FRACTION POINTFLOW_SELECT_TOP_N POINTFLOW_ABLATE_ACTION
 export POINTFLOW_MIN_VOXEL_MEMBERS POINTFLOW_SUPERVISE_CLUSTER_N POINTFLOW_TOKEN_MODE
 export SINGLERIGHTHAND_USE_VIDEO_CACHE

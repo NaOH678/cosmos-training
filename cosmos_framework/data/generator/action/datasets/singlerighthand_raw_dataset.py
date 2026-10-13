@@ -119,19 +119,16 @@ class SingleRightHandRawDataset(Dataset):
         pointflow_select_phantom_guard: bool = False,
         pointflow_window_cache_root: str | None = None,
         video_temporal_downsample: int = 4,
-        vae_latent_root: str | None = None,
         vae_window_latent_root: str | None = None,
     ) -> None:
         super().__init__()
         if video_decoder not in {"torchcodec", "opencv"}:
             raise ValueError("video_decoder must be torchcodec or opencv")
         self._video_decoder = video_decoder
-        self._vae_latent_root = Path(vae_latent_root) if vae_latent_root else None
         self._root = Path(root)
         self._cache_root = Path(cache_root)
         self._fps = float(fps)
         self._chunk_length = int(chunk_length)
-        self._video_temporal_downsample = int(video_temporal_downsample)
         self._sample_stride = int(sample_stride)
         if self._sample_stride < 1:
             raise ValueError(f"sample_stride must be >= 1, got {self._sample_stride}")
@@ -288,8 +285,7 @@ class SingleRightHandRawDataset(Dataset):
         # Precomputed per-window VAE latents.  Without this the frozen Wan2.2 VAE
         # re-encodes every pixel frame of every window on every step; with it the
         # dataset hands the model the latent the encode would have produced.
-        # Only the WINDOW cache is accepted -- see the note in ``_read_window_latent``
-        # for why the whole-episode cache is deliberately not an option here.
+        # Whole-episode latents cannot replace an independent window encode.
         self._vae_window_latent_root = Path(vae_window_latent_root) if vae_window_latent_root else None
         self._vae_window_rows: dict[str, dict[str, Any]] = {}
         if self._vae_window_latent_root is not None:
@@ -588,24 +584,6 @@ class SingleRightHandRawDataset(Dataset):
             # so the video frames above are still decoded -- they feed the eval
             # renderer and the frame cache -- but they no longer reach the encoder.
             sample["vae_latent_cache"] = self._read_window_latent(self._episodes[episode_idx].name, window_offset)
-        elif self._vae_latent_root is not None:
-            latent_path = self._vae_latent_root / f"{self._episodes[episode_idx].name}.pt"
-            if latent_path.is_file():
-                cached = torch.load(latent_path, map_location="cpu", weights_only=True)
-                latent = cached.get("latent", cached) if isinstance(cached, dict) else cached
-                # Legacy path: a whole-episode encode at source FPS, resampled onto
-                # the window's 15 Hz lattice. Measured against a fresh online encode
-                # this differs by about one frame of window shift, and the
-                # conditioning latent (index 0) becomes a source-frame block rather
-                # than the current frame. Keep it only for A/B; prefer the window
-                # cache above.
-                if isinstance(latent, torch.Tensor) and latent.ndim == 5:
-                    source_ids = observation_indices[:: self._video_temporal_downsample]
-                    latent_ids = np.floor(source_ids / 4.0).astype(np.int64)
-                    latent_ids = np.clip(latent_ids, 0, latent.shape[2] - 1)
-                    sample["vae_latent_cache"] = latent.index_select(2, torch.from_numpy(latent_ids))
-                else:
-                    sample["vae_latent_cache"] = latent
         return sample
 
     def _read_window_latent(self, name: str, window_offset: int):

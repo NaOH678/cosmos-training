@@ -156,7 +156,7 @@ vae_latents/*.pt         10/10 = (1, 48, T, 46, 34)
 **latent 缓存是视频缓存的派生物**：`examples/cache_singlerighthand_vae_latents.sh` 的输入就是 `video_frames/*.npy`。（本次会话一度想为此加指纹校验，**已全部撤回**，见第 7 节。）
 
 > **⚠ 已被取代（2026-09-13）**：上表 `vae_latents/*.pt` 是**整集编码 + 重采样**，与在线逐窗口编码实测差 ~0.41 相对误差（≈ 窗口平移一帧的量级），且条件 latent（index 0）身份不对。
-> 训练现在读 `vae_window_latents/*.npy`（逐窗口独立编码，逐位一致）。旧缓存和旧代码路径**保留**但不再是首选。
+> 训练现在读 `vae_window_latents/*.npy`（逐窗口独立编码）。旧整段编码入口和训练兼容路径现已移除；本文中的旧文件名仅记录当时实现。当前生成命令见[数据pipeline步骤3](pointflow_data_pipeline.md#步骤-3window-latent-cachegpu)。
 > 详见 `pointflow_window_latent_cache_20260913.md`。`tools/verify_vae_latent_cache.py` 验的是**旧缓存与整集重编码一致**，**不能**用它证明逐窗口缓存正确 —— 那要用 `tools/verify_window_latent_cache.py`。
 
 ---

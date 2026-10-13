@@ -4,7 +4,7 @@
 # pointflow env pinned so long paste lines cannot get truncated.
 #
 # Prerequisite: the window-latent cache must exist first:
-#   bash examples/cache_dropper_window_latents.sh
+#   bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/cache_singlerighthand_window_latents.sh dropper
 #
 #   bash examples/launch_pointflow_dropper101.sh
 #

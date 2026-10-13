@@ -89,6 +89,10 @@ uv pip install --python .venv/bin/python --no-deps --no-index \
 | 缓存(manifest+video+window latents) | `datasets/singlerighthand-*-cosmos-cache/`(每套百 G 级) | `SINGLERIGHTHAND_CACHE_ROOT` |
 | pointflow 轨迹(9.24 转换产物) | `pf_out/9.24/<dataset>/labeled/` | manifest 内的绝对路径 |
 
+真机逐窗口latent统一用`examples/cache_singlerighthand_window_latents.sh sandwich|dropper|dropper_mix`，
+默认跳过已完成episode；完整绝对路径命令、输入输出与覆盖参数见[数据pipeline步骤3](./pointflow_data_pipeline.md#步骤-3window-latent-cachegpu)。
+两入口共用逐窗口VAE编码核心，整段latent的旧入口及训练兼容路径已移除。
+
 **路径不一致时的两处修改**:
 
 1. 启动脚本顶部 env(`examples/launch_sft_action_policy_singlerighthand_edge.sh:10-20`)

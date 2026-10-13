@@ -44,6 +44,76 @@ from cosmos_framework.data.generator.action.transforms import find_closest_targe
 
 STORAGE = "bfloat16_bits_in_uint16"
 MANIFEST_NAME = "window_manifest.json"
+ENCODING_REVISION = 1  # Bump when the numerical window-encoding contract changes.
+
+
+def load_window_vae(vae_path, chunk_length=32):
+    """Shared tokenizer contract for real and simulated training windows."""
+    from cosmos_framework.model.generator.tokenizers.wan2pt2_vae_4x16x16 import Wan2pt2VAEInterface
+
+    return Wan2pt2VAEInterface(
+        vae_path=str(vae_path),
+        causal=True,
+        encode_chunk_frames={"256": 68, "480": 24, "720": 8, "768": 8},
+        encode_exact_durations=[chunk_length + 1],
+        spatial_compression_factor=16,
+        temporal_compression_factor=4,
+    )
+
+
+def encode_window_latents(
+    tokenizer,
+    prepare_batch,
+    windows,
+    output_path,
+    device,
+    *,
+    batch_size=1,
+    expected_shape=None,
+    progress=None,
+):
+    """Prefetch prepared BCTHW windows and atomically stream their BF16 bits.
+
+    Adapters supply the exact source frames and spatial transform. Each call to
+    the VAE encodes its own window(s); no causal state is shared across calls.
+    """
+    if windows < 1 or batch_size < 1:
+        raise ValueError("windows and batch_size must be positive")
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temp = output_path.with_suffix(".npy.tmp")
+    shape = None
+    with temp.open("wb") as stream, ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(prepare_batch, 0)
+        for start in range(0, windows, batch_size):
+            video = future.result()
+            if start + batch_size < windows:
+                future = pool.submit(prepare_batch, start + batch_size)
+            count = min(batch_size, windows - start)
+            if video.ndim != 5 or video.shape[:2] != (count, 3) or video.dtype != torch.uint8:
+                raise ValueError(f"Invalid prepared video: {tuple(video.shape)} {video.dtype}")
+            x = video.to(device).float() / 127.5 - 1.0
+            with torch.inference_mode():
+                latents = tokenizer.encode(x.to(torch.bfloat16)).cpu().contiguous()
+            if latents.ndim != 5 or latents.shape[0] != count or latents.dtype != torch.bfloat16:
+                raise ValueError(f"Invalid VAE output: {tuple(latents.shape)} {latents.dtype}")
+            if not torch.isfinite(latents).all():
+                raise ValueError(f"Nonfinite VAE output: {output_path}/{start}")
+            current_shape = tuple(latents.shape[1:])
+            if expected_shape is not None and current_shape != tuple(expected_shape):
+                raise ValueError(f"Unexpected latent shape: {current_shape}, expected {expected_shape}")
+            if shape is None:
+                shape = current_shape
+                np.lib.format.write_array_header_1_0(
+                    stream, dict(descr="<u2", fortran_order=False, shape=(windows, *shape))
+                )
+            elif current_shape != shape:
+                raise ValueError(f"Latent shape changed within {output_path}: {current_shape} != {shape}")
+            stream.write(latents.view(torch.uint16).numpy().tobytes())
+            if progress is not None:
+                progress(start + count)
+    os.replace(temp, output_path)
+    return shape
 
 
 @dataclass(frozen=True)
@@ -61,7 +131,7 @@ class _Job:
     overwrite: bool
     device: torch.device
     content_hw: tuple[int, int] | None = None
-    batch_size: int = 8
+    batch_size: int = 1
     compile: bool = False
 
 
@@ -75,6 +145,9 @@ def _npy_shape_dtype(path: Path):
             shape, _, dtype = np.lib.format.read_array_header_2_0(stream)
         else:
             raise ValueError(f"Unsupported NPY version {version}: {path}")
+        expected_bytes = stream.tell() + int(np.prod(shape, dtype=np.int64)) * dtype.itemsize
+    if path.stat().st_size != expected_bytes:
+        raise ValueError(f"Truncated window latent cache: {path}; rerun with --overwrite")
     return shape, dtype
 
 
@@ -103,18 +176,9 @@ _COMPILED: set[str] = set()
 def _tokenizer(job: "_Job"):
     key = str(job.device)
     if key not in _TOKENIZERS:
-        from cosmos_framework.model.generator.tokenizers.wan2pt2_vae_4x16x16 import Wan2pt2VAEInterface
-
         # The interface loads onto the current device, so pin it explicitly.
         with torch.cuda.device(job.device):
-            _TOKENIZERS[key] = Wan2pt2VAEInterface(
-                vae_path=job.vae_path,
-                causal=True,
-                encode_chunk_frames={"256": 68, "480": 24, "720": 8, "768": 8},
-                encode_exact_durations=[job.chunk_length + 1],
-                spatial_compression_factor=16,
-                temporal_compression_factor=4,
-            )
+            _TOKENIZERS[key] = load_window_vae(job.vae_path, job.chunk_length)
     tokenizer = _TOKENIZERS[key]
     if job.compile and key not in _COMPILED:
         # JIT-compile the whole encode: the eager path reaches only ~2% of peak
@@ -156,9 +220,6 @@ def _prepare_episode(job: _Job) -> dict:
     if frames.ndim != 4 or frames.dtype != np.uint8 or frames.shape[0] < job.num_frames:
         raise ValueError(f"{job.name}: unexpected video cache {frames.shape} {frames.dtype}")
 
-    temp = out_path.with_suffix(".npy.tmp")
-    temp.unlink(missing_ok=True)
-
     tokenizer = _tokenizer(job)
 
     offset = source_stride * np.arange(job.chunk_length + 1, dtype=np.int64)
@@ -175,39 +236,9 @@ def _prepare_episode(job: _Job) -> dict:
             raw = frames[w * job.sample_stride + offset]  # [T,3,H,W] uint8
             window = torch.from_numpy(raw).permute(1, 0, 2, 3)  # [C,T,H,W]
             tensors.append(reflection_pad_to_target({"video": window}, ["video"], True, target_w, target_h)["video"])
-        return start, torch.stack(tensors)
+        return torch.stack(tensors)
 
-    shape = None
-    output = None
-    try:
-        # Double-buffer: the CPU pads/stacks batch N+1 while the GPU encodes N,
-        # otherwise the GPU idles between batches (util oscillates 100% <-> 0).
-        with ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(prepare_batch, 0)
-            for start in range(0, windows, job.batch_size):
-                batch_start, stacked = future.result()
-                if start + job.batch_size < windows:
-                    future = pool.submit(prepare_batch, start + job.batch_size)
-                # One batched encode instead of one call per window: a single
-                # 33-frame window is launch/overhead-bound.
-                x = stacked.to(job.device).float() / 127.5 - 1.0
-                with torch.inference_mode():
-                    latents = tokenizer.encode(x.to(torch.bfloat16)).cpu()  # [B,z,T',H',W']
-                if shape is None:
-                    shape = tuple(latents.shape[1:])
-                    output = np.lib.format.open_memmap(temp, mode="w+", dtype=np.uint16, shape=(windows, *shape))
-                for i, latent in enumerate(latents):
-                    if tuple(latent.shape) != shape:
-                        raise ValueError(
-                            f"{job.name}: window {batch_start + i} latent {tuple(latent.shape)} != {shape}"
-                        )
-                    output[batch_start + i] = latent.view(torch.uint16).numpy()
-        output.flush()
-    finally:
-        if output is not None:
-            del output
-
-    os.replace(temp, out_path)
+    shape = encode_window_latents(tokenizer, prepare_batch, windows, out_path, job.device, batch_size=job.batch_size)
     return {
         "name": job.name,
         "path": str(out_path.name),
@@ -234,8 +265,8 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--batch-size",
         type=int,
-        default=8,
-        help="windows per VAE encode call; one window at a time is launch/overhead-bound",
+        default=1,
+        help="windows per VAE encode call; keep 1 to match existing per-window caches",
     )
     p.add_argument(
         "--compile",
@@ -261,6 +292,25 @@ def main() -> None:
     cache_root = args.cache_root.expanduser().resolve()
     output_root = (args.output_root or (cache_root / "vae_window_latents")).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
+
+    manifest = {
+        "schema_version": 1,
+        "fps": args.fps,
+        "chunk_length": args.chunk_length,
+        "sample_stride": args.sample_stride,
+        "resolution": args.resolution,
+        "storage": STORAGE,
+        "vae": str(args.vae_path),
+    }
+    manifest_path = output_root / MANIFEST_NAME
+    previous = None
+    if manifest_path.is_file() and not args.overwrite:
+        previous = json.loads(manifest_path.read_text())
+        if int(previous.get("schema_version", 0)) != 1:
+            raise ValueError(f"Unsupported existing window latent schema in {manifest_path}")
+        for field in ("fps", "chunk_length", "sample_stride", "resolution", "storage"):
+            if str(previous.get(field)) != str(manifest[field]):
+                raise ValueError(f"{manifest_path}: {field} changed; rerun with --overwrite")
 
     state = json.loads((cache_root / "manifest.json").read_text())
     if int(state.get("schema_version", 0)) != 2:
@@ -367,26 +417,8 @@ def main() -> None:
         for executor in executors:
             executor.shutdown(wait=True)
 
-    manifest = {
-        "schema_version": 1,
-        "fps": args.fps,
-        "chunk_length": args.chunk_length,
-        "sample_stride": args.sample_stride,
-        "resolution": args.resolution,
-        "storage": STORAGE,
-        "vae": str(args.vae_path),
-    }
-    manifest_path = output_root / MANIFEST_NAME
-    # Merge, never narrow: episodes cached by earlier runs stay in the manifest.
-    merged = {}
-    if manifest_path.is_file() and not args.overwrite:
-        previous = json.loads(manifest_path.read_text())
-        if int(previous.get("schema_version", 0)) != 1:
-            raise ValueError(f"Unsupported existing window latent schema in {manifest_path}")
-        for field in ("fps", "chunk_length", "sample_stride", "resolution", "storage"):
-            if str(previous.get(field)) != str(manifest[field]):
-                raise ValueError(f"{manifest_path}: {field} changed; rerun with --overwrite")
-        merged = {str(row["name"]): row for row in previous["episodes"]}
+    # Merge, never narrow: previously cached episodes remain in the manifest.
+    merged = {str(row["name"]): row for row in previous["episodes"]} if previous else {}
     merged.update(rows_by_name)
     manifest["episodes"] = [merged[name] for name in sorted(merged)]
     temp_manifest = manifest_path.with_suffix(".json.tmp")

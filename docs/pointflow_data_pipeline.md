@@ -122,18 +122,37 @@ report.json(含 `native_pixel_queries=640*448`,供步骤 2 的仿射校验)。
 
 ## 步骤 3:window latent cache(GPU)
 
-训练从 cache 读每个窗口自己的 VAE latent(与无 cache 逐位一致)。缺
-`<cache>/vae_window_latents/` 时必须跑这步,8 卡 101 集约 40-50 分钟:
+输入是已有真机缓存的`manifest.json`、`video_frames/*.npy`及episode名单；输出是
+同一缓存根目录下的`vae_window_latents/`，含逐episode NPY、`window_manifest.json`
+和`logs/convert_*.log`。每个训练窗口独立编码，uint16保存BF16位模式。
+
+真机数据共用一个入口，按数据集选择下面其中一条命令：
 
 ```bash
-bash examples/cache_dropper_window_latents.sh        # dropper 101 集
-# 或通用形式(注意:两个 env 必须和 bash 在同一行,换行粘贴会丢):
-VIDEO_CACHE_ROOT=<cache路径> ALLOWLIST=<allowlist> bash examples/cache_singlerighthand_window_latents.sh
+bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/cache_singlerighthand_window_latents.sh sandwich
+bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/cache_singlerighthand_window_latents.sh dropper
+bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/cache_singlerighthand_window_latents.sh dropper_mix
 ```
 
-脚本内 env:`WORKERS`(默认 8)、`DEVICES`、`BATCH_SIZE`(默认 1,不要调大,
-batch>1 在该 VAE 下结果不逐位一致)、`OVERWRITE`。已处理的集会跳过,中断后
-重跑同一条命令即可续。
+| 参数 | 默认RGB缓存根目录 | 默认名单 |
+| --- | --- | --- |
+| `sandwich` | `/data/shichaojian/datasets/singlerighthand-sandwich-100-cosmos-cache` | `examples/pointflow_sandwich924_all_101_episodes.txt` |
+| `dropper` | `/data/shichaojian/datasets/singlerighthand-dropper-100-cosmos-cache` | `examples/pointflow_dropper_all_101_episodes.txt` |
+| `dropper_mix` | `/data/shichaojian/datasets/dropper-dagger-mix-cosmos-cache` | `examples/pointflow_dropper_dagger_mix_71_episodes.txt` |
+
+shell会设置仓库与共享venv；VAE默认`/data/shichaojian/models/cosmos3-edge-droid/vae/Wan2.2_VAE.pth`。
+可覆盖`VIDEO_CACHE_ROOT`、`ALLOWLIST`、`WAN_VAE_PATH`和`OUTPUT_ROOT`；默认输出为
+`$VIDEO_CACHE_ROOT/vae_window_latents`。`WORKERS=8`、`DEVICES=0,1,2,3,4,5,6,7`、
+`BATCH_SIZE=1`。保持batch1以沿用已有逐窗口编码配方。
+
+默认`OVERWRITE=0`：核对窗口配置、已有NPY头部shape/dtype及文件大小后跳过已完成episode；
+未完成episode重算。主动重建时设`OVERWRITE=1`。脚本前台运行，stdout/stderr同时保存
+到输出目录的`logs/`，同一输出目录有写入锁。
+
+编码核心统一在[cache_window_vae_latents.py](../tools/cache_window_vae_latents.py)，
+供真机和仿真入口共用；两种数据保留各自的窗口枚举规则。仿真输入准备与8卡命令见
+[SIM_DATA_PIPELINE.md 云端流程](./SIM_DATA_PIPELINE.md#8-云端从上传数据到训练缓存)。
+旧整段编码入口及dropper独立包装脚本已移除，训练读取器只支持逐窗口缓存或在线编码。
 
 ## 步骤 3b:pointflow 窗口缓存(9.29 起,CPU,~8 分钟/101 集)
 

@@ -144,14 +144,14 @@ video_frames/<episode>.npy          ← 数据集实际交给模型的那些帧
 
 | 文件 | 作用 |
 |---|---|
-| `tools/cache_window_vae_latents.py` | 生成器:逐窗口编码 → uint16 npy + `window_manifest.json` |
+| `tools/cache_window_vae_latents.py` | 真机窗口适配器及真机/仿真共用VAE编码核心；uint16 NPY与manifest格式不变 |
 | `tools/verify_window_latent_cache.py` | 验证器:从 **mp4** 独立重跑整条链,要求逐位相同 |
 
 生成器要点:
 
 - **每个 worker 必须自己 pin GPU** —— 子进程里裸 `.cuda()` 会全部落到 device 0。用 `--devices` 显式指定
 - 输出先写 `<name>.npy.tmp`,整集跑完才 `os.replace` 改名 → **看到的 `.tmp` 就是未完成**
-- `np.lib.format.open_memmap` **预分配整个文件**,所以**文件大小看不出进度**(需按已填充行数探测)
+- 共用编码核心流式写入NPY，保留CPU预取；只在episode完成后原子发布，不能把未完成文件用于训练
 - manifest 在**全部结束后**才写
 
 验证器要点:
@@ -166,7 +166,7 @@ video_frames/<episode>.npy          ← 数据集实际交给模型的那些帧
 
 - 新参数 `vae_window_latent_root`
 - `_read_window_latent(name, window_offset)`:读 uint16 npy、断言 storage、`.view(torch.bfloat16).unsqueeze(0)`
-- `__getitem__` **优先**走窗口缓存;旧的整集路径降级为 `elif`,**保留可用**
+- `__getitem__`读取逐窗口缓存；未配置缓存时使用在线编码，旧整集latent兼容分支已移除
 - 启动时断言 manifest 的 `fps / chunk_length / sample_stride` 与数据集一致,**不一致直接拒绝启动**
   (缓存按 window_offset 索引,任何改变窗口枚举的改动都会使它失效 —— 宁可报错也不能读错窗口)
 - 断言缓存覆盖所有被选中的 episode
@@ -175,9 +175,9 @@ video_frames/<episode>.npy          ← 数据集实际交给模型的那些帧
 
 - 新增 `SINGLERIGHTHAND_VAE_WINDOW_LATENT_ROOT`,默认 `$CACHE_ROOT/vae_window_latents`,已 export
 
-### 未改动
+### 历史范围与当前入口
 
-- **旧 `vae_latents/*.pt` 缓存和旧代码路径全部保留**(按要求),只是不再是首选
+- 旧`vae_latents/*.pt`数据不再接入训练；对应整段编码工具及训练兼容路径已清理
 - NVIDIA 同步文件的数据处理管线**未动**
 
 ---
@@ -239,6 +239,9 @@ done
 > 修法:把那个 `squeeze(0)` 换成与 list 分支相同的 `while` 循环。
 
 ### 6.4 生成指令(已完成,记录备查)
+
+下方是早期十条实验的历史命令。当前统一入口、数据集参数、默认续跑及日志路径见
+[数据pipeline步骤3](pointflow_data_pipeline.md#步骤-3window-latent-cachegpu)；真机与仿真共用逐窗口编码核心。
 
 ```bash
 .venv/bin/python tools/cache_window_vae_latents.py \
