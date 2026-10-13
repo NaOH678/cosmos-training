@@ -31,6 +31,7 @@ from cosmos_framework.data.generator.utils import IMAGE_RES_SIZE_INFO, VIDEO_RES
 from cosmos_framework.model._base import ImaginaireModel
 from cosmos_framework.model.generator.algorithm.loss.flow_matching import compute_flow_matching_loss
 from cosmos_framework.model.generator.algorithm.loss.load_balancing import compute_load_balancing_loss
+from cosmos_framework.model.generator import joint_sample_switches as joint_switches
 from cosmos_framework.model.generator.diffusion.rectified_flow import RectifiedFlow
 from cosmos_framework.model.generator.diffusion.samplers.edm import EDMSampler
 from cosmos_framework.model.generator.diffusion.samplers.fixed_step import FixedStepSampler
@@ -2559,6 +2560,7 @@ class OmniMoTModel(ImaginaireModel):
         packed_sequence_template: PackedSequence | None = None,
         memory: MemoryState | None = None,
         has_noisy_actions: bool,
+        geom_timestep: torch.Tensor | None = None,
     ) -> list[torch.Tensor]:
         """
         Compute velocity prediction for a single sampling step.
@@ -2585,6 +2587,9 @@ class OmniMoTModel(ImaginaireModel):
                 noise_x was laid out as [vision | action | sound]. Must be the
                 packer-derived value from _prepare_inference_data so both sides
                 split the flat state identically.
+            geom_timestep: Optional separate timestep (same shape/units as ``timestep``)
+                for the PointFlow / FK tokens (JOINT_GEOM_LEAD). ``None`` (default)
+                uses ``timestep`` for them, exactly as before.
 
         Returns:
             Stacked flattened velocity tensors (one per sample), each containing
@@ -2748,7 +2753,8 @@ class OmniMoTModel(ImaginaireModel):
                     [x.reshape(pointflow.displacement.shape[0], -1, 3) for x in noise_x_pointflow], dim=1
                 ).float()
                 ticks = float(self.config.rectified_flow_inference_config.num_train_timesteps)
-                sigma = (timestep.reshape(-1).float() / ticks).clamp(0.0, 1.0)  # [B]
+                geom_t = timestep if geom_timestep is None else geom_timestep
+                sigma = (geom_t.reshape(-1).float() / ticks).clamp(0.0, 1.0)  # [B]
                 packed_sequence.pointflow_noised = PointFlowNoised(
                     xt=state.cuda(),
                     epsilon=state.cuda(),
@@ -2765,7 +2771,8 @@ class OmniMoTModel(ImaginaireModel):
                 # packed FK payload trips the network's "never use GT by default".
                 fk_state = torch.cat([x.reshape(fk.displacement.shape[0], -1, 3) for x in noise_x_fk], dim=1).float()
                 fk_ticks = float(self.config.rectified_flow_inference_config.num_train_timesteps)
-                fk_sigma = (timestep.reshape(-1).float() / fk_ticks).clamp(0.0, 1.0)  # [B]
+                geom_t = timestep if geom_timestep is None else geom_timestep
+                fk_sigma = (geom_t.reshape(-1).float() / fk_ticks).clamp(0.0, 1.0)  # [B]
                 packed_sequence.fk_noised = FKNoised(
                     xt=fk_state.cuda(),
                     epsilon=fk_state.cuda(),
@@ -3277,17 +3284,61 @@ class OmniMoTModel(ImaginaireModel):
             _dp_shard_group = None
             _align_device = None
 
+        # Opt-in joint-sampling switches (all default off => nothing below changes).
+        # JOINT_ATTN_BLOCK="action<-pointflow,action<-fk": noisy query-modality tokens may not
+        # attend to noisy key-modality tokens (conditioning + text tokens stay visible); needs
+        # the masked SDPA path, so the text-K/V reuse (flash dispatch override) is disabled.
+        # JOINT_GEOM_LEAD=k: PointFlow/FK lead vision/action by k steps (custom Euler loop).
+        # JOINT_SAMPLER_STEPS_OVERRIDE=n: replace the joint rollout's step count.
+        joint_attn_block = joint_switches.joint_attn_block_from_env()
+        joint_geom_lead = joint_switches.joint_geom_lead_from_env()
+        joint_steps_override = joint_switches.joint_steps_override_from_env()
+        _has_joint_geometry = (
+            gen_data_clean.pointflow is not None and bool(gen_data_clean.pointflow.has_point.any())
+        ) or (gen_data_clean.fk is not None and len(gen_data_clean.fk.inputs["point_ids"]) > 0)
+        if joint_attn_block and distributed.is_rank0():
+            log.info(f"JOINT_ATTN_BLOCK applied: {list(joint_attn_block)} (noisy query <- noisy key blocked)")
+        if joint_steps_override is not None:
+            if isinstance(sampler or self.sampler, FixedStepSampler):
+                raise ValueError("JOINT_SAMPLER_STEPS_OVERRIDE is not supported with FixedStepSampler")
+            if _has_joint_geometry:
+                num_steps = joint_steps_override
+                if distributed.is_rank0():
+                    log.info(f"JOINT_SAMPLER_STEPS_OVERRIDE applied: num_steps={num_steps}")
+        if joint_geom_lead > 0:
+            if not _has_joint_geometry:
+                raise ValueError("JOINT_GEOM_LEAD > 0 requires PointFlow or FK tokens in the batch")
+            _lead_steps = joint_steps_override if (joint_steps_override is not None) else num_steps
+            if joint_geom_lead >= _lead_steps:
+                raise ValueError(f"JOINT_GEOM_LEAD={joint_geom_lead} must be < the number of steps ({_lead_steps})")
+            rf_train_cfg = self.config.rectified_flow_training_config
+            missing = [
+                name
+                for name in ("independent_pointflow_schedule", "independent_fk_schedule")
+                if not getattr(rf_train_cfg, name, False)
+            ]
+            if missing and distributed.is_rank0():
+                log.warning(
+                    f"JOINT_GEOM_LEAD={joint_geom_lead}: {missing} are false in the loaded config; the model was "
+                    "not trained with independent geometry sigmas, so this schedule is out of distribution"
+                )
+            if distributed.is_rank0():
+                log.info(f"JOINT_GEOM_LEAD applied: k={joint_geom_lead}")
+
         reuse_text_kv = self._can_reuse_inference_text_kv(
             sequence_plans,
             gen_data_clean,
             reuse_pack_templates=reuse_pack_templates,
-            has_velocity_postprocess=velocity_postprocess is not None,
+            has_velocity_postprocess=velocity_postprocess is not None or bool(joint_attn_block),
         )
         cond_text_kv_cache: list[UndKVCache] | None = None
         uncond_text_kv_cache: list[UndKVCache] | None = None
         # Request-scoped: install only for this generate call and restore afterward so we
         # never permanently shadow another dispatch_attention_fn on the model.
         previous_attention_dispatch = None
+        # Rules are visible to the network only while this (inference) call runs.
+        _attn_block_scope = joint_switches.active_joint_attn_block(joint_attn_block)
+        _attn_block_scope.__enter__()
         try:
             if reuse_text_kv:
                 target_net = net or self.net
@@ -3301,9 +3352,12 @@ class OmniMoTModel(ImaginaireModel):
                 if guidance != 1.0 or velocity_postprocess_builder is not None:
                     uncond_text_kv_cache = self._make_inference_text_kv_cache(target_net)
 
-            def velocity_fn(noise_x: list[torch.Tensor], timestep: torch.Tensor) -> list[torch.Tensor]:
+            def velocity_fn(
+                noise_x: list[torch.Tensor], timestep: torch.Tensor, geom_timestep: torch.Tensor | None = None
+            ) -> list[torch.Tensor]:
                 # len(noise_x) == B, noise_x[i] is shape (D)
                 # timestep is shape (B, 1)
+                # geom_timestep (JOINT_GEOM_LEAD only): separate (1, 1) timestep for PointFlow/FK.
                 torch.compiler.cudagraph_mark_step_begin()
 
                 assert timestep.ndim == 2, f"timestep must be 2D, got {timestep.shape}"
@@ -3311,6 +3365,9 @@ class OmniMoTModel(ImaginaireModel):
 
                 # Expand timestep to (B, 1)
                 timestep = timestep.repeat(len(noise_x), 1)  # [B,1]
+                if geom_timestep is not None:
+                    assert geom_timestep.shape == (1, 1), f"geom_timestep must be (1, 1), got {geom_timestep.shape}"
+                    geom_timestep = geom_timestep.repeat(len(noise_x), 1)  # [B,1]
 
                 def _single_velocity_fn(tokens: list[list[int]], skip_text_tokens: bool) -> list[torch.Tensor]:
                     nonlocal uncond_text_kv_cache
@@ -3339,6 +3396,7 @@ class OmniMoTModel(ImaginaireModel):
                         packed_sequence_template=packed_sequence_template,
                         memory=memory,
                         has_noisy_actions=has_noisy_actions,
+                        geom_timestep=geom_timestep,
                     )
 
                 needs_text_cfg = guidance != 1.0
@@ -3436,7 +3494,46 @@ class OmniMoTModel(ImaginaireModel):
                     "condition_mask": condition_mask,
                 }
 
-            if isinstance(sampler, FixedStepSampler) or scheduler_type == "unipc":
+            if joint_geom_lead > 0:
+                if isinstance(sampler, FixedStepSampler) or scheduler_type != "unipc":
+                    raise NotImplementedError("JOINT_GEOM_LEAD only supports the UniPC sampler grid")
+                if _extra_num_steps > 0:
+                    raise NotImplementedError("JOINT_GEOM_LEAD does not support FSDP step padding")
+                _pf, _fk = gen_data_clean.pointflow, gen_data_clean.fk
+                _has_pf = _pf is not None and bool(_pf.has_point.any())
+                _has_fk = _fk is not None and len(_fk.inputs["point_ids"]) > 0
+                _geom_lens = []
+                for _i in range(n_sample):
+                    _n = 0
+                    if _has_pf and sequence_plans[_i].has_point:
+                        _s, _e = _pf.point_spans[_i].tolist()
+                        _n += _pf.displacement.shape[0] * (_e - _s) * 3
+                    if _has_fk:
+                        _s, _e = _fk.point_spans[_i].tolist()
+                        _n += _fk.displacement.shape[0] * (_e - _s) * 3
+                    _geom_lens.append(_n)
+                _sigmas, _timesteps = joint_switches.unipc_sigma_grid(
+                    sampler, num_steps, shift, device=self.tensor_kwargs["device"]
+                )
+                log.info(
+                    f"Using sampler: Euler geom-lead (k={joint_geom_lead}, shift={shift}, num_steps={num_steps}, "
+                    f"sigma_grid={[round(float(x), 4) for x in _sigmas]}, geometry reaches 0 after "
+                    f"{num_steps - joint_geom_lead} steps)"
+                )
+                _geom_sigmas, _geom_timesteps = joint_switches.unipc_sigma_grid(
+                    sampler, num_steps - joint_geom_lead, shift, device=self.tensor_kwargs["device"]
+                )
+                latents = joint_switches.euler_geom_lead_sample(
+                    velocity_fn,
+                    initial_noise,
+                    _geom_lens,
+                    _sigmas,
+                    _timesteps,
+                    joint_geom_lead,
+                    _geom_sigmas,
+                    _geom_timesteps,
+                )
+            elif isinstance(sampler, FixedStepSampler) or scheduler_type == "unipc":
                 latents = sampler(
                     velocity_fn,
                     initial_noise,
@@ -3631,6 +3728,7 @@ class OmniMoTModel(ImaginaireModel):
                 result["fk"] = result_fk
             return result
         finally:
+            _attn_block_scope.__exit__(None, None, None)
             if previous_attention_dispatch is not None:
                 restore_inference_attention_dispatch(previous_attention_dispatch)
 

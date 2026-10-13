@@ -694,6 +694,21 @@ class PackedAttentionMoT(nn.Module):
                 normalized_k=packed_key_states_normalized_,
             )
             kv_to_store = None
+        elif getattr(attention_mask, "joint_attn_allowed", None) is not None:
+            # JOINT_ATTN_BLOCK (inference only): explicit-mask SDPA instead of flash varlen.
+            from cosmos_framework.model.generator.joint_sample_switches import masked_two_way_attention
+
+            if memory_value is not None or self.dispatch_attention_fn != dispatch_attention:
+                raise ValueError("JOINT_ATTN_BLOCK requires CP=1, no memory and the standard dispatch")
+            packed_attn_output = masked_two_way_attention(
+                packed_query_states_,
+                packed_key_states_,
+                packed_value_states_,
+                attention_mask.joint_attn_allowed,
+                attention_mask.split_lens[0],
+                normalized_k=packed_key_states_normalized_,
+            )
+            kv_to_store = None
         elif getattr(attention_mask, "pointflow_modalities", None) is not None and reference_attention_enabled():
             from cosmos_framework.model.generator.pointflow_attention import (
                 pairwise_point_attention,

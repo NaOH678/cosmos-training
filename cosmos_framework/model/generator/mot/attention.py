@@ -65,6 +65,9 @@ class SplitInfo:
         self.control_weights: list[float] | None = None
         # Global token modalities for optional CP=1 pairwise PointFlow mRoPE.
         self.pointflow_modalities: torch.Tensor | None = None
+        # JOINT_ATTN_BLOCK (inference only): bool [N_gen, N] allowed-mask for the generation
+        # rows of a single two-way sample, built by joint_sample_switches.  None = unmasked.
+        self.joint_attn_allowed: torch.Tensor | None = None
 
 
 AttentionMaskType = SplitInfo

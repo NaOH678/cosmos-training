@@ -12,6 +12,10 @@ from transformers.modeling_utils import PreTrainedModel
 from cosmos_framework.data.generator.sequence_packing import ModalityData, PackedSequence
 from cosmos_framework.data.generator.sequence_packing.natten import verify_natten_parameter_list
 from cosmos_framework.model.generator.fk_sequence import attach_fk_tokens, fk_positions
+from cosmos_framework.model.generator.joint_sample_switches import (
+    build_joint_attn_allowed,
+    get_active_joint_attn_block,
+)
 from cosmos_framework.model.generator.mot.attention import SplitInfo, build_packed_sequence
 from cosmos_framework.model.generator.mot.context_parallel_utils import (
     get_context_parallel_last_hidden_state,
@@ -1253,6 +1257,30 @@ class Cosmos3VFMNetwork(PreTrainedModel):
                 modalities[packed_seq.action.sequence_indexes] = 1
             modalities[packed_seq.point.sequence_indexes] = 2
             attention_meta.pointflow_modalities = modalities
+
+        # JOINT_ATTN_BLOCK: only populated inside generate_samples_from_batch (never in
+        # training); the default empty rule set leaves joint_attn_allowed as None.
+        joint_block_rules = get_active_joint_attn_block()
+        if joint_block_rules:
+            if torch.is_grad_enabled():
+                raise RuntimeError("JOINT_ATTN_BLOCK is inference-only but gradients are enabled")
+            if attention_meta.pointflow_modalities is not None:
+                raise NotImplementedError("JOINT_ATTN_BLOCK is not supported with POINTFLOW_REFERENCE_ATTENTION")
+            if hasattr(self, "local_depth_frequencies"):
+                raise NotImplementedError(
+                    "JOINT_ATTN_BLOCK is not supported with the local-RoPE geometry attention "
+                    "(POINTFLOW_FK_LOCAL_ROPE); unset one of them"
+                )
+            if (
+                sequence_shard_world_size != 1
+                or memory is not None
+                or packed_seq.control_weights is not None
+                or use_video_temporal_causal
+            ):
+                raise NotImplementedError("JOINT_ATTN_BLOCK requires CP=1, two-way, no memory/controls/temporal causal")
+            attention_meta.joint_attn_allowed = build_joint_attn_allowed(
+                packed_seq, joint_block_rules, packed_sequence.device
+            )
 
         if hasattr(self, "local_depth_frequencies"):
             from cosmos_framework.model.generator.pointflow_fk_attention import make_partition

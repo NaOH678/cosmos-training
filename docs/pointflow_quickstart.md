@@ -266,6 +266,8 @@ OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash /mnt/afs/WorldA
 | `POINTFLOW_SELECT_PHANTOM_GUARD=true` | false | 幻影点(uv 冻结但 3D 漂移)降级到排名末尾;101 集实测选中点幻影占比 7.5%→0.7% |
 | `POINTFLOW_WINDOW_CACHE_ROOT` | 空(在线算) | 预计算窗口缓存目录(数据管线步骤 3b);缓存后每样本读 ~120KB 而非 ~205MB |
 | `JOINT_SAMPLE_SEED_OFFSETS` | 空 | eval探针:只换指定模态的联合采样初始噪声,如 `pointflow:1,fk:1`;用法见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#3-联合采样种子探针) |
+| `JOINT_ATTN_BLOCK` | 空 | eval/推理:屏蔽模态间带噪token的attention,如 `action<-pointflow,action<-fk`;模态 vision/action/pointflow/fk,不支持local RoPE;见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
+| `JOINT_GEOM_LEAD` / `JOINT_SAMPLER_STEPS_OVERRIDE` | 空 | 推理:几何提前k步去噪完 / 覆盖联合采样步数;见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
 
 ### resume 语义(查证结论)
 
