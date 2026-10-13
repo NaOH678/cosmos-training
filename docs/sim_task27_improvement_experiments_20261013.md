@@ -51,6 +51,15 @@ mask模型不能再叠加 `JOINT_ATTN_BLOCK`，只做默认eval。脚本 `/mnt/a
 - 推理侧：40k nolocal/raw的 `execute_steps` 16、8（原32），`policy.es{16,8}.yaml`，run-dir `eval_200_8gpu_b5_es{16,8}`（raw为 `eval_200_8gpu_shared_b5_es{16,8}`）。
 - task21 40k离线消融（检验结论是否跨任务）。
 
+execute_steps结果（40k@40000，binomial5，200局）：缩短执行步数明显变差，不再继续。
+
+| 模型 | es32（原） | es16 | es8 |
+| --- | --- | --- | --- |
+| nolocal | 约48（30/35/40k合并48.2） | SR 26.5 / LSCR 69.8 | 前58局仅2局成功 |
+| raw | 约44（合并44.2） | SR 26.0 / LSCR 65.5 | 未开始 |
+
+es16各类SR：nolocal none/cov/inv/inv_cov 36/24/24/22，raw 38/20/22/24。产物 `task27_cosmos_{nolocal,raw}_s4_40000/runs/eval_200_8gpu*_b5_es16/`。
+
 ## 3. 待办
 
 - 40k结果出来后按逐球漏斗与配对比较筛选，重点看golf“触碰→举起”和cov_only。
