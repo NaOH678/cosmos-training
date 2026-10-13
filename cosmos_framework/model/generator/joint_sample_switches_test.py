@@ -365,9 +365,10 @@ def _varlen_reference(q, k, v, is_causal=False, causal_type=None, cumulative_seq
     return torch.cat(outs)[None]
 
 
-def _dense_masked_reference(q, k, v, kn, ids, rules, sample_lens, text_lens):
+def _dense_masked_reference(q, k, v, kn, ids, rules, sample_lens, text_lens, noisy=None):
     """Per sample: text rows causal over text keys; generation rows over all sample keys (normalised K),
-    minus every key of a blocked modality (all tokens, text never blocked)."""
+    minus every key of a blocked modality (all tokens, text never blocked); a ``mod:noisy`` key only
+    removes keys flagged in ``noisy``."""
     groups = q.shape[1] // k.shape[1]
     k, v, kn = (x.repeat_interleave(groups, dim=1) for x in (k, v, kn))
     outs, start = [], 0
@@ -376,8 +377,10 @@ def _dense_masked_reference(q, k, v, kn, ids, rules, sample_lens, text_lens):
         sid = ids[s]
         allowed = torch.ones(n - t, n, dtype=torch.bool, device=sid.device)
         for query, key in rules:
+            key, noisy_only = sw.split_rule_key(key)
             qm, km = sw._MODALITY_ID[query], sw._MODALITY_ID[key]
-            allowed &= ~((sid[t:] == qm)[:, None] & (sid == km)[None, :])
+            keys = (sid == km) & noisy[s] if noisy_only else sid == km
+            allowed &= ~((sid[t:] == qm)[:, None] & keys[None, :])
         sdpa = lambda qq, kk, vv, **kw: torch.nn.functional.scaled_dot_product_attention(
             qq.transpose(0, 1), kk.transpose(0, 1), vv.transpose(0, 1), **kw
         ).transpose(0, 1)
@@ -471,7 +474,8 @@ class FixedMaskTests(unittest.TestCase):
                 packed_key_states_normalized=from_all_seq(kn, pack), modality_gather=plan,
             )
         got = get_all_seq(out).view(30, 4, 8)
-        ref = _dense_masked_reference(q, k, v, kn, sw.build_modality_ids(seq), rules, [15, 15], [2, 2])
+        noisy = sw.build_modality_layout(seq)[1]
+        ref = _dense_masked_reference(q, k, v, kn, sw.build_modality_ids(seq), rules, [15, 15], [2, 2], noisy)
         return got, ref, (q, k, v, kn)
 
     def test_gathered_attention_matches_dense_mask(self):
@@ -480,12 +484,33 @@ class FixedMaskTests(unittest.TestCase):
             torch.testing.assert_close(got, ref, atol=1e-5, rtol=1e-5, msg=preset)
 
     def test_gathered_attention_gradients(self):
-        got, ref, leaves = self._run("physical_split", grad=True)
-        w = torch.randn_like(got)
-        g_got = torch.autograd.grad((got * w).sum(), leaves)
-        g_ref = torch.autograd.grad((ref * w).sum(), leaves)
-        for a, b in zip(g_got, g_ref):
-            torch.testing.assert_close(a, b, atol=1e-5, rtol=1e-5)
+        for preset in ("physical_split", "action_observed_vision"):
+            got, ref, leaves = self._run(preset, grad=True)
+            w = torch.randn_like(got)
+            g_got = torch.autograd.grad((got * w).sum(), leaves)
+            g_ref = torch.autograd.grad((ref * w).sum(), leaves)
+            for a, b in zip(g_got, g_ref):
+                torch.testing.assert_close(a, b, atol=1e-5, rtol=1e-5, msg=preset)
+
+    def test_observed_vision_preset(self):
+        rules = sw.resolve_joint_attn_mask("action_observed_vision")
+        self.assertEqual(rules, (("action", "vision:noisy"),))
+        # ':noisy' keys exist only for the training mask; the inference switch keeps its own noisy semantics
+        with self.assertRaises(ValueError):
+            sw.parse_joint_attn_block("action<-vision:noisy")
+        with self.assertRaises(ValueError):
+            sw.resolve_joint_attn_mask("action<-vision:noisy:noisy")
+        with self.assertRaises(ValueError):
+            sw.resolve_joint_attn_mask("vision<-vision:noisy")
+        plan = sw.build_modality_gather(two_sample_sequence(), rules)
+        cu_k = plan.cu_seqlens_kv.tolist()
+        segments = [plan.kv_index[a:b].tolist() for a, b in zip(cu_k[:-1], cu_k[1:])]
+        # sample 0: vision frame 0 (tokens 2-3) stays visible, noisy frame 1 (tokens 4-5) is removed from action only
+        self.assertEqual(segments[0], list(range(15)))  # vision reads everything
+        self.assertEqual(segments[1], [0, 1, 2, 3] + list(range(6, 15)))  # action
+        self.assertEqual(segments[2], list(range(15)))  # pointflow
+        self.assertEqual(segments[4], list(range(15, 30)))  # sample 1 vision
+        self.assertEqual(segments[5], [15, 16, 17, 18] + list(range(21, 30)))  # sample 1 action
 
     def test_mask_changes_output(self):
         got, _, inputs = self._run("action_no_geom", grad=False)
@@ -493,6 +518,77 @@ class FixedMaskTests(unittest.TestCase):
         # action rows differ from the unmasked attention, video rows do not
         self.assertFalse(torch.allclose(got[6:9], plain[6:9]))
         torch.testing.assert_close(got[2:6], plain[2:6])
+
+
+    def test_observed_vision_changes_only_action_rows(self):
+        got, _, inputs = self._run("action_observed_vision", grad=False)
+        plain = _dense_masked_reference(*inputs, sw.build_modality_ids(two_sample_sequence()), (), [15, 15], [2, 2])
+        self.assertFalse(torch.allclose(got[6:9], plain[6:9]))  # action rows differ
+        torch.testing.assert_close(got[2:6], plain[2:6])  # vision rows unchanged
+        torch.testing.assert_close(got[9:15], plain[9:15])  # geometry rows unchanged
+        torch.testing.assert_close(got[:2], plain[:2])  # text rows unchanged
+
+
+class VisionLeadTests(unittest.TestCase):
+    def _grids(self, n, k):
+        from cosmos_framework.model.generator.diffusion.samplers.unipc import UniPCSampler
+
+        sampler = UniPCSampler(tensor_kwargs={"device": "cpu"})
+        return sw.unipc_sigma_grid(sampler, n, 5.0), sw.unipc_sigma_grid(sampler, n - k, 5.0)
+
+    def test_parse(self):
+        self.assertEqual(sw.parse_joint_vision_lead(None), 0)
+        self.assertEqual(sw.parse_joint_vision_lead(" 3 "), 3)
+        for bad in ("-1", "x", "1.5"):
+            with self.assertRaises(ValueError, msg=bad):
+                sw.parse_joint_vision_lead(bad)
+        with mock.patch.dict(os.environ, {"JOINT_VISION_LEAD": "2"}):
+            self.assertEqual(sw.joint_vision_lead_from_env(), 2)
+
+    def test_vision_timestep_sequence(self):
+        n, k = 6, 2
+        (sig, ts), (vsig, vts) = self._grids(n, k)
+        calls = []
+
+        def fn(state, t, gt, vt=None):
+            self.assertIsNone(gt)
+            calls.append((int(t), int(vt)))
+            return [torch.zeros_like(x) for x in state]
+
+        sw.euler_geom_lead_sample(fn, [torch.zeros(5)], [2], sig, ts, k, vsig, vts, lead_head=True)
+        self.assertEqual([c[0] for c in calls], ts.tolist())  # action / geometry: normal grid
+        vision_t = [c[1] for c in calls]
+        self.assertEqual(vision_t[0], int(ts[0]))
+        self.assertEqual(vision_t[: n - k], vts.tolist())
+        self.assertEqual(vision_t[n - k :], [0] * k)  # vision committed k steps early
+
+    def test_head_commits_early_and_tail_follows_normal_grid(self):
+        torch.manual_seed(0)
+        n, k = 8, 3
+        (sig, ts), (vsig, vts) = self._grids(n, k)
+        x0, eps = torch.randn(7), torch.randn(7)
+        sig0 = float(sig[0])
+        state0 = [sig0 * eps + (1 - sig0) * x0]
+        vlen = 4
+        seen = []
+
+        def fn(state, t, gt, vt=None):
+            seen.append(state[0][:vlen].clone())
+            return [eps - x0]
+
+        out = sw.euler_geom_lead_sample(fn, state0, [vlen], sig, ts, k, vsig, vts, lead_head=True)[0]
+        torch.testing.assert_close(out, x0, atol=1e-5, rtol=1e-5)  # linear field: both segments land on x0
+        # the head stops moving once committed: the last k velocity calls see the final head
+        for s in seen[n - k :]:
+            torch.testing.assert_close(s, x0[:vlen], atol=1e-5, rtol=1e-5)
+        self.assertFalse(torch.allclose(seen[n - k - 1], x0[:vlen], atol=1e-5))
+
+    def test_k0_matches_plain_euler(self):
+        (sig, ts), _ = self._grids(5, 0)
+        fn = lambda state, t, gt, vt=None: [torch.ones_like(x) for x in state]
+        a = sw.euler_geom_lead_sample(fn, [torch.zeros(5)], [2], sig, ts, 0, lead_head=True)[0]
+        b = sw.euler_geom_lead_sample(lambda s, t, g: [torch.ones_like(x) for x in s], [torch.zeros(5)], [2], sig, ts, 0)[0]
+        torch.testing.assert_close(a, b)
 
 
 if __name__ == "__main__":

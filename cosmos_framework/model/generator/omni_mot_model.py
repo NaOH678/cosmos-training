@@ -383,7 +383,7 @@ class OmniMoTModel(ImaginaireModel):
         if joint_mask_rules:
             net.joint_attn_mask_rules = joint_mask_rules
             log.info(
-                f"joint_attn_mask={self.config.joint_attn_mask!r}: blocked query<-key pairs (all tokens) "
+                f"joint_attn_mask={self.config.joint_attn_mask!r}: blocked query<-key pairs (all tokens; ':noisy' = noisy only) "
                 f"{[f'{q}<-{k}' for q, k in joint_mask_rules]}"
             )
         return net
@@ -2587,6 +2587,7 @@ class OmniMoTModel(ImaginaireModel):
         memory: MemoryState | None = None,
         has_noisy_actions: bool,
         geom_timestep: torch.Tensor | None = None,
+        vision_timestep: torch.Tensor | None = None,
     ) -> list[torch.Tensor]:
         """
         Compute velocity prediction for a single sampling step.
@@ -2616,6 +2617,9 @@ class OmniMoTModel(ImaginaireModel):
             geom_timestep: Optional separate timestep (same shape/units as ``timestep``)
                 for the PointFlow / FK tokens (JOINT_GEOM_LEAD). ``None`` (default)
                 uses ``timestep`` for them, exactly as before.
+            vision_timestep: Optional separate timestep for the vision tokens
+                (JOINT_VISION_LEAD); ``timestep`` is then used for action / geometry.
+                ``None`` (default): vision uses ``timestep``, exactly as before.
 
         Returns:
             Stacked flattened velocity tensors (one per sample), each containing
@@ -2751,10 +2755,18 @@ class OmniMoTModel(ImaginaireModel):
                 sequence_plans,
                 text_tokens,
                 gen_data_for_packing,
-                timestep.cpu(),
+                (timestep if vision_timestep is None else vision_timestep).cpu(),
                 include_end_of_generation_token=self._derive_include_end_of_generation_token(),
                 skip_text_tokens=skip_text_tokens,
             )
+            if vision_timestep is not None and packed_sequence.action is not None:
+                # The packer gave action the vision timestep; restore the action one (as in training).
+                packed_sequence.action.timesteps = torch.cat(
+                    [
+                        timestep[i, 0].reshape(1).expand(nfi.numel())
+                        for i, nfi in enumerate(packed_sequence.action.noisy_frame_indexes)
+                    ]
+                ).to(dtype=torch.float32)
 
             # Set the actual noisy latents (as lists)
             if packed_sequence.vision is not None:
@@ -2810,6 +2822,8 @@ class OmniMoTModel(ImaginaireModel):
         else:
             if has_pointflow:
                 raise NotImplementedError("PointFlow joint sampling does not support pack templates yet")
+            if vision_timestep is not None:
+                raise NotImplementedError("JOINT_VISION_LEAD does not support pack templates")
             packed_sequence = self._update_inference_pack_template(
                 packed_sequence_template,
                 noise_x_vision,
@@ -3318,6 +3332,7 @@ class OmniMoTModel(ImaginaireModel):
         # JOINT_SAMPLER_STEPS_OVERRIDE=n: replace the joint rollout's step count.
         joint_attn_block = joint_switches.joint_attn_block_from_env()
         joint_geom_lead = joint_switches.joint_geom_lead_from_env()
+        joint_vision_lead = joint_switches.joint_vision_lead_from_env()
         joint_steps_override = joint_switches.joint_steps_override_from_env()
         _has_joint_geometry = (
             gen_data_clean.pointflow is not None and bool(gen_data_clean.pointflow.has_point.any())
@@ -3331,6 +3346,21 @@ class OmniMoTModel(ImaginaireModel):
                 num_steps = joint_steps_override
                 if distributed.is_rank0():
                     log.info(f"JOINT_SAMPLER_STEPS_OVERRIDE applied: num_steps={num_steps}")
+        if joint_vision_lead > 0:
+            # JOINT_VISION_LEAD=k: vision commits k steps before action / geometry (same Euler loop).
+            if joint_geom_lead > 0:
+                raise ValueError("JOINT_VISION_LEAD and JOINT_GEOM_LEAD are mutually exclusive")
+            _lead_steps = joint_steps_override if (joint_steps_override is not None) else num_steps
+            if joint_vision_lead >= _lead_steps:
+                raise ValueError(f"JOINT_VISION_LEAD={joint_vision_lead} must be < the number of steps ({_lead_steps})")
+            if not getattr(self.config.rectified_flow_training_config, "independent_action_schedule", False):
+                if distributed.is_rank0():
+                    log.warning(
+                        f"JOINT_VISION_LEAD={joint_vision_lead}: independent_action_schedule is false in the loaded "
+                        "config; action was trained with the vision sigma, so this schedule is out of distribution"
+                    )
+            if distributed.is_rank0():
+                log.info(f"JOINT_VISION_LEAD applied: k={joint_vision_lead}")
         if joint_geom_lead > 0:
             if not _has_joint_geometry:
                 raise ValueError("JOINT_GEOM_LEAD > 0 requires PointFlow or FK tokens in the batch")
@@ -3379,11 +3409,15 @@ class OmniMoTModel(ImaginaireModel):
                     uncond_text_kv_cache = self._make_inference_text_kv_cache(target_net)
 
             def velocity_fn(
-                noise_x: list[torch.Tensor], timestep: torch.Tensor, geom_timestep: torch.Tensor | None = None
+                noise_x: list[torch.Tensor],
+                timestep: torch.Tensor,
+                geom_timestep: torch.Tensor | None = None,
+                vision_timestep: torch.Tensor | None = None,
             ) -> list[torch.Tensor]:
                 # len(noise_x) == B, noise_x[i] is shape (D)
                 # timestep is shape (B, 1)
                 # geom_timestep (JOINT_GEOM_LEAD only): separate (1, 1) timestep for PointFlow/FK.
+                # vision_timestep (JOINT_VISION_LEAD only): separate (1, 1) timestep for vision.
                 torch.compiler.cudagraph_mark_step_begin()
 
                 assert timestep.ndim == 2, f"timestep must be 2D, got {timestep.shape}"
@@ -3394,6 +3428,9 @@ class OmniMoTModel(ImaginaireModel):
                 if geom_timestep is not None:
                     assert geom_timestep.shape == (1, 1), f"geom_timestep must be (1, 1), got {geom_timestep.shape}"
                     geom_timestep = geom_timestep.repeat(len(noise_x), 1)  # [B,1]
+                if vision_timestep is not None:
+                    assert vision_timestep.shape == (1, 1), f"vision_timestep must be (1, 1), got {vision_timestep.shape}"
+                    vision_timestep = vision_timestep.repeat(len(noise_x), 1)  # [B,1]
 
                 def _single_velocity_fn(tokens: list[list[int]], skip_text_tokens: bool) -> list[torch.Tensor]:
                     nonlocal uncond_text_kv_cache
@@ -3423,6 +3460,7 @@ class OmniMoTModel(ImaginaireModel):
                         memory=memory,
                         has_noisy_actions=has_noisy_actions,
                         geom_timestep=geom_timestep,
+                        vision_timestep=vision_timestep,
                     )
 
                 needs_text_cfg = guidance != 1.0
@@ -3520,7 +3558,41 @@ class OmniMoTModel(ImaginaireModel):
                     "condition_mask": condition_mask,
                 }
 
-            if joint_geom_lead > 0:
+            if joint_vision_lead > 0:
+                if isinstance(sampler, FixedStepSampler) or scheduler_type != "unipc":
+                    raise NotImplementedError("JOINT_VISION_LEAD only supports the UniPC sampler grid")
+                if _extra_num_steps > 0:
+                    raise NotImplementedError("JOINT_VISION_LEAD does not support FSDP step padding")
+                _vision_lens = []
+                _vision_offset = 0
+                for _i in range(n_sample):
+                    _n_vis = gen_data_clean.num_vision_items_per_sample[_i] if gen_data_clean.num_vision_items_per_sample is not None else 1
+                    _vision_lens.append(
+                        sum(int(x.numel()) for x in gen_data_clean.x0_tokens_vision[_vision_offset : _vision_offset + _n_vis])
+                    )
+                    _vision_offset += _n_vis
+                _sigmas, _timesteps = joint_switches.unipc_sigma_grid(
+                    sampler, num_steps, shift, device=self.tensor_kwargs["device"]
+                )
+                log.info(
+                    f"Using sampler: Euler vision-lead (k={joint_vision_lead}, shift={shift}, num_steps={num_steps}, "
+                    f"vision reaches 0 after {num_steps - joint_vision_lead} steps)"
+                )
+                _vis_sigmas, _vis_timesteps = joint_switches.unipc_sigma_grid(
+                    sampler, num_steps - joint_vision_lead, shift, device=self.tensor_kwargs["device"]
+                )
+                latents = joint_switches.euler_geom_lead_sample(
+                    velocity_fn,
+                    initial_noise,
+                    _vision_lens,
+                    _sigmas,
+                    _timesteps,
+                    joint_vision_lead,
+                    _vis_sigmas,
+                    _vis_timesteps,
+                    lead_head=True,
+                )
+            elif joint_geom_lead > 0:
                 if isinstance(sampler, FixedStepSampler) or scheduler_type != "unipc":
                     raise NotImplementedError("JOINT_GEOM_LEAD only supports the UniPC sampler grid")
                 if _extra_num_steps > 0:

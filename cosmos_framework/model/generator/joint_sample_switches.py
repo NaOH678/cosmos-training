@@ -17,6 +17,11 @@ Both switches default to OFF and then change nothing:
     schedule (start at pure noise, reach sigma 0 after ``N-k`` of the ``N`` steps),
     while vision / action follow the normal N-step grid (``0 < k < N``).
 
+``JOINT_VISION_LEAD``  (integer k >= 0)
+    Same loop for the vision stream: vision follows the compressed ``N-k``-step
+    schedule and is committed (sigma 0) k steps before action / PointFlow / FK finish.
+    Mutually exclusive with ``JOINT_GEOM_LEAD``.
+
 ``JOINT_SAMPLER_STEPS_OVERRIDE``  (integer >= 1)
     Replace the number of sampler steps of the joint rollout.
 """
@@ -40,21 +45,33 @@ NO_MODALITY = -1  # text, sound, padding: never blocked in either role
 # ---------------------------------------------------------------------------
 
 
-def parse_joint_attn_block(spec: str | None) -> tuple[tuple[str, str], ...]:
+NOISY_SUFFIX = ":noisy"  # fixed-mask key ``vision:noisy``: only the noisy tokens of that modality
+
+
+def split_rule_key(key: str) -> tuple[str, bool]:
+    """``"vision:noisy"`` -> ``("vision", True)``; ``"vision"`` -> ``("vision", False)``."""
+    return (key[: -len(NOISY_SUFFIX)], True) if key.endswith(NOISY_SUFFIX) else (key, False)
+
+
+def parse_joint_attn_block(spec: str | None, allow_noisy_keys: bool = False) -> tuple[tuple[str, str], ...]:
     """``"action<-pointflow, action<-fk"`` -> ``(("action","pointflow"),("action","fk"))``.
 
     Empty / unset -> ``()``.  Unknown modality names, malformed items and
-    ``q<-q`` (a modality blocking itself) raise ``ValueError``.
+    ``q<-q`` (a modality blocking itself) raise ``ValueError``.  With
+    ``allow_noisy_keys`` the key may carry ``:noisy`` (``action<-vision:noisy``).
     """
     rules: list[tuple[str, str]] = []
     for item in filter(None, (part.strip() for part in (spec or "").split(","))):
         if item.count("<-") != 1:
             raise ValueError(f"JOINT_ATTN_BLOCK: malformed item {item!r}, expected 'query<-key'")
         query, key = (part.strip() for part in item.split("<-"))
-        for name in (query, key):
+        key_name, noisy_key = split_rule_key(key)
+        if noisy_key and not allow_noisy_keys:
+            raise ValueError(f"JOINT_ATTN_BLOCK: {item!r}: ':noisy' keys are only valid in joint_attn_mask")
+        for name in (query, key_name):
             if name not in _MODALITY_ID:
                 raise ValueError(f"JOINT_ATTN_BLOCK: unknown modality {name!r}, expected one of {list(MODALITIES)}")
-        if query == key:
+        if query == key_name:
             raise ValueError(f"JOINT_ATTN_BLOCK: {item!r} blocks a modality from itself, which is not supported")
         if (query, key) not in rules:
             rules.append((query, key))
@@ -65,21 +82,33 @@ def joint_attn_block_from_env() -> tuple[tuple[str, str], ...]:
     return parse_joint_attn_block(os.environ.get("JOINT_ATTN_BLOCK", ""))
 
 
-def parse_joint_geom_lead(spec: str | None) -> int:
+def _parse_lead(spec: str | None, name: str) -> int:
     text = (spec or "").strip()
     if not text:
         return 0
     try:
         value = int(text)
     except ValueError as exc:
-        raise ValueError(f"JOINT_GEOM_LEAD: expected a non-negative integer, got {spec!r}") from exc
+        raise ValueError(f"{name}: expected a non-negative integer, got {spec!r}") from exc
     if value < 0:
-        raise ValueError(f"JOINT_GEOM_LEAD: expected a non-negative integer, got {value}")
+        raise ValueError(f"{name}: expected a non-negative integer, got {value}")
     return value
+
+
+def parse_joint_geom_lead(spec: str | None) -> int:
+    return _parse_lead(spec, "JOINT_GEOM_LEAD")
 
 
 def joint_geom_lead_from_env() -> int:
     return parse_joint_geom_lead(os.environ.get("JOINT_GEOM_LEAD", ""))
+
+
+def parse_joint_vision_lead(spec: str | None) -> int:
+    return _parse_lead(spec, "JOINT_VISION_LEAD")
+
+
+def joint_vision_lead_from_env() -> int:
+    return parse_joint_vision_lead(os.environ.get("JOINT_VISION_LEAD", ""))
 
 
 def parse_joint_steps_override(spec: str | None) -> int | None:
@@ -232,14 +261,17 @@ JOINT_ATTN_MASK_PRESETS: dict[str, str] = {
     "action_no_geom": "action<-pointflow,action<-fk",
     # M3: FK exchanges only with action, PointFlow only with video, no PointFlow<->FK.
     "physical_split": "fk<-vision,vision<-fk,pointflow<-action,action<-pointflow,pointflow<-fk,fk<-pointflow",
+    # M4: action reads only the observed (conditioning) vision frames, not the noisy / predicted ones.
+    "action_observed_vision": "action<-vision:noisy",
 }
 
 
 def resolve_joint_attn_mask(spec: str | None) -> tuple[tuple[str, str], ...]:
     """Preset name (``JOINT_ATTN_MASK_PRESETS``) or explicit ``q<-k`` rules separated
-    by ``,`` or ``;`` -> rules.  Empty / unset -> ``()`` (no mask)."""
+    by ``,`` or ``;`` -> rules.  Empty / unset -> ``()`` (no mask).  A key may be
+    ``modality:noisy`` to cut only that modality's noisy tokens (conditioning stays visible)."""
     spec = (spec or "").strip()
-    return parse_joint_attn_block(JOINT_ATTN_MASK_PRESETS.get(spec, spec.replace(";", ",")))
+    return parse_joint_attn_block(JOINT_ATTN_MASK_PRESETS.get(spec, spec.replace(";", ",")), allow_noisy_keys=True)
 
 
 def build_modality_ids(packed_seq, device=None) -> torch.Tensor:
@@ -287,7 +319,8 @@ def build_modality_gather(packed_seq, rules: Sequence[tuple[str, str]], device=N
     """:class:`ModalityGather` for a two-way pack (any number of samples), or ``None`` without rules.
 
     A rule ``q<-k`` removes every key token of modality ``k`` from every query token
-    of modality ``q`` in the same sample.  Text keys and tokens outside the four
+    of modality ``q`` in the same sample; ``q<-k:noisy`` removes only the noisy ones
+    (``build_modality_layout`` flags; conditioning tokens stay visible).  Text keys and tokens outside the four
     modalities are never removed.
     """
     if not rules:
@@ -297,12 +330,17 @@ def build_modality_gather(packed_seq, rules: Sequence[tuple[str, str]], device=N
         raise NotImplementedError("joint_attn_mask requires two-way (causal text + full generation) samples")
     if sum(split_lens) != int(packed_seq.sequence_length):
         raise NotImplementedError("joint_attn_mask does not support padded packs")
-    blocked = torch.zeros(len(MODALITIES) + 1, len(MODALITIES) + 1, dtype=torch.bool)  # index 0 = NO_MODALITY
+    # index 0 = NO_MODALITY; blocked_noisy only cuts keys flagged noisy
+    blocked = torch.zeros(len(MODALITIES) + 1, len(MODALITIES) + 1, dtype=torch.bool)
+    blocked_noisy = torch.zeros_like(blocked)
     for query, key in rules:
-        blocked[_MODALITY_ID[query] + 1, _MODALITY_ID[key] + 1] = True
+        key, noisy_only = split_rule_key(key)
+        (blocked_noisy if noisy_only else blocked)[_MODALITY_ID[query] + 1, _MODALITY_ID[key] + 1] = True
     ids = build_modality_ids(packed_seq, device="cpu") + 1
+    noisy = build_modality_layout(packed_seq, device="cpu")[1] if blocked_noisy.any() else None
     present = set(ids.unique().tolist())
     for query, key in rules:
+        key = split_rule_key(key)[0]
         if _MODALITY_ID[query] + 1 not in present or _MODALITY_ID[key] + 1 not in present:
             raise ValueError(f"joint_attn_mask rule {query}<-{key} refers to a modality absent from the batch")
     q_parts, kv_parts, q_lens, kv_lens = [], [], [], []
@@ -312,10 +350,14 @@ def build_modality_gather(packed_seq, rules: Sequence[tuple[str, str]], device=N
         if text_len + gen_len != sample_len:
             raise ValueError(f"sample {i}: split lens {text_len}+{gen_len} != sample len {sample_len}")
         sample = ids[start : start + sample_len]
+        sample_noisy = None if noisy is None else noisy[start : start + sample_len]
         gen = sample[text_len:]
         for group in gen.unique().tolist():
             q = (gen == group).nonzero().flatten()
-            kv = (~blocked[group][sample]).nonzero().flatten()
+            drop = blocked[group][sample]
+            if sample_noisy is not None:
+                drop = drop | (blocked_noisy[group][sample] & sample_noisy)
+            kv = (~drop).nonzero().flatten()
             q_parts.append(gen_base + q)
             kv_parts.append(start + kv)
             q_lens.append(q.numel())
@@ -421,6 +463,7 @@ def euler_geom_lead_sample(
     lead: int,
     geom_sigmas: torch.Tensor | None = None,
     geom_timesteps: torch.Tensor | None = None,
+    lead_head: bool = False,
 ) -> list[torch.Tensor]:
     """Euler loop with a per-segment sigma schedule.
 
@@ -431,6 +474,9 @@ def euler_geom_lead_sample(
     ``velocity_fn(state, t, geom_t)`` gets ``(1, 1)`` timesteps in the sampler's own
     units (``sigma * num_train_timesteps``, int64-truncated like ``UniPCSampler``).
     ``lead == 0`` reuses ``sigmas`` for geometry (plain Euler on the sampler grid).
+    ``lead_head=True`` (JOINT_VISION_LEAD): the compressed segment is instead the FIRST
+    ``geom_lens[b]`` elements (vision) and ``velocity_fn(state, t, None, lead_t)`` gets
+    its timestep as the 4th argument; the remaining elements follow ``sigmas``.
     """
     num_steps = len(timesteps)
     if len(sigmas) != num_steps + 1:
@@ -446,13 +492,17 @@ def euler_geom_lead_sample(
     gt_grid = torch.cat([geom_timesteps.reshape(-1), geom_timesteps.new_zeros(1)])
     state = [x.clone() for x in latents]
     for i, g, g_next in schedule:
-        v = velocity_fn(state, t_grid[i].reshape(1, 1), gt_grid[g].reshape(1, 1))
+        t, gt = t_grid[i].reshape(1, 1), gt_grid[g].reshape(1, 1)
+        v = velocity_fn(state, t, None, gt) if lead_head else velocity_fn(state, t, gt)
         dt_head = float(sigmas[i + 1] - sigmas[i])
         dt_geom = float(geom_sigmas[g_next] - geom_sigmas[g])
         new_state = []
         for x, vx, glen in zip(state, v, geom_lens, strict=True):
-            split = x.numel() - glen
             vx = vx.to(x.dtype)
+            if lead_head:
+                new_state.append(torch.cat([x[:glen] + dt_geom * vx[:glen], x[glen:] + dt_head * vx[glen:]]))
+                continue
+            split = x.numel() - glen
             new_state.append(torch.cat([x[:split] + dt_head * vx[:split], x[split:] + dt_geom * vx[split:]]))
         state = new_state
     return state
