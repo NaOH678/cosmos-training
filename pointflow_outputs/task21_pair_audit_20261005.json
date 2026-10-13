@@ -1,0 +1,2205 @@
+{
+  "source": "/data/shichaojian/raw_data/bench2dex/task21/replay-generalization",
+  "pairs": [
+    {
+      "base": "episode_000000.hdf5",
+      "variant": "episode_000000_1.hdf5",
+      "frames": 713,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000001.hdf5",
+      "variant": "episode_000001_1.hdf5",
+      "frames": 717,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000002.hdf5",
+      "variant": "episode_000002_1.hdf5",
+      "frames": 700,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000003.hdf5",
+      "variant": "episode_000003_1.hdf5",
+      "frames": 610,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000004.hdf5",
+      "variant": "episode_000004_1.hdf5",
+      "frames": 668,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000005.hdf5",
+      "variant": "episode_000005_1.hdf5",
+      "frames": 705,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000006.hdf5",
+      "variant": "episode_000006_1.hdf5",
+      "frames": 745,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000007.hdf5",
+      "variant": "episode_000007_1.hdf5",
+      "frames": 715,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000008.hdf5",
+      "variant": "episode_000008_1.hdf5",
+      "frames": 695,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000009.hdf5",
+      "variant": "episode_000009_1.hdf5",
+      "frames": 664,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000010.hdf5",
+      "variant": "episode_000010_1.hdf5",
+      "frames": 612,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000011.hdf5",
+      "variant": "episode_000011_1.hdf5",
+      "frames": 677,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000012.hdf5",
+      "variant": "episode_000012_1.hdf5",
+      "frames": 669,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000013.hdf5",
+      "variant": "episode_000013_1.hdf5",
+      "frames": 623,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000014.hdf5",
+      "variant": "episode_000014_1.hdf5",
+      "frames": 609,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000015.hdf5",
+      "variant": "episode_000015_1.hdf5",
+      "frames": 637,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000016.hdf5",
+      "variant": "episode_000016_1.hdf5",
+      "frames": 601,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000017.hdf5",
+      "variant": "episode_000017_1.hdf5",
+      "frames": 644,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000018.hdf5",
+      "variant": "episode_000018_1.hdf5",
+      "frames": 672,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000019.hdf5",
+      "variant": "episode_000019_1.hdf5",
+      "frames": 658,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000020.hdf5",
+      "variant": "episode_000020_1.hdf5",
+      "frames": 658,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000021.hdf5",
+      "variant": "episode_000021_1.hdf5",
+      "frames": 635,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000022.hdf5",
+      "variant": "episode_000022_1.hdf5",
+      "frames": 683,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000023.hdf5",
+      "variant": "episode_000023_1.hdf5",
+      "frames": 605,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000024.hdf5",
+      "variant": "episode_000024_1.hdf5",
+      "frames": 676,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000025.hdf5",
+      "variant": "episode_000025_1.hdf5",
+      "frames": 645,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000026.hdf5",
+      "variant": "episode_000026_1.hdf5",
+      "frames": 642,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000027.hdf5",
+      "variant": "episode_000027_1.hdf5",
+      "frames": 615,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000028.hdf5",
+      "variant": "episode_000028_1.hdf5",
+      "frames": 585,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000029.hdf5",
+      "variant": "episode_000029_1.hdf5",
+      "frames": 654,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000030.hdf5",
+      "variant": "episode_000030_1.hdf5",
+      "frames": 631,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000031.hdf5",
+      "variant": "episode_000031_1.hdf5",
+      "frames": 622,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000032.hdf5",
+      "variant": "episode_000032_1.hdf5",
+      "frames": 654,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000033.hdf5",
+      "variant": "episode_000033_1.hdf5",
+      "frames": 579,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000034.hdf5",
+      "variant": "episode_000034_1.hdf5",
+      "frames": 631,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000035.hdf5",
+      "variant": "episode_000035_1.hdf5",
+      "frames": 659,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000036.hdf5",
+      "variant": "episode_000036_1.hdf5",
+      "frames": 848,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000037.hdf5",
+      "variant": "episode_000037_1.hdf5",
+      "frames": 601,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000038.hdf5",
+      "variant": "episode_000038_1.hdf5",
+      "frames": 608,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000039.hdf5",
+      "variant": "episode_000039_1.hdf5",
+      "frames": 589,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000040.hdf5",
+      "variant": "episode_000040_1.hdf5",
+      "frames": 577,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000041.hdf5",
+      "variant": "episode_000041_1.hdf5",
+      "frames": 590,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000042.hdf5",
+      "variant": "episode_000042_1.hdf5",
+      "frames": 585,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000043.hdf5",
+      "variant": "episode_000043_1.hdf5",
+      "frames": 634,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000044.hdf5",
+      "variant": "episode_000044_1.hdf5",
+      "frames": 579,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000045.hdf5",
+      "variant": "episode_000045_1.hdf5",
+      "frames": 579,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000046.hdf5",
+      "variant": "episode_000046_1.hdf5",
+      "frames": 576,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000047.hdf5",
+      "variant": "episode_000047_1.hdf5",
+      "frames": 628,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000048.hdf5",
+      "variant": "episode_000048_1.hdf5",
+      "frames": 645,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    },
+    {
+      "base": "episode_000049.hdf5",
+      "variant": "episode_000049_1.hdf5",
+      "frames": 586,
+      "action/commanded_equal": true,
+      "action/action_valid_equal": true,
+      "robot/qpos_equal": true,
+      "robot/qvel_equal": true,
+      "time/sim_step_equal": true,
+      "frame_valid_equal": true,
+      "object_pose_world_equal": true,
+      "cameras": {
+        "cam_chest": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_overhead": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_stereo_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_left": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        },
+        "cam_wrist_right": {
+          "intrinsic_equal": true,
+          "extrinsic_equal": false,
+          "rgb_first_equal": false
+        }
+      }
+    }
+  ]
+}

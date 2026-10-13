@@ -1,0 +1,25 @@
+{
+  "manifest": "/data/shichaojian/sim_data/bench2dex_task21_v3_training/datasets/bench2dex-task21-cosmos-cache/pointflow_fk_handguided1024/manifest.json",
+  "windows": 60190,
+  "split_windows": {
+    "train": 56720,
+    "validation": 3470
+  },
+  "split_episodes": {
+    "train": 94,
+    "validation": 6
+  },
+  "missing_files": 0,
+  "scales": {
+    "pointflow": 0.036562949780137605,
+    "fk": 0.07657469807970249
+  },
+  "statistics": "pooled standard deviation of valid displacement scalar components; training windows only",
+  "selection": {
+    "points": 1024,
+    "global_points": 512,
+    "per_hand_points": 256,
+    "radius_metres": 0.05,
+    "selection_uses_future": false
+  }
+}

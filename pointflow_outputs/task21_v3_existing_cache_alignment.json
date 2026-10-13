@@ -1,0 +1,8 @@
+{
+  "episodes": 100,
+  "windows_compared": 60190,
+  "mapping_mismatches": [],
+  "plan_status": "planned_not_generated",
+  "reused_latent_root": "/data/shichaojian/raw_data/bench2dex/task21/cosmos-cache/vae_window_latents",
+  "preprocessing": "stopped; partial files retained; no GPU training launched"
+}

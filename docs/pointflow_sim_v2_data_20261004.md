@@ -2,6 +2,8 @@
 
 按 [数据 pipeline](pointflow_data_pipeline.md) 处理，本记录包含数据、VAE 缓存及后续训练与性能实验。
 
+版本范围（2026-10-07核对）：本文保留的是**10条v2实验历史**；下文“当前”指2026-10-05确认的v2配方。100条v3及新任务的云端处理流程见 [SIM_DATA_PIPELINE.md 第8节](SIM_DATA_PIPELINE.md#8-云端从上传数据到训练缓存)。两版沿用同一FK引导1024点算法和stage2/skip/PB模型配方，但窗口、轨迹ID、划分、scale和VAE缓存来源不同，不应交叉套用。
+
 ## 当前方案与阅读顺序
 
 - 当前目标：10条（8训练/2验证）验证拟合和四模态联合生成效果，通过后扩至100条。
@@ -133,7 +135,7 @@ FK `0.07483516791860219`。沿用已验证的 VAE latents。
 当前保留方案（2026-10-05）：8×A800，每卡 batch16、accum1、seed42；cluster stage2、skip1/2、PB4、local RoPE、
 Flash2 varlen、torch.compile、selective Flash2+QKVO checkpoint。FK 使用 42 个独立 ID，
 动作 domain28、52 维补齐至64，按训练集统计做可逆归一化。默认固定 20000 step，学习率周期20000、warmup50，
-启动 eval 开启，每500 step eval/save；8集训练、2集验证，共2个训练和24个验证窗口；两个验证episode各有early/middle/late三个阶段，
+启动 eval 开启，每500 step eval/save；数据集为8集训练/177窗、2集验证/43窗。eval展示另选2个训练case和24个验证窗口；两个验证episode各有early/middle/late三个阶段，
 每阶段4个连续窗口，拼接覆盖6.4秒（129帧/20fps，MP4时长6.45秒）。
 仿真 eval 使用记录的相机内参，双手骨架分别绘制，不使用真机 D435 投影。
 

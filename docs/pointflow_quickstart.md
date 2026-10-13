@@ -45,6 +45,8 @@ Action保留Bench2Dex的action-only q01/q99归一化，scale下限0.05 rad，无
 [pointflow_form_comparison_observations_20261001.md](./pointflow_form_comparison_observations_20261001.md),
 数据管线和实验记录见[文档地图](#文档地图)。
 
+向推理集群交付模型、归一化、机器人/相机信息及评测anchors，按[云端仿真交付参考](sim_inference_cloud_delivery.md)查找材料并生成rclone命令。
+
 ## 1. 拿代码 + 装环境
 
 以下clone命令为原pointflow分支入口；当前已配置的pointflow-fk工作区可直接使用§3仿真命令。
@@ -148,6 +150,44 @@ bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_sim_p
 数据路径及PointFlow/FK尺度，不必另行source环境。该入口固定单机8卡。
 同目录重跑会自动resume；更换stage、选点或归一化统计应使用新实验目录。
 配置：[TOML](../examples/toml/sft_config/action_policy_sim_pointfk_edge.toml)。
+
+### 仿真task21 v3（E7b）
+
+100条全局轨迹采用E7a的94/6分组和action统计,1024点/stage2/skip/PB/local RoPE,8卡每卡16,固定20000步。
+`tools/prepare_sim_pointfk_v3.py`按baseline的stride1起点生成选点缓存并复用已有VAE latent;完成后启动:
+
+```bash
+OUTPUT_ROOT=/data/shichaojian/runs/sim_v3_94train_6val_handguided1024_stage2_8gpu_20k \
+  bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_sim_pointfk_v3.sh
+```
+
+当前数据准备记录见[实验队列E7b](./pointflow_experiment_queue_20260930.md#e7b--task21-v3全局轨迹94训练6验证数据准备中)。
+
+### 仿真task27 ball
+
+数据已生成，目录格式与task21 v3一致；94训练/6验证，共75,640窗，1024点、stage2、skip1,2、PB4和local RoPE。
+
+```bash
+# 纯 WAM
+OUTPUT_ROOT=/data/shichaojian/runs/sim_task27_ball_wam_94train_6val_8gpu_20k_20261008 \
+  bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_sim_normalized.sh 27_ball wam
+
+# PointFK + local RoPE
+OUTPUT_ROOT=/data/shichaojian/runs/sim_task27_ball_94train_6val_handguided1024_stage2_8gpu_20k_20261008 \
+  bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_sim_normalized.sh 27_ball pointfk
+```
+
+两组沿用相同划分、现有缓存与训练集归一化统计，8卡、每卡16、20,000步、启动验证及每500步验证。只有8卡时分别启动；`nonlocal`参数可运行关闭local RoPE的PointFK。
+8卡/16卡复用同一份TOML；两节点各8卡时在命令前增加 `NNODES=2 NPROC_PER_NODE=8`，同时换用独立 `OUTPUT_ROOT`。
+目录、scale和共用预处理命令见 [SIM_DATA_PIPELINE.md 云端通用流程](./SIM_DATA_PIPELINE.md#8-云端从上传数据到训练缓存)。
+
+### 新仿真任务06 / 07（准备流程）
+
+训练前数据统一采用06/07的episode布局；训练缓存统一使用`datasets/cosmos-cache/`，21/27旧目录名保留兼容链接。目录结构、历史归档缺项和06/07完整准备命令见[仿真数据目录规范](./sim_pointfk_data_format.md)。
+
+2026-10-09，task06、task07均已完成正式训练缓存：各100条，94训练/6验证，1024点/42点FK，latent直接复用，动作归一化统计与PointFlow/FK scale均使用各自训练集计算。训练目录为`/data/shichaojian/sim_data/bench2dex_task06_fruit_training`与`/data/shichaojian/sim_data/bench2dex_task07_citrus_training`；06为40,650训练窗/2,648验证窗，07为42,328训练窗/2,636验证窗。复用通用启动器、Python实验和TOML，不新增任务专用配置。
+
+准备流程和通用训练命令见[SIM_DATA_PIPELINE.md 云端通用流程](./SIM_DATA_PIPELINE.md#8-云端从上传数据到训练缓存)，最终scale与文件规范见[仿真数据目录规范](./sim_pointfk_data_format.md#4-当前状态)。处理日志保存在各自`_training/logs/prepare.log`。数据准备完成，此次尚未启动模型训练。
 
 ### 真机归一化重训（E8）
 

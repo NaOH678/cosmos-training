@@ -1,0 +1,59 @@
+[
+  {
+    "task": 21,
+    "model": "cosmos_nolocal",
+    "run": "/data/shichaojian/runs/sim_task21_pointfk_nonlocal_20k",
+    "job": "/data/shichaojian/runs/sim_task21_pointfk_nonlocal_20k/cosmos3_action/action_sft/action_policy_sim_21_v3_nonlocal",
+    "steps": [
+      20000,
+      18000,
+      14000,
+      10000
+    ],
+    "attention_mode": "legacy_mrope",
+    "weights_bytes": 82416572688,
+    "metadata_dir": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/pointflow_outputs/pointfk_handoff_20261011/task21/cosmos_nolocal/training_metadata/sim_task21_pointfk_nonlocal_20k",
+    "metadata_bytes": 125617,
+    "archive": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/pointflow_outputs/pointfk_handoff_20261011/task21_cosmos_nolocal_metadata.tar.gz",
+    "archive_bytes": 38895,
+    "confirmed_remote": "aliyun-4090-oss:pjlab-bjpai-manip/shichaojian/sim_ckpt/task21/cosmos_nolocal/sim_task21_pointfk_nonlocal_20k"
+  },
+  {
+    "task": 27,
+    "model": "cosmos_local",
+    "run": "/data/shichaojian/runs/sim_task27_pointfk_local_20k",
+    "job": "/data/shichaojian/runs/sim_task27_pointfk_local_20k/cosmos3_action/action_sft/action_policy_sim_27_ball_local",
+    "steps": [
+      20000,
+      17000,
+      13000,
+      10000
+    ],
+    "attention_mode": "local_pointflow_fk_mrope",
+    "weights_bytes": 82416587644,
+    "metadata_dir": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/pointflow_outputs/pointfk_handoff_20261011/task27/cosmos_local/training_metadata/sim_task27_pointfk_local_20k",
+    "metadata_bytes": 94897,
+    "archive": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/pointflow_outputs/pointfk_handoff_20261011/task27_cosmos_local_metadata.tar.gz",
+    "archive_bytes": 27412,
+    "confirmed_remote": "aliyun-4090-oss:pjlab-bjpai-manip/shichaojian/sim_ckpt/task27/cosmos_local/sim_task27_pointfk_local_20k"
+  },
+  {
+    "task": 27,
+    "model": "cosmos_nolocal",
+    "run": "/data/shichaojian/runs/sim_task27_pointfk_nonlocal_20k",
+    "job": "/data/shichaojian/runs/sim_task27_pointfk_nonlocal_20k/cosmos3_action/action_sft/action_policy_sim_27_ball_nonlocal",
+    "steps": [
+      20000,
+      17000,
+      13000,
+      10000
+    ],
+    "attention_mode": "legacy_mrope",
+    "weights_bytes": 82416572696,
+    "metadata_dir": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/pointflow_outputs/pointfk_handoff_20261011/task27/cosmos_nolocal/training_metadata/sim_task27_pointfk_nonlocal_20k",
+    "metadata_bytes": 91263,
+    "archive": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/pointflow_outputs/pointfk_handoff_20261011/task27_cosmos_nolocal_metadata.tar.gz",
+    "archive_bytes": 27254,
+    "confirmed_remote": "aliyun-4090-oss:pjlab-bjpai-manip/shichaojian/sim_ckpt/task27/cosmos_nolocal/sim_task27_pointfk_nonlocal_20k"
+  }
+]

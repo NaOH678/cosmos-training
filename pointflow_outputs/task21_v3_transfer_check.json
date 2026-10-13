@@ -1,0 +1,8 @@
+{
+  "remote_files": 130949,
+  "remote_bytes": 14964210239,
+  "missing_or_size_mismatch": [],
+  "episodes": 100,
+  "episode_issues": [],
+  "verification": "remote file presence and size, not content hash"
+}

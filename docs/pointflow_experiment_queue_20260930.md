@@ -36,6 +36,7 @@
 | E6-dropper-1001 | 普通dropper＋PointFlow/FK参考 | 保留已有完整训练作为普通dropper参考 | **已完成训练**(20000步,checkpoint20000) | 1004按重复运行忽略;不与mix71混用 |
 | E6-dropper-mix-b | dropper DAgger mix71,cluster＋FK＋local RoPE | 复用E6b配方检查跨任务生成质量 | **已完成训练**(10000步,checkpoint10000;10-05核查) | 64条训练/7条验证,启动先eval,生成质量优先 |
 | E6-dropper-mix-a | dropper mix71,cluster＋FK,关闭local RoPE | E6-dropper-mix-b的同配方位置编码对照 | **等待中**(16卡指令就绪,未启动) | 同窗口/seed比较joint dream及PF/FK一致性 |
+| E7a | 仿真task21归一化video–action baseline | replay100文件、94/6分组划分,建立后续PointFlow/FK对照 | **等待中**(统计与数据加载校验通过,指令已交用户,运行待确认) | 固定验证窗口生成质量及动作一致性;当前自动eval关闭 |
 | E8-sandwich-wam | sandwich96/5归一化,原始video–action | 统一归一化后的同配方对照 | **启动失败,已修复待重试**(空PF路径误读目录) | 验证loss辅助,生成质量优先 |
 | E8-sandwich-nonlocal | sandwich96/5归一化,cluster＋skip＋PB＋FK,nonlocal | 统一归一化后的同配方对照 | **等待中**(启动指令就绪,未启动) | 验证loss辅助,生成质量优先 |
 | E8-sandwich-local | sandwich96/5归一化,cluster＋skip＋PB＋FK,local | 统一归一化后的同配方对照 | **等待中**(启动指令就绪,未启动) | 验证loss辅助,生成质量优先 |
@@ -542,6 +543,75 @@ GT视频＋GT flow＋GT FK / perpoint9000 / E6b9000 / perpoint19000;
 共享目录另有sim_v2、dagger-newcam等作业,未核验其完整配方,
 本次不将其归入上述E6消融编号。
 
+## E7 — 仿真系列
+
+### E7a — task21归一化video–action baseline,94训练/6验证【等待中,运行待确认】
+
+- **目的**:在仿真task21上建立video–action baseline,作为后续加入PointFlow/FK的质量与成本对照。本实验不含PointFlow/FK,不沿用E6的点位移scale。
+- **数据来源**:Hugging Face `Bench2Dex/teleopdata`,子目录
+  `dataset/21_condiment_box_loading/replay-generalization`。下载请求为`main`,未保存当时的commit revision;
+  100个原始HDF5的本次SHA256重算全部匹配下载清单。原始目录
+  `/data/shichaojian/raw_data/bench2dex/task21/replay-generalization/`。
+- **样本关系与划分**:100个文件对应50个基础轨迹组,每组原版与`_1`共用动作/物体世界轨迹,
+  改变视觉外观和相机外参。按用户确认采用**94训练/6验证**,即47组/3组;
+  `split_seed=42, split_val_ratio=0.06`,同组不跨集合。验证集为
+  `episode_000017`、`episode_000030`、`episode_000042`及各自的`_1`;
+  训练/验证窗口数为**56720 / 3470**。这不是精确95/5,也不是按episode随机拆组。
+- **预处理与latent**:按显式homing标记去掉末尾回零阶段,不修改原始HDF5;
+  overhead＋左右wrist三视图,20Hz、33观测帧/32动作步。复用
+  `/data/shichaojian/raw_data/bench2dex/task21/cosmos-cache/vae_window_latents/`,
+  全100条缓存就绪不表示全100条参与训练。
+- **归一化**:仅用新的94条训练集有效action帧重算,采用action-only q01/q99:
+  `offset=(q01+q99)/2`, `scale=max((q99-q01)/2,0.05)`,
+  `(action-offset)/scale`,不裁剪;state使用相同变换。未复用旧90/10统计。
+  统计文件与完整split名单见
+  [action_stats.json](../pointflow_outputs/task21_baseline_split94_6_20261005/action_stats.json)、
+  [split.json](../pointflow_outputs/task21_baseline_split94_6_20261005/split.json)。
+  启动时将统计快照保存到新OUTPUT_ROOT并固定SHA256。
+- **配方**:8卡、每卡batch16、梯度累积1(全局batch128),Flash2 varlen、full AC,
+  lr=2e-5、warmup100、max_iter与scheduler周期均20000、checkpoint每500步。
+  从基础DCP重新训练,使用独立OUTPUT_ROOT。归一化baseline实现位于
+  `/mnt/afs/WorldAct-cosmos3-edge-droid-sft-bench2dex`,当前工作区脚本负责指定94/6划分与统计路径。
+- **评估设置**:沿用baseline的`trainer.run_validation=false`、
+  `trainer.run_validation_on_start=false`;6条验证数据被保留,没有加入训练,
+  但当前指令不会自动生成验证视频。后续固定case评审以生成质量和动作一致性为主,
+  单项loss或指标不能代替质量判断。训练目标固定20000步,中途无收益可收尾。
+- **已完成核验**:统计文件对应94条训练集;训练和验证加载器均通过归一化契约校验,
+  轨迹组无交集;启动脚本通过`bash -n`。本次没有确认新训练已启动,不把CPU校验当作GPU训练通过。
+- **对比边界**:当前PointFlow/FK十条拟合实验来自`origin-generalization`,
+  与本实验replay100文件来源、规模和划分不同,不能直接作为是否加入PointFlow/FK的单因素对照。
+  后续对照应统一源episode、划分及归一化统计。
+
+**标准8卡前台指令**(用户自行启动;保留终端彩色日志):
+
+```bash
+bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_task21_baseline_normalized_94_6.sh
+```
+
+- OUTPUT_ROOT: `/data/shichaojian/runs/bench2dex/task21_normalized_94train_6val_20k_20261005`
+- 框架日志: `…/logs/action_policy_bench2dex_edge_sft.log`
+- 配置/checkpoint: `…/cosmos3_action/action_sft/action_policy_bench2dex_edge/`
+- 启动脚本前台运行,无nohup;通过`2>&1 | tee -a`将训练启动链的stdout/stderr
+  同时显示并追加到`…/logs/launcher.log`,包括归一化预检、Python traceback、CUDA/NCCL与torchrun报错。
+  `LOGURU_COLORIZE=true`保留彩色输出(完整日志会含ANSI颜色码),可设为false关闭;
+  `PYTHONUNBUFFERED=1`减少Python输出缓冲,`set -o pipefail`保留训练失败退出状态。
+  框架自身日志另行保存。脚本更新仅对下次启动生效,不会接管已运行进程的输出。
+- 数据溯源、100条episode与SHA256、逐窗口latent对应关系、两份完整渲染配置:
+  [baseline数据审计](../pointflow_outputs/task21_baseline_data_audit_20261005/README.md)。
+
+### E7b — task21 v3全局轨迹,94训练/6验证【数据就绪,训练未启动】
+
+- 数据:`/data/shichaojian/sim_data/bench2dex_task21_v3`,100条/50组,episode-global点ID。
+- 使用E7a同一94/6划分和action统计,按关节名称对齐为E7a的52维顺序;state复用action统计。
+- 按原baseline stride1生成60190个窗口,当前anchor/FK引导1024点(512全局＋每手256,5cm邻域),不按未来轨迹长度筛点。
+- 训练缓存:`/data/shichaojian/sim_data/bench2dex_task21_v3_training`;复用replay100的RGB/FK和原baseline VAE latent,不重新编码视频。
+- 模型沿用10条拟合配方:stage2、cluster＋skip1/2＋PB4、local RoPE Flash2 partition/varlen、compile、selective Flash2＋QKVO,8卡/每卡16/累积1,20000步。
+- val_on_start=true,每500步eval/save,联合PF/FK dream;保留每stage4窗、2个验证episode的现有可视化配方。
+- 选点缓存已完成60190窗(训练56720/验证3470),文件齐全。训练集有效位移逐坐标合并标准差:PointFlow `0.036562949780137605`,FK `0.07657469807970249`;启动脚本从选点manifest读取,不沿用10条尺度。
+- v3交付的`baseline_window_plan.json`与原latent的60190个窗口逐项匹配;stride1是交付原有约定,不改回stride32。原RGB/action/FK/VAE缓存复用。
+- 当前选点产物完整,未启动GPU训练。缓存对应记录:`pointflow_outputs/task21_v3_existing_cache_alignment.json`;选点/尺度汇总:`pointflow_outputs/task21_v3_selection_summary.json`。
+- 入口:`examples/launch_sim_pointfk_v3.sh`;默认OUTPUT_ROOT=`/data/shichaojian/runs/sim_v3_94train_6val_handguided1024_stage2_8gpu_20k`。
+
 ## E8 — 真机归一化重训系列【等待中】
 
 - **范围**:sandwich与dropper mix分别运行WAM、nonlocal PointFlow/FK、local PointFlow/FK,共6组。使用cluster＋skip＋PB,不跑per-point。
@@ -707,4 +777,6 @@ sandwich E2 若证明 skip+点级 block 能救 cluster,再在 dropper 上复现;
 | 2026-10-02 dropper mix迁移 | 核验71条mix数据及PF/FK/VAE覆盖,复核两项scale,新增E6-dropper-mix和专用16卡E6b配方脚本;按用户要求只提供平台指令,未启动训练。 |
 | 2026-10-05 | 复核实际日志: E6-perpoint到20000,E6a/E6b/mix-b到10000;更新E2系列最终日志步数,登记dropper-mix-a nonlocal对照及16卡指令。未操作训练作业。 |
 | 2026-10-05 dropper去重 | 登记普通dropper 1001已完成20000步;按用户要求将1004作为重复运行忽略,不纳入后续对比。与mix71实验区分;未执行停止作业。 |
+| 2026-10-05 E7仿真系列 | 新增E7a task21归一化video–action baseline:replay100文件按轨迹组94/6划分,重算训练集统计,复用latent;8卡batch16/20000步,前台彩色输出并保留框架日志。CPU数据校验通过,运行待确认;自动eval沿用关闭。 |
+| 2026-10-05 E7a日志补齐 | 前台启动链补回stdout/stderr合并及tee追加保存至logs/launcher.log,显式保留Loguru颜色和pipefail;不重启已有训练。 |
 | 2026-10-06 E8真机归一化 | 登记sandwich/dropper mix各WAM、nonlocal PF/FK、local PF/FK六组;5%验证、训练统计固定快照、cluster/skip/PB、统一20000步,补齐16卡命令。仅CPU验证,未启动新训练。 |

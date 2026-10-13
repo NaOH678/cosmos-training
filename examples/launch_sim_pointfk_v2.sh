@@ -5,7 +5,11 @@ cd "$ROOT"
 export PATH="/mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv/bin:$PATH"
 export LD_LIBRARY_PATH='' PYTHONPATH="$ROOT" OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-/data/shichaojian/sim_data/bench2dex_task21_pointfk10_rgb3_v2}"
-export SIM_POINTFK_SELECTION_ROOT="$SIM_POINTFK_BUNDLE/datasets/bench2dex-task21-cosmos-cache/pointflow_fk_handguided1024"
+SIM_POINTFK_CACHE="$SIM_POINTFK_BUNDLE/datasets/cosmos-cache"
+if [[ ! -d "$SIM_POINTFK_CACHE" ]]; then
+    SIM_POINTFK_CACHE="$SIM_POINTFK_BUNDLE/datasets/bench2dex-task21-cosmos-cache"
+fi
+export SIM_POINTFK_SELECTION_ROOT="$SIM_POINTFK_CACHE/pointflow_fk_handguided1024"
 export EDGE_DROID_MODEL_PATH=/data/shichaojian/models/cosmos3-edge-droid
 export BASE_CHECKPOINT_PATH=/data/shichaojian/models/cosmos3-edge-droid-dcp
 export WAN_VAE_PATH="$EDGE_DROID_MODEL_PATH/vae/Wan2.2_VAE.pth"
@@ -19,12 +23,27 @@ export POINTFLOW_FK_UNIFIED_EVAL=true POINTFLOW_EVAL_JOINT=true POINTFLOW_REFERE
 export TORCHINDUCTOR_MIX_ORDER_REDUCTION=0 TORCHINDUCTOR_PERSISTENT_REDUCTIONS=0
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True COSMOS_CPU_AFFINITY_MODE=partition
 export COSMOS_GPU_VIDEO_AUGMENTATION=false FK_ROLLOUT=false
+export SIM_POINTFK_VARIANT="${SIM_POINTFK_VARIANT:-local}"
+case "$SIM_POINTFK_VARIANT" in
+    local) ;;
+    nonlocal) export POINTFLOW_FK_LOCAL_ROPE=false ;;
+    wam)
+        export POINTFLOW_SONATA_CHECKPOINT='' FK_ENCODER_CHECKPOINT=''
+        export POINTFLOW_FK_LOCAL_ROPE=false POINTFLOW_FK_UNIFIED_EVAL=false POINTFLOW_EVAL_JOINT=false
+        ;;
+    *) echo "Unknown SIM_POINTFK_VARIANT: $SIM_POINTFK_VARIANT" >&2; exit 2 ;;
+esac
 readarray -t SCALES < <(python -c 'import json,os; d=json.load(open(os.environ["SIM_POINTFK_SELECTION_ROOT"]+"/manifest.json"))["train_only_scales"]; print(d["pointflow"]); print(d["fk"])')
 export POINTFLOW_DISPLACEMENT_SCALE="${SCALES[0]}" FK_DISPLACEMENT_SCALE="${SCALES[1]}"
 export OUTPUT_ROOT="${OUTPUT_ROOT:-/data/shichaojian/runs/sim_v2_handguided1024_stage2_selective16_8gpu_20261005}"
 export IMAGINAIRE_OUTPUT_ROOT="$OUTPUT_ROOT"
-export NPROC_PER_NODE=8 NNODES=1
-export MASTER_ADDR=127.0.0.1 NODE_RANK=0
+export SIM_ACTION_STATS_PATH="$SIM_POINTFK_BUNDLE/normalization_train_only.json"
+export SIM_ACTION_STATS_SHA256="$(sha256sum "$SIM_ACTION_STATS_PATH" | cut -d' ' -f1)"
+export NPROC_PER_NODE="${NPROC_PER_NODE:-${SENSECORE_ACCELERATE_DEVICE_COUNT:-8}}"
+export NNODES="${NNODES:-${SENSECORE_PYTORCH_NNODES:-1}}"
+if [[ "$NNODES" == 1 ]]; then
+    export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}" NODE_RANK="${NODE_RANK:-0}"
+fi
 export MASTER_PORT="${MASTER_PORT:-29644}"
 if [[ "${1:-}" == --background ]]; then
     mkdir -p "$OUTPUT_ROOT/logs"
@@ -37,5 +56,14 @@ TOML_FILE=examples/toml/sft_config/action_policy_sim_pointfk_edge.toml
 DATASET_PATH="$SIM_POINTFK_BUNDLE"
 TAIL_OVERRIDES=("model.config.rectified_flow_training_config.independent_pointflow_schedule=false"
  "model.config.rectified_flow_training_config.independent_fk_schedule=false" "trainer.seed=42"
+ "model.config.parallelism.data_parallel_shard_degree=$NPROC_PER_NODE"
+ "model.config.parallelism.data_parallel_replicate_degree=$NNODES"
  "trainer.run_validation_on_start=true" ${EXTRA_TAIL_OVERRIDES:-})
-source examples/_sft_launcher_common.sh
+if [[ "${DRY_RUN:-0}" == 1 ]]; then
+    python -m cosmos_framework.scripts.train --dryrun --sft-toml="$TOML_FILE" -- "${TAIL_OVERRIDES[@]}"
+else
+    RESULT="$(python tools/prepare_normalized_run.py --kind sim --stats "$SIM_ACTION_STATS_PATH" --output-root "$OUTPUT_ROOT")"
+    export SIM_ACTION_STATS_PATH="$(head -n1 <<< "$RESULT")"
+    export SIM_ACTION_STATS_SHA256="$(tail -n1 <<< "$RESULT")"
+    source examples/_sft_launcher_common.sh
+fi

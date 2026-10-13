@@ -25,12 +25,19 @@ class SimPointFKSFTDataset(Dataset):
         max_action_dim,
         *,
         cached_video_only=False,
+        include_geometry=True,
+        action_stats_path=None,
+        action_stats_sha256=None,
     ):
         self.cached_video_only = cached_video_only
+        self.include_geometry = include_geometry
         self.root = Path(bundle)
-        self.cache = self.root / "datasets/bench2dex-task21-cosmos-cache"
+        self.cache = self.root / "datasets/cosmos-cache"
+        if not self.cache.exists():
+            self.cache = self.root / "datasets/bench2dex-task21-cosmos-cache"
         self.selected = Path(selection_root)
         selection = json.loads((self.selected / "manifest.json").read_text())
+        self.source_geometry_root = selection.get("source_geometry_root")
         if selection["schema"] != "sim_pointfk_handguided1024_v1":
             raise ValueError("Unsupported point selection cache")
         self.rows = [r for r in selection["windows"] if r["split"] == ("validation" if split == "val" else split)]
@@ -53,7 +60,16 @@ class SimPointFKSFTDataset(Dataset):
         self.offsets = {
             name: {start: i for i, start in enumerate(r["start_frames"])} for name, r in self.latents.items()
         }
-        norm = json.loads((self.root / "normalization_train_only.json").read_text())
+        stats_path = Path(action_stats_path) if action_stats_path else self.root / "normalization_train_only.json"
+        payload = stats_path.read_bytes()
+        digest = hashlib.sha256(payload).hexdigest()
+        if action_stats_sha256 and digest != action_stats_sha256:
+            raise ValueError("Simulation action statistics SHA256 mismatch")
+        if action_stats_sha256 and not action_stats_path:
+            raise ValueError("action_stats_sha256 requires action_stats_path")
+        if selection.get("action_stats_sha256") and selection["action_stats_sha256"] != digest:
+            raise ValueError("Selection and action statistics differ")
+        norm = json.loads(payload)
         if not norm["source"].startswith("training episodes only"):
             raise ValueError("Action statistics include validation")
         self.joint_names = norm["joint_names"]
@@ -86,6 +102,11 @@ class SimPointFKSFTDataset(Dataset):
         saved = torch.load(self.selected / row["path"], map_location="cpu", weights_only=False)
         ids = np.asarray(row["frame_ids"])
         name, start = row["episode"], row["start_frame"]
+        if self.include_geometry and self.source_geometry_root:
+            episode_root = Path(self.source_geometry_root) / name
+            saved["pointflow"]["metadata"].update(
+                source_path=str(episode_root / "pointflow"), preview_video=str(episode_root / "head.mp4")
+            )
         np.testing.assert_array_equal(saved["raw_frame_ids"], ids)
         if saved["joint_names"] != self.joint_names:
             raise ValueError("Action joint order changed")
@@ -106,12 +127,12 @@ class SimPointFKSFTDataset(Dataset):
             domain_id=torch.tensor(28),
             viewpoint="concat_view",
             additional_view_description="Head on top; left wrist bottom-left; right wrist bottom-right.",
-            pointflow=saved["pointflow"],
-            fk=saved["fk"],
             episode_name=name,
             raw_frame_ids=ids,
             vae_latent_cache=torch.from_numpy(bits).view(torch.bfloat16).unsqueeze(0),
         )
+        if self.include_geometry:
+            sample.update(pointflow=saved["pointflow"], fk=saved["fk"])
         if self.cached_video_only:
             # RGB contains only the anchor; targets and full temporal extent live in the cache.
             sample["cached_video_num_frames"] = len(ids)
@@ -132,6 +153,9 @@ def get_sim_pointfk_sft_dataset(
     iterable_shuffle=True,
     use_image_augmentation=False,
     cached_video_only=True,
+    include_geometry=True,
+    action_stats_path=None,
+    action_stats_sha256=None,
 ):
     if use_image_augmentation:
         raise ValueError("Image augmentation is incompatible with fixed VAE latents")
@@ -144,5 +168,8 @@ def get_sim_pointfk_sft_dataset(
         max_action_dim,
         # Eval callbacks reconstruct even train cases with iterable_shuffle=False.
         cached_video_only=cached_video_only and split == "train" and iterable_shuffle,
+        include_geometry=include_geometry,
+        action_stats_path=action_stats_path,
+        action_stats_sha256=action_stats_sha256,
     )
     return ActionIterableShuffleDataset(ds, seed=42, max_block_size=4) if iterable_shuffle else ds

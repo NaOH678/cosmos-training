@@ -53,3 +53,43 @@ class FKTiming:
         if durations is not None and timing.steps + 1 not in durations:
             raise ValueError("FK states do not match Cosmos encode_exact_durations")
         return timing
+
+
+def fk_window_sample(archive, frame_ids, episode, fps=20):
+    """Pack existing dual-hand camera-space FK arrays; no robot-specific FK solving."""
+    frame_ids = np.asarray(frame_ids, dtype=np.int64)
+    rows = np.searchsorted(archive["source_frame_ids"], frame_ids)
+    np.testing.assert_array_equal(archive["source_frame_ids"][rows], frame_ids)
+    timing = FKTiming(fps=fps, steps=len(frame_ids) - 1, steps_per_token=4)
+    positions = archive["positions_camera"][rows].reshape(len(rows), 42, 3).astype(np.float32)
+    if not np.isfinite(positions).all():
+        raise ValueError("Nonfinite FK positions")
+    anchor = positions[0]
+    projected = anchor @ archive["intrinsics"].T
+    uv = projected[:, :2] / projected[:, 2:]
+    width, height = archive["image_size_wh"]
+    names = ["wrist", "thumb_cmc", "thumb_mcp", "thumb_ip", "thumb_tip"]
+    for finger in ("index", "middle", "ring", "pinky"):
+        names += [f"{finger}_{joint}" for joint in ("mcp", "pip", "dip", "tip")]
+    return dict(
+        inputs=dict(
+            anchor_xyz=anchor.copy(),
+            point_ids=np.arange(42, dtype=np.int64),
+            anchor_uv=uv.astype(np.float32),
+            image_size_wh=np.array([width, height]),
+        ),
+        targets=dict(displacement=positions[1:] - anchor[None], valid=np.ones((timing.steps, 42), bool)),
+        metadata=dict(
+            episode=episode,
+            start_frame=int(frame_ids[0]),
+            raw_frame_ids=frame_ids.copy(),
+            timing=timing,
+            hand="both",
+            hand_order=["left", "right"],
+            coordinate="fixed_optical_camera",
+            point_block_seconds=np.arange(4, timing.steps + 1, 4) / fps,
+            geometry_source="observed qpos + URDF; future qpos only supplies target labels",
+            validity_semantics="FK geometry known from proprioception, independent of camera visibility",
+            keypoint_names=[f"{side}_{name}" for side in ("left", "right") for name in names],
+        ),
+    )

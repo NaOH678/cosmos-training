@@ -1,0 +1,72 @@
+{
+  "checked_date": "2026-10-07",
+  "contract": {
+    "schema": "bench2dex_valid_window_latents_v1",
+    "fps": 20,
+    "chunk_length": 32,
+    "sample_stride": 1,
+    "resolution": "480",
+    "storage": "bfloat16_bits_in_uint16",
+    "vae_batch_size": 1,
+    "state_manifest_sha256": "de4b40f7f13e3179ac97a49a2266c682c56fb9d94a5adf8941b18a3908d8e0d7",
+    "video_manifest_sha256": "2883dec10897fca70e9c91088540e9d4a67f0469e9156ca962ee4abc462258c5",
+    "vae_sha256": "20eb789667fa5e60e7516bf509512f6cb61f01b0aa0695eadaea930c13892b36"
+  },
+  "episodes": 100,
+  "windows": 60190,
+  "missing_or_size_mismatch": [],
+  "files": [
+    {
+      "path": "/mnt/afs/Bench2Dex/analysis/bench2dex_cosmos_setup/cache_bench2dex_latents.py",
+      "sha256": "5362032ec3a2d9e1a9db544cbcd224ecd945d3debb855a27a7f5be83d697c28f",
+      "bytes": 6725
+    },
+    {
+      "path": "/mnt/afs/Bench2Dex/analysis/bench2dex_cosmos_setup/cache_bench2dex_latents.sh",
+      "sha256": "7ccb153b8067fe54d093584ad6d553d98a24ee923f611cc9ba60f15b00d49853",
+      "bytes": 680
+    },
+    {
+      "path": "/mnt/afs/Bench2Dex/analysis/bench2dex_cosmos_setup/latent_prefetch.py",
+      "sha256": "91332e9518cb02f533c8bfaadfd72d1d4af3f67dbe7077cbb20e8f2fc13cf1aa",
+      "bytes": 1386
+    },
+    {
+      "path": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-bench2dex/tools/prepare_bench2dex.py",
+      "sha256": "621932b126a3926cd4cf6560a444843f9b2d268534a2500b78073ebcb7156e53",
+      "bytes": 6650
+    },
+    {
+      "path": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-bench2dex/cosmos_framework/data/generator/action/transforms.py",
+      "sha256": "9efd26f6934aaec206014ed1f0c4535b464214e77b89ccb0e48a8bcf54e9212d",
+      "bytes": 32707
+    },
+    {
+      "path": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-bench2dex/cosmos_framework/data/generator/action/datasets/bench2dex_dataset.py",
+      "sha256": "45b8a678bcfdb57c2ef605b6525bf32db14cb810e26d219c34d67293fd837951",
+      "bytes": 6678
+    },
+    {
+      "path": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft-bench2dex/cosmos_framework/model/generator/tokenizers/wan2pt2_vae_4x16x16.py",
+      "sha256": "78dc3a403370e477014010bdcc23d93b24b9f11fa6086582fbb8df7e0908514c",
+      "bytes": 71450
+    },
+    {
+      "path": "/data/shichaojian/raw_data/bench2dex/task21/cosmos-cache/vae_window_latents/window_manifest.json",
+      "sha256": "a3f687d0e6f1f686371c7856bb10148dc632cec73e0b72c5d49aedb73cdae0ca",
+      "bytes": 870801
+    },
+    {
+      "path": "/data/shichaojian/models/cosmos3-edge-droid/vae/Wan2.2_VAE.pth",
+      "sha256": "20eb789667fa5e60e7516bf509512f6cb61f01b0aa0695eadaea930c13892b36",
+      "bytes": 2818839170
+    },
+    {
+      "path": "/data/shichaojian/sim_data/bench2dex_task21_v3_training/normalization_train_only.json",
+      "sha256": "5a23f91fd6707a73a31f9d34f6b81630817d6437a21373cb0cd4e5348697aec4",
+      "bytes": 32756
+    }
+  ],
+  "current_baseline_repo_head": "e9e489de99a30019c750ee77b48677a92e402ddd",
+  "provenance_limit": "Current source hashes and HEAD, not a verified historical encoding-time snapshot. No fresh GPU encoding or full latent content hashing performed."
+}
