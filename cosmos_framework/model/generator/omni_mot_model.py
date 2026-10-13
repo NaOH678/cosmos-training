@@ -2203,6 +2203,21 @@ class OmniMoTModel(ImaginaireModel):
             seed_dict["pointflow"].append(seed[sample_idx])
             seed_dict["fk"].append(seed[sample_idx] + MODALITY_SEED_STRIDE)
 
+        # Eval-only probe: JOINT_SAMPLE_SEED_OFFSETS="pointflow:1,fk:1" redraws the start
+        # noise of the named modalities and leaves every other stream bit-identical, so
+        # the change in the generated action measures how much it follows PointFlow/FK.
+        # Unset (the default) keeps every existing output unchanged.
+        seed_offsets = {}
+        for item in filter(None, os.environ.get("JOINT_SAMPLE_SEED_OFFSETS", "").split(",")):
+            name, value = (part.strip() for part in item.split(":"))
+            if name not in seed_dict:
+                raise ValueError(f"JOINT_SAMPLE_SEED_OFFSETS: unknown modality {name!r}, expected {list(seed_dict)}")
+            seed_offsets[name] = int(value)
+        for name, offset in seed_offsets.items():
+            seed_dict[name] = [value + offset for value in seed_dict[name]]
+        if seed_offsets and distributed.is_rank0():
+            log.info(f"JOINT_SAMPLE_SEED_OFFSETS applied: {seed_offsets}")
+
         # Generate noise and apply conditioning per vision item (supports variable shapes).
         # Noise and the conditioning blend are kept in fp32 so the sampler accumulates
         # in full precision. x0_token is already fp32 (forced by .float() in

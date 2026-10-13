@@ -265,6 +265,7 @@ OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash /mnt/afs/WorldA
 | `POINTFLOW_SELECT_REGION_QUOTAS` | 空(扁平排名) | 分层语义配额,如 `2:0.40,3:0.45,4:0.15`(手/物/台面);需配合 `SELECT_TOP_N>0`,组内仍按 GT 运动排名,缺额全局回补 |
 | `POINTFLOW_SELECT_PHANTOM_GUARD=true` | false | 幻影点(uv 冻结但 3D 漂移)降级到排名末尾;101 集实测选中点幻影占比 7.5%→0.7% |
 | `POINTFLOW_WINDOW_CACHE_ROOT` | 空(在线算) | 预计算窗口缓存目录(数据管线步骤 3b);缓存后每样本读 ~120KB 而非 ~205MB |
+| `JOINT_SAMPLE_SEED_OFFSETS` | 空 | eval探针:只换指定模态的联合采样初始噪声,如 `pointflow:1,fk:1`;用法见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#3-联合采样种子探针) |
 
 ### resume 语义(查证结论)
 
