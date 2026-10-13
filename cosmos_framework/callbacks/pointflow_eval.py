@@ -88,8 +88,12 @@ def make_preview(
                 bgr = frames_bgr_override[t]
             height = max(2, round(bgr.shape[0] * width / bgr.shape[1] / 2) * 2)
             frames.append(cv2.resize(bgr, (width, height)))
-            uv = read_frame(source / "uv_px.npy", int(row)).reshape(-1, 2)[ids]
-            k = read_frame(intrinsics_path, int(row)) if intrinsics_path.is_file() else _LABELED_INTRINSICS
+            if "preview_gt_uv" in metadata:
+                uv = _numpy(metadata["preview_gt_uv"])[t]
+                k = _numpy(metadata["preview_intrinsics_normalized"])
+            else:
+                uv = read_frame(source / "uv_px.npy", int(row)).reshape(-1, 2)[ids]
+                k = read_frame(intrinsics_path, int(row)) if intrinsics_path.is_file() else _LABELED_INTRINSICS
             xyz = xyz0 + flow[t]
             projected = xyz @ k.T
             with np.errstate(divide="ignore", invalid="ignore"):
