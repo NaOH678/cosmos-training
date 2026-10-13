@@ -38,7 +38,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from cosmos_framework.data.fk_camera_extrinsic import base_to_camera  # noqa: E402
+from cosmos_framework.data.fk_camera_profiles import camera_transform  # noqa: E402
 
 DEFAULT_ROOT = "/data/shichaojian/raw_data/sandwich_fk21"
 DEFAULT_EPISODES = Path("examples/pointflow_sandwich_10_episodes.txt")
@@ -51,14 +51,15 @@ SAMPLE_STRIDE = 1
 HAND_INDEX = 1  # right hand; the left is not annotated as observed here
 
 
-def windows(positions: np.ndarray):
+def windows(positions: np.ndarray, camera_profile="legacy"):
     """Every training window of one episode, as ``[chunk+1, 21, 3]`` slices."""
+    rotation, translation = camera_transform(camera_profile)
     last_start = len(positions) - 1 - CHUNK_LENGTH * SOURCE_STRIDE
     if last_start < 0:
         return
     for start in range(0, last_start + 1, SAMPLE_STRIDE):
         ids = start + np.arange(CHUNK_LENGTH + 1) * SOURCE_STRIDE
-        camera = base_to_camera(positions[ids])
+        camera = np.asarray(positions[ids], dtype=np.float64) @ rotation.T + translation
         yield camera[1:] - camera[0]
 
 
@@ -66,6 +67,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--root", default=DEFAULT_ROOT, help="FK annotation tree (one dir per episode)")
     parser.add_argument("--episodes", type=Path, default=DEFAULT_EPISODES, help="episode allowlist")
+    parser.add_argument("--camera-profile", choices=("legacy", "dagger"), default="legacy")
     args = parser.parse_args()
 
     episodes = [line.strip() for line in args.episodes.read_text().split() if line.strip()]
@@ -95,7 +97,7 @@ def main() -> None:
                     f"{episode}: expected Link_Base metres, got {store['coordinate_frame']!r} {store['units']!r}"
                 )
             positions = np.asarray(store["positions"])[:, HAND_INDEX]
-        for displacement in windows(positions):
+        for displacement in windows(positions, args.camera_profile):
             flat = displacement.reshape(-1).astype(np.float64)
             n_b = flat.size
             mean_b = float(flat.mean())

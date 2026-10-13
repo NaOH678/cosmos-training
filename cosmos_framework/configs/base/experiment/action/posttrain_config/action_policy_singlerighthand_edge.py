@@ -443,6 +443,7 @@ dataloader["datasets"] = {
             episode_allowlist="${oc.env:POINTFLOW_EPISODE_ALLOWLIST,}",
             pointflow_manifest="${oc.env:POINTFLOW_MANIFEST,/mnt/shared-storage-gpfs2/ailab-eailabagent-gpfs/shichaojian/WorldAct-cosmos3-edge-droid-sft/pointflow_outputs/task5/mixed_manifest.json}",
             fk_root="${oc.env:FK_ANNOTATION_ROOT,}",
+            fk_camera_profile="${oc.env:FK_CAMERA_PROFILE,legacy}",
             pointflow_max_points=8192,
             pointflow_voxel_size=0.02,
             pointflow_seed=42,

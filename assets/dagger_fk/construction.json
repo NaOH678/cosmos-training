@@ -1,0 +1,116 @@
+{
+  "source_urdf": "/data/shichaojian/wuji-mjlab/marvin_wuji_d435_description/urdf/marvin_wuji_d435_complete.urdf",
+  "source_stl": "/data/shichaojian/wuji-mjlab/marvin_wuji_d435_description/urdf/Terrific Amberis (3).stl",
+  "source_urdf_sha256": "6abd3b19b2c741735dca899494d70e08d238117b578ffc0bd0e517da0c5b1d2b",
+  "source_stl_sha256": "c2649ed8cf665012fb04878cdb68c1de42b4252613dc5265279047d16e263ff9",
+  "hole_fits": [
+    {
+      "center_mm": [
+        12.000126989839623,
+        32.002908707632095,
+        0.0
+      ],
+      "radius_mm": 1.9944832625377735,
+      "residual_mm": 0.0037002113462700744
+    },
+    {
+      "center_mm": [
+        11.999272864665887,
+        52.01017482885505,
+        0.0
+      ],
+      "radius_mm": 1.9968534455196612,
+      "residual_mm": 0.0020932021740916393
+    },
+    {
+      "center_mm": [
+        62.000648567389256,
+        32.005047338319336,
+        0.0
+      ],
+      "radius_mm": 1.996099535370113,
+      "residual_mm": 0.002504904545823286
+    },
+    {
+      "center_mm": [
+        61.99946373427661,
+        52.00999455002596,
+        0.0
+      ],
+      "radius_mm": 1.9972345160037317,
+      "residual_mm": 0.0014026988551107903
+    },
+    {
+      "center_mm": [
+        -7.930033419200187,
+        20.5044024675543,
+        161.86757264422326
+      ],
+      "radius_mm": 1.2484078717047786,
+      "residual_mm": 0.001911628818820527
+    },
+    {
+      "center_mm": [
+        -7.929364215329846,
+        65.50305319250239,
+        161.8670438985582
+      ],
+      "radius_mm": 1.248110794031457,
+      "residual_mm": 0.0024833239905204664
+    }
+  ],
+  "stl_to_bracket_rotation": [
+    [
+      1.0,
+      0.0,
+      0.0
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ],
+    [
+      0.0,
+      -1.0,
+      0.0
+    ]
+  ],
+  "stl_to_bracket_translation_mm": [
+    -38.49987803904285,
+    -2.5,
+    62.00703135620811
+  ],
+  "old_camera_xyz_m": [
+    -0.04878840219,
+    0.14613259516,
+    0.02
+  ],
+  "new_camera_xyz_m": [
+    -0.06219464641221836,
+    0.13990032302305638,
+    0.019003303526179762
+  ],
+  "old_camera_rpy_rad": [
+    0.0,
+    -1.57079632679,
+    0.698131700798
+  ],
+  "new_camera_rpy_rad": [
+    0.0,
+    -1.57079632679,
+    0.8900860250338967
+  ],
+  "camera_rotation_change_deg": 10.998172638002652,
+  "old_top_hole_center_m": [
+    -0.029599018999999997,
+    0.162234412,
+    0.02
+  ],
+  "new_top_hole_center_m": [
+    -0.04642957685630786,
+    0.15936730827139073,
+    0.019003303526179762
+  ],
+  "output": "/mnt/afs/WorldAct-cosmos3-edge-droid-sft_base/assets/dagger_fk/marvin_wuji_d435_dagger.urdf"
+}

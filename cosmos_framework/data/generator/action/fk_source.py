@@ -21,7 +21,7 @@ from pathlib import Path
 
 import numpy as np
 
-from cosmos_framework.data.fk_camera_extrinsic import base_to_camera
+from cosmos_framework.data.fk_camera_profiles import camera_transform
 from cosmos_framework.data.fk_window import FKTiming
 
 # ``wuji_fk21.npz`` stores both hands; this dataset only ever observes the right.
@@ -40,7 +40,9 @@ class FKSource:
     exported to their own tree.
     """
 
-    def __init__(self, root, *, timing: FKTiming, hand: str = "right", cache_size: int = 2):
+    def __init__(
+        self, root, *, timing: FKTiming, hand: str = "right", cache_size: int = 2, camera_profile: str = "legacy"
+    ):
         if hand not in HAND_INDEX:
             raise ValueError(f"hand must be one of {sorted(HAND_INDEX)}, got {hand!r}")
         if cache_size < 1:
@@ -49,6 +51,8 @@ class FKSource:
         if not self.root.is_dir():
             raise FileNotFoundError(f"FK annotation root is not a directory: {self.root}")
         self.timing, self.hand, self.side = timing, hand, HAND_INDEX[hand]
+        self.camera_profile = camera_profile
+        self._camera_r, self._camera_t = camera_transform(camera_profile)
         self._cache: OrderedDict[str, np.ndarray] = OrderedDict()
         self._cache_size = cache_size
 
@@ -114,7 +118,7 @@ class FKSource:
             )
         # Rotate once for the whole window: the transform is a single constant, and
         # differencing in the camera frame is the same as differencing in base.
-        camera = base_to_camera(positions[frame_ids]).astype(np.float64)  # [steps+1, 21, 3]
+        camera = np.asarray(positions[frame_ids], dtype=np.float64) @ self._camera_r.T + self._camera_t
         anchor = camera[0]
         displacement = camera[1:] - anchor[None]
         valid = np.ones(displacement.shape[:2], dtype=bool)  # every annotated frame is usable
@@ -137,6 +141,7 @@ class FKSource:
                 "timing": self.timing,
                 "hand": self.hand,
                 "coordinate": "camera_d435_real",
+                "camera_profile": self.camera_profile,
                 "point_block_seconds": np.arange(
                     self.timing.steps_per_token, self.timing.steps + 1, self.timing.steps_per_token
                 )

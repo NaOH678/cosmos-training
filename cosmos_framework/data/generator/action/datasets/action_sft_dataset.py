@@ -210,6 +210,7 @@ def get_action_singlerighthand_raw_sft_dataset(
     shuffle_block_size: int | None = 256,
     fk_root: str | None = None,
     fk_steps_per_token: int = 4,
+    fk_camera_profile: str = "legacy",
 ) -> Dataset:
     """Build single-right-hand WAM SFT from raw MP4s and extracted NPZ arrays."""
     dataset = SingleRightHandRawDataset(
@@ -247,6 +248,7 @@ def get_action_singlerighthand_raw_sft_dataset(
         video_cache_resolution=resolution,
         fk_root=fk_root,
         fk_steps_per_token=fk_steps_per_token,
+        fk_camera_profile=fk_camera_profile,
     )
     transform = ActionTransformPipeline(
         video_temporal_downsample=video_temporal_downsample,

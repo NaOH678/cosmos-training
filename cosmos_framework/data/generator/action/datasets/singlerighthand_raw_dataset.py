@@ -105,6 +105,7 @@ class SingleRightHandRawDataset(Dataset):
         episode_allowlist: str | None = None,
         fk_root: str | None = None,
         fk_steps_per_token: int = 4,
+        fk_camera_profile: str = "legacy",
         pointflow_manifest: str | None = None,
         pointflow_max_points: int = 8192,
         pointflow_voxel_size: float = 0.02,
@@ -277,7 +278,7 @@ class SingleRightHandRawDataset(Dataset):
             from cosmos_framework.data.generator.action.fk_source import FKSource
 
             timing = FKTiming(fps=self._fps, steps=self._chunk_length, steps_per_token=int(fk_steps_per_token))
-            self._fk_source = FKSource(fk_root, timing=timing)
+            self._fk_source = FKSource(fk_root, timing=timing, camera_profile=fk_camera_profile)
             missing = [e.name for e in self._episodes if not self._fk_source.path_for(e.name).is_file()]
             if missing:
                 raise ValueError(f"FK annotations are missing for selected episodes: {missing[:3]}")

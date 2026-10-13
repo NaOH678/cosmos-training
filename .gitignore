@@ -1,4 +1,5 @@
-/assets
+/assets/*
+!/assets/dagger_fk/
 /credentials
 /datasets
 /outputs

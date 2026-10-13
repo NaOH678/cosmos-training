@@ -154,3 +154,37 @@ def test_existing_projection_composes_pixel_center_affine():
     pf["metadata"]["raw_frame_ids"] = frames + 1
     with pytest.raises(ValueError, match="identical source frames"):
         attach_fk_projection(fk, pf)
+
+
+def test_dagger_camera_is_explicit_and_does_not_change_legacy(root):
+    from cosmos_framework.data.fk_camera_profiles import camera_transform
+
+    base = write_annotation(root, "ep")
+    ids = np.arange(0, 66, 2)
+    legacy = FKSource(root, timing=TIMING)
+    before = legacy.load("ep", ids)
+    dagger = FKSource(root, timing=TIMING, camera_profile="dagger").load("ep", ids)
+    rotation, translation = camera_transform("dagger")
+    expected = base[ids, 1] @ rotation.T + translation
+    np.testing.assert_allclose(dagger["inputs"]["anchor_xyz"], expected[0], atol=1e-7)
+    np.testing.assert_allclose(dagger["targets"]["displacement"], expected[1:] - expected[0], atol=1e-7)
+    assert not np.allclose(dagger["inputs"]["anchor_xyz"], before["inputs"]["anchor_xyz"])
+    after = legacy.load("ep", ids)
+    np.testing.assert_array_equal(before["inputs"]["anchor_xyz"], after["inputs"]["anchor_xyz"])
+    np.testing.assert_array_equal(before["targets"]["displacement"], after["targets"]["displacement"])
+    assert dagger["metadata"]["camera_profile"] == "dagger"
+    with pytest.raises(ValueError, match="unknown FK camera profile"):
+        FKSource(root, timing=TIMING, camera_profile="typo")
+
+
+def test_dagger_frozen_transform_matches_urdf():
+    from pathlib import Path
+
+    from cosmos_framework.data.fk_camera_profiles import camera_transform
+    from tools.verify_fk_camera_projection import base_to_head_camera, roll_about_z
+
+    path = Path(__file__).resolve().parents[4] / "assets/dagger_fk/marvin_wuji_d435_dagger.urdf"
+    r, t = base_to_head_camera(str(path))
+    expected_r, expected_t = camera_transform("dagger")
+    np.testing.assert_allclose(expected_r, roll_about_z(180) @ r, atol=1e-12)
+    np.testing.assert_allclose(expected_t, roll_about_z(180) @ t, atol=1e-12)
