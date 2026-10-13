@@ -379,6 +379,13 @@ class OmniMoTModel(ImaginaireModel):
                         xyz_scale=float(os.environ.get("FK_XYZ_SCALE", "1.0")),
                     )
 
+        joint_mask_rules = joint_switches.resolve_joint_attn_mask(getattr(self.config, "joint_attn_mask", ""))
+        if joint_mask_rules:
+            net.joint_attn_mask_rules = joint_mask_rules
+            log.info(
+                f"joint_attn_mask={self.config.joint_attn_mask!r}: blocked query<-key pairs (all tokens) "
+                f"{[f'{q}<-{k}' for q, k in joint_mask_rules]}"
+            )
         return net
 
     def load_pretrained_model_if_needed(

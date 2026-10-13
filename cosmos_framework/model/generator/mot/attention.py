@@ -120,9 +120,15 @@ def two_way_attention(
     packed_key_states: SequencePack,
     packed_value_states: SequencePack,
     packed_key_states_normalized: SequencePack | None = None,
+    modality_gather=None,
 ):
     """
     Performs two-way attention with causal and full attention.
+
+    ``modality_gather``: optional ``joint_sample_switches.ModalityGather``
+    (``model.config.joint_attn_mask``).  The generator's full attention then runs
+    one varlen segment per (sample, query modality) over the keys that modality
+    may read, which equals the masked attention exactly.
 
     ``packed_key_states_normalized``: optional alternative K pack used for the generator's
     full attention (gen→all).  When provided, the generator attends to these keys
@@ -204,12 +210,26 @@ def two_way_attention(
             max_seqlen_KV=packed_query_states["max_sample_len"],
         )
 
-    full_res = attention(
-        full_q.unsqueeze(0),  # [1,N_full,heads,head_dim]
-        get_all_seq(packed_key_normalized).unsqueeze(0),  # [1,N_all,heads,head_dim]  normed und K for gen
-        get_all_seq(packed_value_states).unsqueeze(0),  # [1,N_all,heads,head_dim]
-        **full_varlen_kwargs,
-    )  # [1,N_full,heads,head_dim]
+    if modality_gather is None:
+        full_res = attention(
+            full_q.unsqueeze(0),  # [1,N_full,heads,head_dim]
+            get_all_seq(packed_key_normalized).unsqueeze(0),  # [1,N_all,heads,head_dim]  normed und K for gen
+            get_all_seq(packed_value_states).unsqueeze(0),  # [1,N_all,heads,head_dim]
+            **full_varlen_kwargs,
+        )  # [1,N_full,heads,head_dim]
+    else:
+        gather = modality_gather
+        gathered = attention(
+            full_q.index_select(0, gather.q_index).unsqueeze(0),  # [1,N_gen,heads,head_dim]
+            get_all_seq(packed_key_normalized).index_select(0, gather.kv_index).unsqueeze(0),  # [1,N_kv,kv_heads,D]
+            get_all_seq(packed_value_states).index_select(0, gather.kv_index).unsqueeze(0),  # [1,N_kv,kv_heads,D]
+            cumulative_seqlen_Q=gather.cu_seqlens_q,
+            cumulative_seqlen_KV=gather.cu_seqlens_kv,
+            max_seqlen_Q=gather.max_seqlen_q,
+            max_seqlen_KV=gather.max_seqlen_kv,
+        )  # [1,N_gen,heads,head_dim]
+        # Back to full-only order; rows past the real tokens (padding) stay zero.
+        full_res = full_q.new_zeros(full_q.shape).index_copy(0, gather.q_index, gathered.squeeze(0)).unsqueeze(0)
 
     # [1,N_full,heads,head_dim] -> [N_full,heads,head_dim] -> [N_full,heads*head_dim]
     full_out = full_res.squeeze(0).flatten(-2, -1)  # type: ignore  # [N_full,heads*head_dim]
@@ -556,6 +576,7 @@ def dispatch_attention(
             packed_key_states,
             packed_value_states,
             packed_key_states_normalized=packed_key_states_normalized,
+            modality_gather=getattr(attention_mask, "modality_gather", None),
         )
     return output, None
 

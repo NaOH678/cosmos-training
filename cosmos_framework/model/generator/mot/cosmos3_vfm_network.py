@@ -14,6 +14,7 @@ from cosmos_framework.data.generator.sequence_packing.natten import verify_natte
 from cosmos_framework.model.generator.fk_sequence import attach_fk_tokens, fk_positions
 from cosmos_framework.model.generator.joint_sample_switches import (
     build_joint_attn_allowed,
+    build_modality_gather,
     get_active_joint_attn_block,
 )
 from cosmos_framework.model.generator.mot.attention import SplitInfo, build_packed_sequence
@@ -1281,6 +1282,29 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             attention_meta.joint_attn_allowed = build_joint_attn_allowed(
                 packed_seq, joint_block_rules, packed_sequence.device
             )
+
+        # model.config.joint_attn_mask (fixed; training and inference), installed by OmniMoTModel.build_net.
+        # The plan travels in attention_meta, so activation-checkpoint recomputation sees the same mask.
+        joint_mask_rules = getattr(self, "joint_attn_mask_rules", ())
+        if joint_mask_rules:
+            if joint_block_rules:
+                raise NotImplementedError("JOINT_ATTN_BLOCK probes cannot be combined with model.config.joint_attn_mask")
+            if attention_meta.pointflow_modalities is not None or hasattr(self, "local_depth_frequencies"):
+                raise NotImplementedError(
+                    "joint_attn_mask is not supported with the PointFlow reference or local-RoPE geometry attention"
+                )
+            if (
+                sequence_shard_world_size != 1
+                or memory is not None
+                or packed_seq.control_weights is not None
+                or use_video_temporal_causal
+                or self.pad_for_cuda_graphs
+                or attention_meta.is_three_way
+            ):
+                raise NotImplementedError(
+                    "joint_attn_mask requires CP=1, two-way attention, no memory/controls/temporal causal/cudagraph padding"
+                )
+            attention_meta.modality_gather = build_modality_gather(packed_seq, joint_mask_rules, packed_sequence.device)
 
         if hasattr(self, "local_depth_frequencies"):
             from cosmos_framework.model.generator.pointflow_fk_attention import make_partition

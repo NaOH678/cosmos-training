@@ -735,6 +735,10 @@ class PackedAttentionMoT(nn.Module):
             )
             kv_to_store = None
         else:
+            if getattr(attention_mask, "modality_gather", None) is not None and (
+                self.dispatch_attention_fn != dispatch_attention or memory_value is not None
+            ):
+                raise ValueError("joint_attn_mask requires the standard dispatch without memory")
             packed_attn_output, kv_to_store = self.dispatch_attention_fn(
                 packed_query_states_,
                 packed_key_states_,

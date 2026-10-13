@@ -26,6 +26,7 @@ from __future__ import annotations
 import math
 import os
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Callable, Sequence
 
 import torch
@@ -216,6 +217,123 @@ def build_joint_attn_allowed(packed_seq, rules: Sequence[tuple[str, str]], devic
                 f"(present: {sorted(present)})"
             )
     return ~build_blocked_matrix(ids, noisy, rules, query_start=text_len)
+
+
+# ---------------------------------------------------------------------------
+# fixed modality mask (training + inference): ``model.config.joint_attn_mask``
+# ---------------------------------------------------------------------------
+
+# Rule sets of the modality-routing ablation.  Every preset keeps vision<->action
+# (the native WAM path) and only removes edges that involve PointFlow / FK.
+JOINT_ATTN_MASK_PRESETS: dict[str, str] = {
+    # M1: geometry only reads; neither video nor action reads PointFlow / FK.
+    "geom_readonly": "action<-pointflow,action<-fk,vision<-pointflow,vision<-fk",
+    # M2: action does not read geometry directly (video still does).
+    "action_no_geom": "action<-pointflow,action<-fk",
+    # M3: FK exchanges only with action, PointFlow only with video, no PointFlow<->FK.
+    "physical_split": "fk<-vision,vision<-fk,pointflow<-action,action<-pointflow,pointflow<-fk,fk<-pointflow",
+}
+
+
+def resolve_joint_attn_mask(spec: str | None) -> tuple[tuple[str, str], ...]:
+    """Preset name (``JOINT_ATTN_MASK_PRESETS``) or explicit ``q<-k`` rules separated
+    by ``,`` or ``;`` -> rules.  Empty / unset -> ``()`` (no mask)."""
+    spec = (spec or "").strip()
+    return parse_joint_attn_block(JOINT_ATTN_MASK_PRESETS.get(spec, spec.replace(";", ",")))
+
+
+def build_modality_ids(packed_seq, device=None) -> torch.Tensor:
+    """Per-token modality id ``[N]`` following ``MODALITIES``; text / sound are ``NO_MODALITY``.
+
+    Unlike :func:`build_modality_layout` every token of a modality counts, its
+    conditioning tokens (first vision frame, action row 0, PointFlow / FK anchors)
+    included: the fixed mask cuts a modality pair completely.
+    """
+    n = int(packed_seq.sequence_length)
+    ids = torch.full((n,), NO_MODALITY, dtype=torch.long, device=device)
+    for name in ("vision", "action"):
+        data = getattr(packed_seq, name)
+        if data is None or not isinstance(data.sequence_indexes, torch.Tensor):
+            continue
+        if name == "action" and data.tokens is None:
+            continue
+        ids[data.sequence_indexes.to(ids.device)] = _MODALITY_ID[name]
+    for name, attr in (("pointflow", "point"), ("fk", "fk")):
+        payload = getattr(packed_seq, attr)
+        if payload is not None:
+            ids[payload.sequence_indexes.to(ids.device)] = _MODALITY_ID[name]
+    return ids
+
+
+@dataclass(frozen=True)
+class ModalityGather:
+    """Index plan that turns masked full attention into plain varlen attention.
+
+    Generation queries are regrouped into one segment per (sample, query modality);
+    the segment's keys are the tokens of that sample whose modality the query
+    modality may read (text always).  The ordinary varlen kernel on the gathered
+    tensors computes exactly the masked attention, gradients included.
+    """
+
+    q_index: torch.Tensor  # [N_gen] long: rows of the full-only (generation) sequence, segment order
+    kv_index: torch.Tensor  # [N_kv] long: rows of the all-token sequence, segment order
+    cu_seqlens_q: torch.Tensor  # [S+1] int32
+    cu_seqlens_kv: torch.Tensor  # [S+1] int32
+    max_seqlen_q: int
+    max_seqlen_kv: int
+
+
+def build_modality_gather(packed_seq, rules: Sequence[tuple[str, str]], device=None) -> ModalityGather | None:
+    """:class:`ModalityGather` for a two-way pack (any number of samples), or ``None`` without rules.
+
+    A rule ``q<-k`` removes every key token of modality ``k`` from every query token
+    of modality ``q`` in the same sample.  Text keys and tokens outside the four
+    modalities are never removed.
+    """
+    if not rules:
+        return None
+    sample_lens, split_lens = list(packed_seq.sample_lens), list(packed_seq.split_lens)
+    if list(packed_seq.attn_modes) != ["causal", "full"] * len(sample_lens):
+        raise NotImplementedError("joint_attn_mask requires two-way (causal text + full generation) samples")
+    if sum(split_lens) != int(packed_seq.sequence_length):
+        raise NotImplementedError("joint_attn_mask does not support padded packs")
+    blocked = torch.zeros(len(MODALITIES) + 1, len(MODALITIES) + 1, dtype=torch.bool)  # index 0 = NO_MODALITY
+    for query, key in rules:
+        blocked[_MODALITY_ID[query] + 1, _MODALITY_ID[key] + 1] = True
+    ids = build_modality_ids(packed_seq, device="cpu") + 1
+    present = set(ids.unique().tolist())
+    for query, key in rules:
+        if _MODALITY_ID[query] + 1 not in present or _MODALITY_ID[key] + 1 not in present:
+            raise ValueError(f"joint_attn_mask rule {query}<-{key} refers to a modality absent from the batch")
+    q_parts, kv_parts, q_lens, kv_lens = [], [], [], []
+    start = gen_base = 0
+    for i, sample_len in enumerate(sample_lens):
+        text_len, gen_len = split_lens[2 * i], split_lens[2 * i + 1]
+        if text_len + gen_len != sample_len:
+            raise ValueError(f"sample {i}: split lens {text_len}+{gen_len} != sample len {sample_len}")
+        sample = ids[start : start + sample_len]
+        gen = sample[text_len:]
+        for group in gen.unique().tolist():
+            q = (gen == group).nonzero().flatten()
+            kv = (~blocked[group][sample]).nonzero().flatten()
+            q_parts.append(gen_base + q)
+            kv_parts.append(start + kv)
+            q_lens.append(q.numel())
+            kv_lens.append(kv.numel())
+        start += sample_len
+        gen_base += gen_len
+
+    def cumulative(lens):
+        return torch.tensor([0] + lens, dtype=torch.int64).cumsum(0).to(torch.int32)
+
+    return ModalityGather(
+        q_index=torch.cat(q_parts).to(device),
+        kv_index=torch.cat(kv_parts).to(device),
+        cu_seqlens_q=cumulative(q_lens).to(device),
+        cu_seqlens_kv=cumulative(kv_lens).to(device),
+        max_seqlen_q=max(q_lens),
+        max_seqlen_kv=max(kv_lens),
+    )
 
 
 # ---------------------------------------------------------------------------

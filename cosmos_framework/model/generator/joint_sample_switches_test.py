@@ -314,5 +314,186 @@ class GeomLeadTests(unittest.TestCase):
             sw.euler_geom_lead_sample(lambda s, t, g: s, [torch.zeros(3)], [1], sig, ts, 5)
 
 
+
+def two_sample_sequence():
+    """synthetic_sequence() twice: tokens 0-14 (sample 0) and 15-29 (sample 1)."""
+    a = synthetic_sequence()
+    shift = lambda x: torch.cat([x, x + 15])
+    vision = ModalityData(
+        sequence_indexes=shift(a.vision.sequence_indexes),
+        token_shapes=a.vision.token_shapes * 2,
+        noisy_frame_indexes=a.vision.noisy_frame_indexes * 2,
+        tokens=a.vision.tokens * 2,
+    )
+    action = ModalityData(
+        sequence_indexes=shift(a.action.sequence_indexes),
+        token_shapes=a.action.token_shapes * 2,
+        noisy_frame_indexes=a.action.noisy_frame_indexes * 2,
+        tokens=a.action.tokens * 2,
+    )
+    payload = lambda p: FKTokenPayload(torch.zeros(6, 1), shift(p.sequence_indexes), torch.cat([p.noisy_indexes, p.noisy_indexes + 15]))
+    return SimpleNamespace(
+        sequence_length=30,
+        sample_lens=[15, 15],
+        split_lens=[2, 13, 2, 13],
+        attn_modes=["causal", "full"] * 2,
+        text_indexes=idx([0, 1, 15, 16]),
+        vision=vision,
+        action=action,
+        point=payload(a.point),
+        fk=payload(a.fk),
+        control_weights=None,
+    )
+
+
+def _varlen_reference(q, k, v, is_causal=False, causal_type=None, cumulative_seqlen_Q=None,
+                      cumulative_seqlen_KV=None, max_seqlen_Q=None, max_seqlen_KV=None):
+    """CPU stand-in for the flash varlen kernel: SDPA per segment, BSHD in/out, GQA by repetition."""
+    q, k, v = q[0], k[0], v[0]
+    groups = q.shape[1] // k.shape[1]
+    k, v = k.repeat_interleave(groups, dim=1), v.repeat_interleave(groups, dim=1)
+    cu_q = [0, q.shape[0]] if cumulative_seqlen_Q is None else cumulative_seqlen_Q.tolist()
+    cu_k = [0, k.shape[0]] if cumulative_seqlen_KV is None else cumulative_seqlen_KV.tolist()
+    outs = []
+    for (a, b), (c, d) in zip(zip(cu_q[:-1], cu_q[1:]), zip(cu_k[:-1], cu_k[1:])):
+        if b == a:
+            continue
+        o = torch.nn.functional.scaled_dot_product_attention(
+            q[a:b].transpose(0, 1), k[c:d].transpose(0, 1), v[c:d].transpose(0, 1), is_causal=is_causal
+        )
+        outs.append(o.transpose(0, 1))
+    return torch.cat(outs)[None]
+
+
+def _dense_masked_reference(q, k, v, kn, ids, rules, sample_lens, text_lens):
+    """Per sample: text rows causal over text keys; generation rows over all sample keys (normalised K),
+    minus every key of a blocked modality (all tokens, text never blocked)."""
+    groups = q.shape[1] // k.shape[1]
+    k, v, kn = (x.repeat_interleave(groups, dim=1) for x in (k, v, kn))
+    outs, start = [], 0
+    for n, t in zip(sample_lens, text_lens):
+        s = slice(start, start + n)
+        sid = ids[s]
+        allowed = torch.ones(n - t, n, dtype=torch.bool, device=sid.device)
+        for query, key in rules:
+            qm, km = sw._MODALITY_ID[query], sw._MODALITY_ID[key]
+            allowed &= ~((sid[t:] == qm)[:, None] & (sid == km)[None, :])
+        sdpa = lambda qq, kk, vv, **kw: torch.nn.functional.scaled_dot_product_attention(
+            qq.transpose(0, 1), kk.transpose(0, 1), vv.transpose(0, 1), **kw
+        ).transpose(0, 1)
+        qs, ks, vs, kns = q[s], k[s], v[s], kn[s]
+        outs.append(sdpa(qs[:t], ks[:t], vs[:t], is_causal=True))
+        outs.append(sdpa(qs[t:], kns, vs, attn_mask=allowed[None]))
+        start += n
+    return torch.cat(outs)
+
+
+class FixedMaskTests(unittest.TestCase):
+    def test_presets_resolve_and_keep_wam_path(self):
+        self.assertEqual(sw.resolve_joint_attn_mask(""), ())
+        self.assertEqual(sw.resolve_joint_attn_mask(None), ())
+        self.assertEqual(
+            sw.resolve_joint_attn_mask("action_no_geom"), (("action", "pointflow"), ("action", "fk"))
+        )
+        self.assertEqual(sw.resolve_joint_attn_mask("action<-fk;vision<-fk"), (("action", "fk"), ("vision", "fk")))
+        for name, spec in sw.JOINT_ATTN_MASK_PRESETS.items():
+            rules = sw.resolve_joint_attn_mask(name)
+            self.assertTrue(rules, name)
+            self.assertNotIn(("vision", "action"), rules, name)
+            self.assertNotIn(("action", "vision"), rules, name)
+        self.assertEqual(len(sw.resolve_joint_attn_mask("geom_readonly")), 4)
+        self.assertEqual(len(sw.resolve_joint_attn_mask("physical_split")), 6)
+        with self.assertRaises(ValueError):
+            sw.resolve_joint_attn_mask("geom_readonl")
+
+    def test_modality_ids_cover_conditioning_tokens(self):
+        self.assertEqual(
+            sw.build_modality_ids(synthetic_sequence()).tolist(),
+            [-1, -1, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3],
+        )
+
+    def test_gather_plan(self):
+        seq = two_sample_sequence()
+        self.assertIsNone(sw.build_modality_gather(seq, ()))
+        plan = sw.build_modality_gather(seq, sw.resolve_joint_attn_mask("geom_readonly"))
+        # every generation token appears exactly once
+        self.assertEqual(sorted(plan.q_index.tolist()), list(range(26)))
+        self.assertEqual(plan.cu_seqlens_q.tolist()[-1], 26)
+        self.assertEqual(plan.cu_seqlens_kv.tolist()[-1], plan.kv_index.numel())
+        # sample 0 segments: vision, action (lose PF 9-11 and FK 12-14), pointflow, fk (see everything)
+        cu_k = plan.cu_seqlens_kv.tolist()
+        segments = [plan.kv_index[a:b].tolist() for a, b in zip(cu_k[:-1], cu_k[1:])]
+        self.assertEqual(segments[0], list(range(9)))  # vision: text + vision + action
+        self.assertEqual(segments[1], list(range(9)))  # action
+        self.assertEqual(segments[2], list(range(15)))  # pointflow reads all
+        self.assertEqual(segments[5], list(range(15, 24)))  # sample 1 action, offset by 15
+        self.assertEqual(plan.max_seqlen_q, 4)
+        self.assertEqual(plan.max_seqlen_kv, 15)
+
+    def test_gather_errors(self):
+        seq = two_sample_sequence()
+        seq.fk = None
+        with self.assertRaises(ValueError):
+            sw.build_modality_gather(seq, (("action", "fk"),))
+        seq = two_sample_sequence()
+        seq.attn_modes = ["causal", "full", "full", "full"]
+        with self.assertRaises(NotImplementedError):
+            sw.build_modality_gather(seq, (("action", "fk"),))
+
+    def _pack2(self, heads=4, kv_heads=2, dim=8):
+        pack, meta, _ = build_packed_sequence(
+            "two_way",
+            packed_sequence=torch.randn(30, 16),
+            attn_modes=["causal", "full"] * 2,
+            split_lens=[2, 13, 2, 13],
+            sample_lens=[15, 15],
+            packed_und_token_indexes=idx([0, 1, 15, 16]),
+            packed_gen_token_indexes=torch.cat([torch.arange(2, 15), torch.arange(17, 30)]),
+            num_heads=heads,
+            head_dim=dim,
+            num_layers=1,
+        )
+        return pack
+
+    def _run(self, preset, grad):
+        from cosmos_framework.data.generator.sequence_packing.runtime import get_all_seq
+        from cosmos_framework.model.generator.mot import attention as attn_mod
+
+        torch.manual_seed(0)
+        seq = two_sample_sequence()
+        rules = sw.resolve_joint_attn_mask(preset)
+        plan = sw.build_modality_gather(seq, rules)
+        pack = self._pack2()
+        q, k, v, kn = (torch.randn(30, h, 8, requires_grad=grad) for h in (4, 2, 2, 2))
+        with mock.patch.object(attn_mod, "attention", _varlen_reference):
+            out = attn_mod.two_way_attention(
+                from_all_seq(q, pack), from_all_seq(k, pack), from_all_seq(v, pack),
+                packed_key_states_normalized=from_all_seq(kn, pack), modality_gather=plan,
+            )
+        got = get_all_seq(out).view(30, 4, 8)
+        ref = _dense_masked_reference(q, k, v, kn, sw.build_modality_ids(seq), rules, [15, 15], [2, 2])
+        return got, ref, (q, k, v, kn)
+
+    def test_gathered_attention_matches_dense_mask(self):
+        for preset in sw.JOINT_ATTN_MASK_PRESETS:
+            got, ref, _ = self._run(preset, grad=False)
+            torch.testing.assert_close(got, ref, atol=1e-5, rtol=1e-5, msg=preset)
+
+    def test_gathered_attention_gradients(self):
+        got, ref, leaves = self._run("physical_split", grad=True)
+        w = torch.randn_like(got)
+        g_got = torch.autograd.grad((got * w).sum(), leaves)
+        g_ref = torch.autograd.grad((ref * w).sum(), leaves)
+        for a, b in zip(g_got, g_ref):
+            torch.testing.assert_close(a, b, atol=1e-5, rtol=1e-5)
+
+    def test_mask_changes_output(self):
+        got, _, inputs = self._run("action_no_geom", grad=False)
+        plain = _dense_masked_reference(*inputs, sw.build_modality_ids(two_sample_sequence()), (), [15, 15], [2, 2])
+        # action rows differ from the unmasked attention, video rows do not
+        self.assertFalse(torch.allclose(got[6:9], plain[6:9]))
+        torch.testing.assert_close(got[2:6], plain[2:6])
+
+
 if __name__ == "__main__":
     unittest.main()
