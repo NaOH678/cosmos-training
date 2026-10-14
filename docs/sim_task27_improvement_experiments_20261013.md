@@ -17,10 +17,10 @@
 | 从头训 M1–M4 | §3 | `scr40-mask-m{1,2,3,4}` | 10-14 03:38–04:57 | 待补（训练中，约2.5天；之后25k–40k闭环g1） | §3 |
 | 从头训 seed43 / indep | §3 | `scr40-{seed43,indep}` | 10-14 05:30 | 待补 | §3 |
 | 从头训 cons / smooth | §3 | `scr40-{cons,smooth}`；cons在多采样测试后改到开发机跑（取消集群排队） | 10-14 09:45提交 | 待补 | §3 |
-| guidance 1下PF/FK vs raw配对检验 | 30/35/40k合并，同种子配对，按扰动类（g3同算作对照） | 886 CPU，`/oss-shichaojian/outputs/infer/task27/analysis/g1_paired_20261014/`（`paired.py`、`summary.txt`） | 10-14 11:15 | 待补 | §0.5 |
+| guidance 1下PF/FK vs raw配对检验 | 30/35/40k合并，同种子配对，按扰动类（g3同算作对照） | 886 CPU，`/oss-shichaojian/outputs/infer/task27/analysis/g1_paired_20261014/`（`paired.py`、`summary.txt`） | 10-14 11:15 | 已完成，结论见§0.5（g1：cov_only nolocal 45.3 vs raw 34.7，p=0.011；总体 p=0.27） | §0.5 |
 | 离线多采样挑选 | nolocal 40k，每窗口8个联合采样，按FK头–FK(action)不一致挑选，对比随机/中位样本/oracle | 开发机8卡，`/data/shichaojian/runs/consistency_multisample_20261014/`，代码 `-cons` 分支 `tools/pointfk_consistency_diag/` | 10-14 11:30 | 待补 | §3 |
 
-### guidance 1 同口径对比（30/35/40k合并，600局/模型，数据已齐，配对检验待补）
+### guidance 1 同口径对比（30/35/40k合并，600局/模型，已完成，结论见§0.5）
 
 | 模型 | 总体 | none | cov_only | inv_only | inv_cov |
 | --- | --- | --- | --- | --- | --- |
@@ -71,6 +71,19 @@
 | raw 40k | 45.0 | 51.0 | 29 / 17，0.10 |
 
 各模型都涨5–10个点，原生WAM也涨，说明CFG 3对本任务（单一固定caption）是过度外推，而非PF/FK特有；关CFG后nolocal仍高于raw（40k：55.0 vs 51.0）。raw的提升集中在无扰动（56→80），外观扰动不变（30→28），PF/FK在外观扰动上保持50。待补：raw/local 30k/35k的g1（同口径比较）、nolocal 40k的guidance 2与1.5。启动方法见Bench2Dex `deployment/cosmos/TASK27_INFERENCE.md`（使用文档，不含结果；结果以本文为准）。
+
+### PF/FK vs raw 同种子配对（30/35/40k合并，每类150局，McNemar）
+
+| guidance | 对比 | 总体 | none | cov_only | inv_only | inv_cov |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | nolocal vs raw | 54.8 vs 52.3（89/74，p=0.27） | 69.3 vs 76.7（13/24，p=0.10） | **45.3 vs 34.7（26/10，p=0.011）** | 52.7 vs 51.3（p=0.88） | 52.0 vs 46.7（p=0.29） |
+| 1 | local vs raw | 54.7 vs 52.3（95/81，p=0.33） | 72.0 vs 76.7（p=0.32） | **46.0 vs 34.7（30/13，p=0.014）** | 50.7 vs 51.3（p=1.0） | 50.0 vs 46.7（p=0.56） |
+| 3 | nolocal vs raw | 48.2 vs 44.2（111/87，p=0.10） | 58.7 vs 59.3（p=1.0） | **44.7 vs 28.7（34/10，p=0.0004）** | 48.7 vs 44.0（p=0.37） | 40.7 vs 44.7（p=0.50） |
+| 3 | local vs raw | 48.7 vs 44.2（116/89，p=0.07） | 64.7 vs 59.3（p=0.30） | **40.7 vs 28.7（35/17，p=0.018）** | 46.0 vs 44.0（p=0.78） | 43.3 vs 44.7（p=0.89） |
+
+括号内为“PF/FK独赢 / raw独赢”局数。脚本与输出 `/oss-shichaojian/outputs/infer/task27/analysis/g1_paired_20261014/`。
+
+结论：两种guidance下，PF/FK（nolocal、local）相对raw唯一显著的优势都在外观扰动cov_only（g1约+11个点，p≈0.01；g3约+12–16个点），总体差异都不显著。关CFG后raw在无扰动场景提升最多（59→77），PF/FK在none上转为略低（69–72 vs 77，p=0.10–0.32，不显著）。即PF/FK的价值目前可归结为外观泛化，其余场景与raw持平。
 
 ## 1. 20k一轮
 
