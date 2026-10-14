@@ -13,7 +13,7 @@
 | guidance 2 | nolocal_s4_40000，`policy.g2.yaml` | 886，`runs/eval_200_8gpu_b5_g2` | 10-14 07:45 | 待补（155局时79成功） | §0.5 |
 | guidance 1.5 | nolocal_s4_40000，`policy.g15.yaml` | 899，`runs/eval_200_8gpu_b5_g15` | 10-14 07:45 | 待补（200局96成功，汇总中） | §0.5 |
 | WAM control 续训 g3 / g1 | `task27_cosmos_raw_ft40_wam_control` | 886 / 899，`runs/eval_200_8gpu_shared_b5{,_g1}` | 10-14 09:20 | 待补 | §2 |
-| WAM control 离线eval | `xm40_eval.sh wam_control default` | 开发机，`/data/shichaojian/runs/xmodal_ft40_20261013/wam_control_default` | 训练结束后自动 | 待补 | §2 |
+| WAM control 离线eval | `xm40_eval.sh wam_control default` | 开发机，`/data/shichaojian/runs/xmodal_ft40_20261013/wam_control_default` | 10-14 09:11 | 已跑完但无可比指标：WAM没有PF/FK联合eval输出（无 `joint_prediction.npz`），xm40_analyze匹配0个窗口；WAM的离线action评估需另写脚本，暂不做 | §2 |
 | 从头训 M1–M4 | §3 | `scr40-mask-m{1,2,3,4}` | 10-14 03:38–04:57 | 待补（训练中，约2.5天；之后25k–40k闭环g1） | §3 |
 | 从头训 seed43 / indep | §3 | `scr40-{seed43,indep}` | 10-14 05:30 | 待补 | §3 |
 | 从头训 cons / smooth | §3 | `scr40-{cons,smooth}` | 10-14 09:45提交，排队等节点 | 待补 | §3 |
