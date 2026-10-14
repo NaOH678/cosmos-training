@@ -19,6 +19,7 @@
 | 从头训 cons / smooth | §3 | `scr40-{cons,smooth}`；cons在多采样测试后改到开发机跑（取消集群排队） | 10-14 09:45提交 | cons已取消集群排队，10-14 11:32起在开发机8卡跑（脚本 `/mnt/afs/experiments_20261014/scratch_mask/cons_devbox.sh`，输出 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_cons_8gpu_40k_20261014`，~5.2 s/it）；smooth仍在集群排队 | §3 |
 | guidance 1下PF/FK vs raw配对检验 | 30/35/40k合并，同种子配对，按扰动类（g3同算作对照） | 886 CPU，`/oss-shichaojian/outputs/infer/task27/analysis/g1_paired_20261014/`（`paired.py`、`summary.txt`） | 10-14 11:15 | 已完成，结论见§0.5（g1：cov_only nolocal 45.3 vs raw 34.7，p=0.011；总体 p=0.27） | §0.5 |
 | 离线多采样挑选 | nolocal 40k，每窗口8个联合采样，按FK头–FK(action)不一致挑选，对比随机/中位样本/oracle | 开发机8卡，`/data/shichaojian/runs/consistency_multisample_20261014/`，代码 `-cons` 分支 `tools/pointfk_consistency_diag/` | 10-14 11:30 | 已完成：N=8、216窗口，k=0与单采样一致（RMS 0.0015 rad）。argmin c_rel 对k0胜率64%（p=1.6e-4）、fkact_vs_fkact_gt 30.72→30.45 mm（-0.27，约1%），对实际轨迹58%（p=0.035）、动作MAE无提升（47%）；8动作均值-0.37 mm更好；窗口内Spearman 0.25；不值得部署挑选，见 `-cons` 文档§6 | §3 |
+| FDM/IDM真值注入诊断 | nolocal 40k，约216窗口；IDM：每步注入带噪真实视频，看动作误差降幅；FDM：注入带噪真实动作及反事实动作（静止、换窗口），看视频/PF/FK是否随动作改变，部分窗口解码视频并排对比 | 开发机（暂停scr40-cons约2小时后续训），`/data/shichaojian/runs/fdm_idm_probe_20261014/`，代码 `-cons` 分支 `tools/pointfk_consistency_diag/` | 10-14 12:00 | 待补 | §3 |
 
 ### guidance 1 同口径对比（30/35/40k合并，600局/模型，已完成，结论见§0.5）
 
