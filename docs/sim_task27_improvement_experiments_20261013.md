@@ -16,7 +16,7 @@
 | WAM control 离线eval | `xm40_eval.sh wam_control default` | 开发机，`/data/shichaojian/runs/xmodal_ft40_20261013/wam_control_default` | 10-14 09:11 | 已跑完但无可比指标：WAM没有PF/FK联合eval输出（无 `joint_prediction.npz`），xm40_analyze匹配0个窗口；WAM的离线action评估需另写脚本，暂不做 | §2 |
 | 从头训 M1–M4 | §3 | `scr40-mask-m{1,2,3,4}` | 10-14 03:38–04:57 | 待补（训练中，约2.5天；之后25k–40k闭环g1） | §3 |
 | 从头训 seed43 / indep | §3 | `scr40-{seed43,indep}` | 10-14 05:30 | 待补 | §3 |
-| 从头训 cons / smooth | §3 | `scr40-{cons,smooth}`；cons在多采样测试后改到开发机跑（取消集群排队） | 10-14 09:45提交 | 待补 | §3 |
+| 从头训 cons / smooth | §3 | `scr40-{cons,smooth}`；cons在多采样测试后改到开发机跑（取消集群排队） | 10-14 09:45提交 | cons已取消集群排队，10-14 11:32起在开发机8卡跑（脚本 `/mnt/afs/experiments_20261014/scratch_mask/cons_devbox.sh`，输出 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_cons_8gpu_40k_20261014`，~5.2 s/it）；smooth仍在集群排队 | §3 |
 | guidance 1下PF/FK vs raw配对检验 | 30/35/40k合并，同种子配对，按扰动类（g3同算作对照） | 886 CPU，`/oss-shichaojian/outputs/infer/task27/analysis/g1_paired_20261014/`（`paired.py`、`summary.txt`） | 10-14 11:15 | 已完成，结论见§0.5（g1：cov_only nolocal 45.3 vs raw 34.7，p=0.011；总体 p=0.27） | §0.5 |
 | 离线多采样挑选 | nolocal 40k，每窗口8个联合采样，按FK头–FK(action)不一致挑选，对比随机/中位样本/oracle | 开发机8卡，`/data/shichaojian/runs/consistency_multisample_20261014/`，代码 `-cons` 分支 `tools/pointfk_consistency_diag/` | 10-14 11:30 | 已完成：N=8、216窗口，k=0与单采样一致（RMS 0.0015 rad）。argmin c_rel 对k0胜率64%（p=1.6e-4）、fkact_vs_fkact_gt 30.72→30.45 mm（-0.27，约1%），对实际轨迹58%（p=0.035）、动作MAE无提升（47%）；8动作均值-0.37 mm更好；窗口内Spearman 0.25；不值得部署挑选，见 `-cons` 文档§6 | §3 |
 
