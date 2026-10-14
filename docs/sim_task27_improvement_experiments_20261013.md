@@ -55,10 +55,25 @@ execute_steps结果（40k@40000，binomial5，200局）：缩短执行步数明�
 
 | 模型 | es32（原） | es16 | es8 |
 | --- | --- | --- | --- |
-| nolocal | 约48（30/35/40k合并48.2） | SR 26.5 / LSCR 69.8 | 前58局仅2局成功 |
-| raw | 约44（合并44.2） | SR 26.0 / LSCR 65.5 | 未开始 |
+| nolocal | 47.5（40k单点；30/35/40k合并48.2） | SR 26.5 / LSCR 69.8 | SR 5.0 / LSCR 30.8 |
+| raw | 45.0（40k单点；合并44.2） | SR 26.0 / LSCR 65.5 | SR 4.5 / LSCR 20.3 |
 
 es16各类SR：nolocal none/cov/inv/inv_cov 36/24/24/22，raw 38/20/22/24。产物 `task27_cosmos_{nolocal,raw}_s4_40000/runs/eval_200_8gpu*_b5_es16/`。
+
+40k微调闭环（4090，binomial5，200局，起点nolocal 40k@40000：SR 47.5 / LSCR 80.4，none/cov/inv/inv_cov 60/50/44/36）：
+
+| 微调 | SR | LSCR | none / cov / inv / inv_cov |
+| --- | --- | --- | --- |
+| control | 47.5 | 79.8 | 64 / 34 / 46 / 46 |
+| indep | 36.0 | 72.5 | 48 / 20 / 40 / 36 |
+| indep_cons | 45.0 | 77.4 | 56 / 32 / 50 / 42 |
+| cons_all | 44.5 | 78.9 | 60 / 30 / 50 / 38 |
+| M1 geom_readonly | 22.5 | 62.1 | 26 / 22 / 20 / 22 |
+| smooth、M2、M3、M4、WAM control | 训练/交接中 | | |
+
+小结：续训4000步（control）不变；独立sigma（indep）掉11个点，加一致性损失（indep_cons、cons_all）能拉回到基线附近但不超过；固定mask M1严重下降（action不读PF/FK后闭环崩，与离线MAE几乎不变形成反差，说明离线指标不可用于筛选）。产物 `/oss-shichaojian/outputs/infer/task27/task27_cosmos_nolocal_ft40_<name>/runs/eval_200_8gpu_b5/`。
+
+推理参数（不训练，nolocal 40k@40000，binomial5，200局，2026-10-14 03:00 UTC起）：`num_steps` 4→8（886，run-dir `eval_200_8gpu_b5_ns8`），`guidance` 3→1（899，`eval_200_8gpu_b5_g1`）。策略文件为同目录 `policy.{ns8,g1}.yaml`，仅改该字段与 `output_dir`。
 
 ## 3. 待办
 
