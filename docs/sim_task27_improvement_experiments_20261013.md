@@ -17,7 +17,7 @@
 | 从头训 M1–M4 | §3 | `scr40-mask-m{1,2,3,4}` | 10-14 03:38–04:57 | 待补（训练中，约2.5天；之后25k–40k闭环g1） | §3 |
 | 从头训 seed43 / indep | §3 | `scr40-{seed43,indep}` | 10-14 05:30 | 待补 | §3 |
 | 从头训 cons / smooth | §3 | `scr40-{cons,smooth}` | 10-14 09:45提交，排队等节点 | 待补 | §3 |
-| guidance 1 下PF/FK vs raw配对检验 | 30/35/40k合并，同种子配对，按扰动类 | CPU，读已有rollout | 未开始 | 待补 | §0.5 |
+| guidance 1下PF/FK vs raw配对检验 | 30/35/40k合并，同种子配对，按扰动类（g3同算作对照） | 886 CPU，`/oss-shichaojian/outputs/infer/task27/analysis/g1_paired_20261014/`（`paired.py`、`summary.txt`） | 10-14 11:15 | 待补 | §0.5 |
 
 ### guidance 1 同口径对比（30/35/40k合并，600局/模型，数据已齐，配对检验待补）
 
