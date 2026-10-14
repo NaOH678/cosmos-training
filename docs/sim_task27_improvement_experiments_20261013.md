@@ -29,6 +29,21 @@
 
 推理侧开关 `JOINT_VISION_LEAD=k`（仅离线eval）：video先去噪k步再让action跟上，目的同M4，但不改训练。mask实现在分支 `pointflow-fk-mask`，一致性/平滑损失在 `pointflow-fk-cons`，环境变量说明见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md) §5。
 
+## 0.5 当前最重要的发现：推理关闭CFG（guidance 3→1）
+
+只改 `policy.yaml` 的 `guidance`，其余条件不变。CFG只作用于文本：无条件分支把caption换成空串，图像/状态等条件两支相同；guidance 3 每步跑两次前向并外推 `v_uncond + 3(v_cond − v_uncond)`，作用到video、action、PF、FK全部输出；guidance 1 只跑条件分支。训练期eval（以及全部离线指标）一直是guidance 1，此前4090闭环都是3。
+
+| 模型 | guidance 3 | guidance 1 | 配对（g1独赢 / g3独赢，p） |
+| --- | --- | --- | --- |
+| nolocal 30k | 50.0 | 52.5 | 29 / 24，0.58 |
+| nolocal 35k | 47.0 | 57.0 | 35 / 15，0.007 |
+| nolocal 40k | 47.5 | 55.0 | 36 / 21，0.063 |
+| nolocal 三点合并（600局） | 48.2 | 54.8 | 100 / 60，0.002 |
+| local 40k | 50.0 | 55.0 | 33 / 23，0.23 |
+| raw 40k | 45.0 | 51.0 | 29 / 17，0.10 |
+
+各模型都涨5–10个点，原生WAM也涨，说明CFG 3对本任务（单一固定caption）是过度外推，而非PF/FK特有；关CFG后nolocal仍高于raw（40k：55.0 vs 51.0）。raw的提升集中在无扰动（56→80），外观扰动不变（30→28），PF/FK在外观扰动上保持50。待补：raw/local 30k/35k的g1（同口径比较）、nolocal 40k的guidance 2与1.5。记录见Bench2Dex `deployment/cosmos/TASK27_INFERENCE.md`。
+
 ## 1. 20k一轮
 
 | 实验 | 设置 | 训练输出 |
@@ -87,7 +102,9 @@ es16各类SR：nolocal none/cov/inv/inv_cov 36/24/24/22，raw 38/20/22/24。产�
 | indep_cons | 45.0 | 77.4 | 56 / 32 / 50 / 42 |
 | cons_all | 44.5 | 78.9 | 60 / 30 / 50 / 38 |
 | M1 geom_readonly（video/action都不读PF/FK） | 22.5 | 62.1 | 26 / 22 / 20 / 22 |
-| smooth、M2、M3、M4、WAM control | 训练/交接中 | | |
+| M2 action_no_geom | 26.5（g1 36.0） | 64.1 | 34 / 16 / 34 / 22 |
+| M3 physical_split | 40.5（g1 41.5） | 72.6 | — |
+| smooth、M4、WAM control | 闭环进行中（g3与g1各200局） | | |
 
 小结：续训4000步（control）不变；独立sigma（indep）掉11个点，加一致性损失（indep_cons、cons_all）能拉回到基线附近但不超过；固定mask M1严重下降（action不读PF/FK后闭环崩，与离线MAE几乎不变形成反差，说明离线指标不可用于筛选）。产物 `/oss-shichaojian/outputs/infer/task27/task27_cosmos_nolocal_ft40_<name>/runs/eval_200_8gpu_b5/`。
 
