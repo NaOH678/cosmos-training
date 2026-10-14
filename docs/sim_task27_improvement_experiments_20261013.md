@@ -2,6 +2,33 @@
 
 目标：缓解video–action差距（不让dream video带偏action），把PF/FK相对原生WAM（raw）的闭环优势做大。本文记录实验、结果与产物位置，持续更新。耦合分析与开关见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md)，rollout失败分析见 [task27 rollout失败分析](./sim_task27_rollout_failure_analysis_20261013.md)。
 
+## 实验台账（进行中与待补）
+
+规则：实验启动即在此加一行（结果写“待补”），有数据就填，数据齐了把结论写入对应章节并把该行移到“已结”。闭环均为4090、binomial5、200局/点（参考场景同raw）；SR / LSCR 单位%。
+
+### 进行中
+
+| 实验 | 设置 | 位置 / 产物 | 启动（UTC） | 结果 | 结论去向 |
+| --- | --- | --- | --- | --- | --- |
+| guidance 2 | nolocal_s4_40000，`policy.g2.yaml` | 886，`runs/eval_200_8gpu_b5_g2` | 10-14 07:45 | 待补（155局时79成功） | §0.5 |
+| guidance 1.5 | nolocal_s4_40000，`policy.g15.yaml` | 899，`runs/eval_200_8gpu_b5_g15` | 10-14 07:45 | 待补（200局96成功，汇总中） | §0.5 |
+| WAM control 续训 g3 / g1 | `task27_cosmos_raw_ft40_wam_control` | 886 / 899，`runs/eval_200_8gpu_shared_b5{,_g1}` | 10-14 09:20 | 待补 | §2 |
+| WAM control 离线eval | `xm40_eval.sh wam_control default` | 开发机，`/data/shichaojian/runs/xmodal_ft40_20261013/wam_control_default` | 训练结束后自动 | 待补 | §2 |
+| 从头训 M1–M4 | §3 | `scr40-mask-m{1,2,3,4}` | 10-14 03:38–04:57 | 待补（训练中，约2.5天；之后25k–40k闭环g1） | §3 |
+| 从头训 seed43 / indep | §3 | `scr40-{seed43,indep}` | 10-14 05:30 | 待补 | §3 |
+| 从头训 cons / smooth | §3 | `scr40-{cons,smooth}` | 10-14 09:45提交，排队等节点 | 待补 | §3 |
+| guidance 1 下PF/FK vs raw配对检验 | 30/35/40k合并，同种子配对，按扰动类 | CPU，读已有rollout | 未开始 | 待补 | §0.5 |
+
+### guidance 1 同口径对比（30/35/40k合并，600局/模型，数据已齐，配对检验待补）
+
+| 模型 | 总体 | none | cov_only | inv_only | inv_cov |
+| --- | --- | --- | --- | --- | --- |
+| raw | 52.3 | 76.7 | 34.7 | 51.3 | 46.7 |
+| local | 54.7 | 72.0 | 46.0 | 48.7 | 52.0 |
+| nolocal | 54.8 | 69.3 | 45.3 | 52.7 | 52.0 |
+
+单点SR（g1）：raw 30k/35k/40k 52.0 / 54.0 / 51.0；local 54.5 / 54.5 / 55.0；nolocal 52.5 / 57.0 / 55.0。初步观察（待配对检验确认）：关CFG后PF/FK总体领先缩小到约2.5个点（g3约4个点）；cov_only仍领先约11个点；none上raw更高（76.7 vs 69–72）。
+
 ## 结论（截至2026-10-13 17:00 UTC）
 
 - 训练步数比结构改动重要。4090上 `task27_cosmos_{raw,local,nolocal}_s4_*`（40k训练，binomial5，200局/点）：20k以内PF/FK不占优；25k–40k四点平均SR raw 43.8 / local 46.8 / nolocal 47.3，LSCR 76.0 / 79.9 / 80.4。单点200局SR标准误约3.5个点，比较以LSCR、多点合并和逐球漏斗为主。数值已逐项对过产物（42组SR/LSCR全部一致，均200局、审计passed、binomial5、execute_steps 32、ckpt步数匹配）。
