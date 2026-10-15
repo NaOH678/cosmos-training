@@ -12,7 +12,7 @@
 | --- | --- | --- | --- | --- | --- |
 | guidance 2 | nolocal_s4_40000，`policy.g2.yaml` | 886，`runs/eval_200_8gpu_b5_g2` | 10-14 07:45 | 已完成：52.0 / 83.1（none/cov/inv/inv_cov 68/38/48/54） | §0.5 |
 | guidance 1.5 | nolocal_s4_40000，`policy.g15.yaml` | 899，`runs/eval_200_8gpu_b5_g15` | 10-14 07:45 | 已完成：48.0 / 80.0（64/36/44/48） | §0.5 |
-| WAM control 续训 g3 / g1 | `task27_cosmos_raw_ft40_wam_control` | 886 / 899，`runs/eval_200_8gpu_shared_b5{,_g1}` | 10-14 09:20 | g1已完成：52.5 / 81.9（76/38/52/44；raw 40k g1为51.0）；g3进行中（125局56成功） | §2 |
+| WAM control 续训 g3 / g1 | `task27_cosmos_raw_ft40_wam_control` | 886 / 899，`runs/eval_200_8gpu_shared_b5{,_g1}` | 10-14 09:20 | 已完成：g3 44.5 / 78.5（60/28/52/38；raw 40k g3为45.0）；g1 52.5 / 81.9（76/38/52/44；raw 40k g1为51.0）。续训不改变WAM，结论见§2 | §2 |
 | WAM control 离线eval | `xm40_eval.sh wam_control default` | 开发机，`/data/shichaojian/runs/xmodal_ft40_20261013/wam_control_default` | 10-14 09:11 | 已跑完但无可比指标：WAM没有PF/FK联合eval输出（无 `joint_prediction.npz`），xm40_analyze匹配0个窗口；WAM的离线action评估需另写脚本，暂不做 | §2 |
 | 从头训 M1–M4 | §3 | `scr40-mask-m{1,2,3,4}` | 10-14 03:38–04:57 | 训练中：10-14 23:01 iter M1 11402 / M2 11000 / M3 10955 / M4 10742，无Traceback，预计10-16约16:00 UTC训完；之后25k–40k闭环g1 | §3 |
 | 从头训 seed43 / indep | §3 | `scr40-{seed43,indep}` | 10-14 05:30 | 训练中：10-14 23:01 iter seed43 11211 / indep 11198，无Traceback | §3 |
@@ -152,9 +152,9 @@ es16各类SR：nolocal none/cov/inv/inv_cov 36/24/24/22，raw 38/20/22/24。产�
 | M3 physical_split | 40.5（g1 41.5） | 72.6 | — |
 | smooth_only | 40.0（g1 56.0） | 75.0 | 48 / 32 / 36 / 44 |
 | M4 action_observed_vision | 14.0（g1 19.0） | 57.5 | 16 / 12 / 18 / 10 |
-| WAM control | 闭环待交接（g3与g1各200局） | | |
+| WAM control（起点raw 40k：g3 45.0 / g1 51.0） | 44.5（g1 52.5） | 78.5（g1 81.9） | 60 / 28 / 52 / 38 |
 
-小结（括号内为guidance 1，基础模型g1为55.0）：续训4000步（control）不变；独立sigma（indep）掉11个点，加一致性损失（indep_cons、cons_all）能拉回到基线附近但不超过；固定mask M1严重下降（action不读PF/FK后闭环崩，与离线MAE几乎不变形成反差，说明离线指标不可用于筛选）。产物 `/oss-shichaojian/outputs/infer/task27/task27_cosmos_nolocal_ft40_<name>/runs/eval_200_8gpu_b5/`。
+小结（括号内为guidance 1，基础模型g1为55.0）：续训4000步（control）不变，原生WAM续训同样不变（WAM control g3 44.5 vs raw 40k 45.0，g1 52.5 vs 51.0），说明续训本身不带来增益，ft40对比可直接与起点比较；独立sigma（indep）掉11个点，加一致性损失（indep_cons、cons_all）能拉回到基线附近但不超过；固定mask M1严重下降（action不读PF/FK后闭环崩，与离线MAE几乎不变形成反差，说明离线指标不可用于筛选）。产物 `/oss-shichaojian/outputs/infer/task27/task27_cosmos_nolocal_ft40_<name>/runs/eval_200_8gpu_b5/`。
 
 逐球漏斗（golf“触碰→举起”，基础 g3 75.6% / g1 78.0%）：control 77.1%，与基础相同；indep 66.4%，indep_cons 回到79.1%；mask类主要掉在这一步（M1 55.7%、M2 61.2%、M4 37.7%，M3 72.7%），M1/M2“接近未触碰”也升到27–29%（基础19.6%）；smooth_only在g1下83.3%。乒乓与网球是mask/indep损失最多的其余球。漏斗 `/oss-shichaojian/outputs/infer/task27/analysis/gap_20261013/ft40/analysis.txt`，交接与结果汇总 `/oss-shichaojian/outputs/infer/task27/analysis/ft40_20261014/README.md`，provenance `sim_inference_assets/task27/provenance/handoff_20261014_cosmos_nolocal_ft40/readiness.json`。
 
