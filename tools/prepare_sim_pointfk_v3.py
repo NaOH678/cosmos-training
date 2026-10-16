@@ -13,6 +13,7 @@ import numpy as np
 import torch
 from scipy.spatial import cKDTree
 
+from cosmos_framework.data import frame_transform
 from cosmos_framework.data.fk_window import fk_window_sample
 from cosmos_framework.data.pointflow_anchor_selection import hand_guided_fps
 from cosmos_framework.data.pointflow_dataset import pointflow_sample
@@ -125,6 +126,12 @@ def episode_job(args, name, split, latent):
         fk_archive = {k: a[k] for k in a.files}
     rows = []
     moments = {k: [0, 0.0, 0.0] for k in ("pointflow", "fk")}
+    if args.frame == "robot":
+        if not args.local_export:
+            raise ValueError("--frame robot needs --local-export (rgbd.hdf5 + fk21.json)")
+        robot_from_cam, extrinsics, _ = frame_transform.read_episode_transform(args.local_export / name)
+        if len(extrinsics) != len(fk_archive["source_frame_ids"]) or np.abs(extrinsics - extrinsics[:1]).max() != 0:
+            raise ValueError(f"{name}: camera extrinsics are not static / frame count differs")
     for offset, start in enumerate(latent["start_frames"]):
         frame_ids = np.arange(start, start + 33)
         assert frame_ids[-1] < len(state) and action_valid[frame_ids[:-1]].all()
@@ -219,6 +226,8 @@ def episode_job(args, name, split, latent):
             pointflow=point,
             fk=fk,
         )
+        if args.frame == "robot":
+            sample = frame_transform.convert_sample_to_robot(sample, robot_from_cam)
         path = out / f"{name}_{start:06d}.pt"
         torch.save(sample, path.with_suffix(".tmp"))
         os.replace(path.with_suffix(".tmp"), path)
@@ -253,6 +262,12 @@ def main():
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--workers", type=int, default=16)
     p.add_argument("--limit-episodes", type=int, default=0)
+    p.add_argument(
+        "--frame",
+        choices=["camera", "robot"],
+        default="camera",
+        help="robot: write anchors/FK/displacements in the URDF base_link frame (manifest frame=robot_base)",
+    )
     args = p.parse_args()
     if args.local_export:
         if not args.cloud_cache:
@@ -380,6 +395,8 @@ def main():
         # Existing .pt caches may still contain adapter symlinks in their preview
         # metadata. Resolve those at load time without rewriting every tensor file.
         manifest["source_geometry_root"] = str(args.local_export)
+    if args.frame == "robot":
+        manifest["frame"] = frame_transform.ROBOT_BASE
     (out / "manifest.json").write_text(json.dumps(manifest))
     print("COMPLETE", len(rows), scales, flush=True)
 
