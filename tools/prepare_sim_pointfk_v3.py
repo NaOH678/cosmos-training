@@ -15,7 +15,15 @@ from scipy.spatial import cKDTree
 
 from cosmos_framework.data import frame_transform
 from cosmos_framework.data.fk_window import fk_window_sample
-from cosmos_framework.data.pointflow_anchor_selection import hand_guided_fps
+from cosmos_framework.data.pointflow_anchor_selection import (
+    OBJECT_MARGIN_METRES,
+    OBJECT_QUOTA_TASKS,
+    hand_guided_fps,
+    match_quota_objects,
+    object_membership,
+    object_quota_hand_guided_fps,
+    quota_object_in_camera,
+)
 from cosmos_framework.data.pointflow_dataset import pointflow_sample
 from cosmos_framework.data.pointflow_window import PointFlowTiming
 
@@ -63,6 +71,31 @@ def fit_action_statistics(source_cache, splits):
         forward_clamp=None,
         split=splits,
     )
+
+
+def load_quota_objects(args, name, geometry_file):
+    """Simulator object boxes (world frame) and camera extrinsics of one episode, for --object-quota."""
+    import h5py
+
+    box_file = Path(args.box3d_source.format(local_export=args.local_export, episode=name))
+    with h5py.File(box_file, "r") as handle:
+        matched = match_quota_objects(list(handle["labels/box3d"]), args.object_task)
+        boxes = [
+            dict(
+                name=obj,
+                kind=kind,
+                center=handle[f"labels/box3d/{obj}/center_world"][:].astype(np.float64),
+                quat=handle[f"labels/box3d/{obj}/quat_world"][:].astype(np.float64),
+                size=handle[f"labels/box3d/{obj}/size_lwh"][:].astype(np.float64),
+            )
+            for obj, kind in matched
+        ]
+        frames = handle["labels/box3d"][matched[0][0]]["center_world"].shape[0]
+    with h5py.File(geometry_file, "r") as handle:
+        extrinsics = handle["cameras/cam_overhead/extrinsic_world_from_cam"][:]
+    if len(extrinsics) != frames:
+        raise ValueError(f"{name}: extrinsics {len(extrinsics)} != box3d frames {frames}")
+    return boxes, extrinsics
 
 
 def episode_job(args, name, split, latent):
@@ -126,6 +159,13 @@ def episode_job(args, name, split, latent):
         fk_archive = {k: a[k] for k in a.files}
     rows = []
     moments = {k: [0, 0.0, 0.0] for k in ("pointflow", "fk")}
+    object_stats = None
+    if args.object_quota:
+        geometry_file = args.local_export / name / "rgbd.hdf5"
+        if not geometry_file.exists():
+            geometry_file = args.local_export / name / "observations.hdf5"
+        boxes, box_extrinsics = load_quota_objects(args, name, geometry_file)
+        object_stats = dict(objects=[b["name"] for b in boxes], available=[], selected=[])
     if args.frame == "robot":
         if not args.local_export:
             raise ValueError("--frame robot needs --local-export (rgbd.hdf5 + fk21.json)")
@@ -151,7 +191,19 @@ def episode_job(args, name, split, latent):
         p, u, tid, normal = p[good], u[good], tid[good], vec[good, :, 0].astype(np.float32)
         normal[np.sum(normal * p, axis=1) > 0] *= -1
         fk = fk_window_sample(fk_archive, frame_ids, name, 20)
-        keep, detail = hand_guided_fps(p, fk["inputs"]["anchor_xyz"], 1024, 0.05)
+        if args.object_quota:
+            # Membership from the simulator box3d at the anchor frame (same rule as inference), camera frame.
+            world_from_optical = frame_transform.world_from_optical(box_extrinsics[start])
+            objects = [
+                quota_object_in_camera(b["kind"], b["center"][start], b["quat"][start], b["size"][start], world_from_optical)
+                for b in boxes
+            ]
+            member = object_membership(p, objects)
+            keep, detail = object_quota_hand_guided_fps(p, fk["inputs"]["anchor_xyz"], 1024, 0.05, member, args.object_quota)
+            object_stats["available"].append([int((member == i).sum()) for i in range(len(boxes))])
+            object_stats["selected"].append([int((member[keep] == i).sum()) for i in range(len(boxes))])
+        else:
+            keep, detail = hand_guided_fps(p, fk["inputs"]["anchor_xyz"], 1024, 0.05)
         p, u, tid, normal = p[keep].copy(), u[keep].copy(), tid[keep].copy(), normal[keep].copy()
         # Composed source RGB has unscaled head in the top 480 rows.
         import cv2
@@ -239,6 +291,8 @@ def episode_job(args, name, split, latent):
                 n, s, q = moments[key]
                 moments[key] = [n + x.size, s + float(x.sum()), q + float(np.square(x).sum())]
     result = dict(windows=rows, moments=moments)
+    if object_stats is not None:
+        result["object_quota"] = object_stats
     done.write_text(json.dumps(result))
     print(name, len(rows), "complete", flush=True)
     return result
@@ -268,7 +322,24 @@ def main():
         default="camera",
         help="robot: write anchors/FK/displacements in the URDF base_link frame (manifest frame=robot_base)",
     )
+    p.add_argument(
+        "--object-quota",
+        type=int,
+        default=0,
+        help="0 (default): original hand_guided_fps. N>0: FPS up to N points inside each task object "
+        "(simulator box3d membership) before the 512 global / 2x256 hand / fill budgets",
+    )
+    p.add_argument("--object-task", choices=sorted(OBJECT_QUOTA_TASKS), help="Task object list for --object-quota")
+    p.add_argument(
+        "--box3d-source",
+        default="{local_export}/{episode}/rgbd.hdf5",
+        help="Per-episode HDF5 with labels/box3d/<obj>/{center_world,quat_world,size_lwh} (format fields: local_export, episode)",
+    )
     args = p.parse_args()
+    if args.object_quota < 0 or (args.object_quota > 0) != (args.object_task is not None):
+        p.error("--object-quota N>0 and --object-task go together")
+    if args.object_quota and not args.local_export:
+        p.error("--object-quota needs --local-export")
     if args.local_export:
         if not args.cloud_cache:
             p.error("--local-export requires --cloud-cache")
@@ -331,8 +402,23 @@ def main():
         raise ValueError("Action statistics use a different split")
     if saved_stats and stats_path.read_bytes() != stats_bytes:
         raise ValueError("Output already contains different action statistics; use a separate output directory")
+    recipe = None
+    if args.object_quota:
+        recipe = dict(
+            name="object_quota_v1",
+            quota=args.object_quota,
+            task=args.object_task,
+            objects=[dict(part=part, kind=kind) for part, kind in OBJECT_QUOTA_TASKS[args.object_task]],
+            membership="simulator box3d at the anchor frame, camera optical frame; sphere: |x-c|<=max(size)/2+margin, "
+            "box: inside oriented box expanded by margin; smallest normalised score if several",
+            margin_metres=OBJECT_MARGIN_METRES,
+            order="objects(<=quota each, FPS) -> global FPS to 512 -> left<=256 -> right<=256 (5 cm) -> global fill to 1024",
+            box3d_source=args.box3d_source,
+        )
     if existing_manifest.exists():
         previous = json.loads(existing_manifest.read_text())
+        if previous.get("selection_recipe") != recipe:
+            raise ValueError("Existing cache uses a different selection recipe; use a separate output directory")
         if previous["action_stats_sha256"] != hashlib.sha256(stats_bytes).hexdigest() or previous["split"] != splits:
             raise ValueError("Existing cache uses different statistics/split; use a separate output directory")
     stats_path.write_bytes(stats_bytes)
@@ -391,6 +477,8 @@ def main():
         action_stats_sha256=digest(args.stats),
         split=splits,
     )
+    if recipe:
+        manifest["selection_recipe"] = recipe
     if args.local_export:
         # Existing .pt caches may still contain adapter symlinks in their preview
         # metadata. Resolve those at load time without rewriting every tensor file.
