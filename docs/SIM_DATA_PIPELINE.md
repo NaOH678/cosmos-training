@@ -23,7 +23,7 @@ flowchart TD
     F --> I[同帧深度反投影 XYZ]
     H --> I
     A --> J[关节状态加URDF做FK]
-    J --> K[双手42点，变换到主视角光学坐标系]
+    J --> K[双手42点，变换到主视角光学坐标系（或保留robot base系，见6.2）]
     I --> L[按同一窗口清单切片，计算PointFlow位移标签]
     K --> M[按同一窗口清单切片，计算FK位移标签]
     D --> N[按episode与起点对齐训练样本]
@@ -192,6 +192,15 @@ XYZ_camera = Z × inverse(K) × [u, v, 1]^T
 
 单位为米；光学相机坐标为 X向右、Y向下、Z向前。最近像素读取深度，检查3×3邻域均为有效正值，深度跨度不得超过 `0.02 + 0.02×Z` 米；不跨物体边缘混合深度。见 [rgbd_pointflow.py 的 lift_depth / isaac_world_from_optical](utils/rgbd_pointflow.py)。
 
+**几何坐标系（`camera` / `robot_base`）。** 默认缓存与推理都把几何放在上述光学相机系。主视角相机外参每个场景随机（task27示范与评测相同：高度std约18 mm、范围约66 mm，每条episode内静止），相机系中的物体/桌面高度因此混入相机高度。可选 `robot_base`：把几何换到URDF根link `base_link`（task27即右臂基座；左臂基座在其+1 m处），仿真中它相对世界固定，与关节空间动作同一参照：
+
+```text
+world_from_optical = E × [[R_C,0],[0,1]]，  R_C = [[0,0,1],[-1,0,0],[0,-1,0]]   # E为Isaac轴约定外参
+robot_from_optical = inverse(world_from_robot_base) × world_from_optical
+```
+
+E取 `rgbd.hdf5:cameras/cam_overhead/extrinsic_world_from_cam` 的窗口首帧（推理用运行时 `truth_world_from_optical`，已含R_C）；`world_from_robot_base` 取 `<episode>/fk21.json`（task27为绕Z +90°、平移(0.5,-0.43,0.75)，100条逐位相同）。点坐标做旋转+平移；位移、法向只旋转；uv、`uv_to_video`、内参、颜色、点ID不变。刚体变换不改变FPS距离与手部5 cm邻域，所以两种坐标系选出的点完全相同。实现：[frame_transform.py](../cosmos_framework/data/frame_transform.py)（`robot_from_optical` 第46行、`convert_sample_to_robot` 第123行）。
+
 CoTracker提供RGB对应关系，仿真深度提供尺度。没有用已知物体位姿推算下一帧点位置来纠正跟踪错误；所以仍可能有表面滑移或漂移。
 
 ### 6.3 本地交付的整段存储和通用窗口（尚非最终1024点训练输入）
@@ -247,9 +256,10 @@ CoTracker提供RGB对应关系，仿真深度提供尺度。没有用已知物�
 对选中的N个原始ID，预处理执行[通用窗口准备器](../tools/prepare_sim_pointfk_v3.py)：
 
 - RGB：从首帧原始三视图拼图的上480行取head图，在anchor UV做双线性采样；不从dream或有损MP4取颜色。
-- 坐标平移：`shift_x/y=(min+max)/2`、`shift_z=min_z`，`center=anchor_xyz-shift`。anchor仍保留相机系米制XYZ；平移只服务编码器。
+- 坐标平移：`shift_x/y=(min+max)/2`、`shift_z=min_z`，`center=anchor_xyz-shift`。anchor保留所在坐标系（默认相机系；`robot_base`缓存为base_link系）的米制XYZ；平移只服务编码器，换坐标系后 `coord_shift/coord/feat/grid` 按新坐标重算。
 - 网格：`grid=floor(center/0.02)`，再减去各轴网格最小值。每个2cm体素取首个代表点，9维特征为 `[center_xyz, RGB/255, normal_xyz]`。
 - 保存 `original_to_voxel`、`voxel_representatives`、`coord_shift`；体素化不会删除原始N点的监督身份。
+- 法向先按相机系规则定向（朝向相机），`robot_base` 缓存再整体旋转，不重新定向。
 - 对未来每帧s+k，通过全局track ID查找同一点；只有命中且 `valid & unique` 才标记 `target_valid[k-1,i]=True`。
 - 位移是相对首帧的累计位移 `D[k-1,i]=P[s+k,i]-P[s,i]`，不是相邻两帧增量；形状 `[32,N,3]`，单位米。
 - 未命中的目标位移槽写零、mask为False；不能把零当作“物体静止”的真值。后续新出生的ID不加入这一窗口，可在之后起点成为anchor。
@@ -262,6 +272,8 @@ CoTracker提供RGB对应关系，仿真深度提供尺度。没有用已知物�
 
 PointFlow的模型输入和监督分开存放：`inputs`是当前几何，`targets`是32步位移和valid，`metadata`是时序、episode、预览投影等。批次按point/voxel offsets拼接不同样本，点数可变；不因某个点未来不可见就从当前输入删除它。见 [pointflow_dataset.py:101](../cosmos_framework/data/pointflow_dataset.py#L101)、[pointflow_batch.py:16](../cosmos_framework/data/pointflow_batch.py#L16)。
 
+缓存坐标系记录在选点manifest的 `frame` 字段（缺省即 `camera`），逐样本 `pointflow.metadata`/`fk.metadata` 另存 `frame`、`cam_from_frame`、`frame_from_cam`；数据集发现样本与manifest不一致，或环境变量 `POINTFK_GEOMETRY_FRAME` 与manifest不一致时直接报错（[sim_pointfk_dataset.py:46](../cosmos_framework/data/generator/action/datasets/sim_pointfk_dataset.py#L46)）。需要投影到图像的eval预览用 `cam_from_frame` 转回相机系再投影。
+
 scale由本任务**选点后的训练集窗口**统计：收集每个有效未来观测的XYZ三个分量，合并计算总体标准差 `sqrt(mean(x²)-mean(x)²)`。不是按点/轴分别归一化，不包含验证集；stride1重叠窗口中的观测会按其窗口出现次数参与统计。
 
 ```text
@@ -270,7 +282,7 @@ FK scale        = selection_manifest["train_only_scales"]["fk"]
 D_model         = D_metres / 对应分支的scale
 ```
 
-缓存标签继续存米制，训练加噪前才除以scale；采样输出乘回scale，再加anchor得到未来相机系XYZ。此处不减去统计均值、不做clip，也不使用action的q01/q99。启动脚本从selection manifest读取scale，当前逐帧scale覆盖项清空。见 [prepare_sim_pointfk_v3.py:161](../tools/prepare_sim_pointfk_v3.py#L161)、[pointflow_training.py:9](../cosmos_framework/model/generator/pointflow_training.py#L9)。
+缓存标签继续存米制，训练加噪前才除以scale；采样输出乘回scale，再加anchor得到与anchor同一坐标系的未来XYZ。此处不减去统计均值、不做clip，也不使用action的q01/q99。启动脚本从selection manifest读取scale，当前逐帧scale覆盖项清空。见 [prepare_sim_pointfk_v3.py:161](../tools/prepare_sim_pointfk_v3.py#L161)、[pointflow_training.py:9](../cosmos_framework/model/generator/pointflow_training.py#L9)。
 
 ### 6.8 Sonata stage2、cluster token与skip/PB解码
 
@@ -290,6 +302,7 @@ D_model         = D_metres / 对应分支的scale
 
 - PointFlow的t/h/w位置：cluster当前UV经过实际三视图拼图、resize/pad及patch仿射得到h/w；t对应anchor及未来0.2、0.4…1.6秒八个块。不能直接把640×480的原UV当作VAE patch坐标。
 - PointFlow/FK几何token彼此交互时用局部四轴编码；和video/action等非几何token交互时保留三轴编码。第四轴实际用当前相机逆深度 `rho=(1/Z-rho0)/rho_scale`，默认rho0=1、rho_scale=1，并非直接把米制Z原值作为轴。
+- h/w只来自anchor UV与 `uv_to_video`，与几何坐标系无关；`robot_base` 只改变送入PointFlow/FK编码器的三维数值，不改变任何token的t/h/w位置。local RoPE的第四轴使用相机深度，`robot_base` 目前只用于nonlocal。
 - 这里的h/w和深度固定在anchor：PointFlow用当前cluster中心、FK用当前各关键点；不会随着噪声状态或未来预测更新位置。此几何先验表示当前空间关系。
 
 实现：[pointflow_sequence.py:32](../cosmos_framework/model/generator/pointflow_sequence.py#L32)、[cosmos3_vfm_network.py:175](../cosmos_framework/model/generator/mot/cosmos3_vfm_network.py#L175)、[pointflow_fk_attention.py:1](../cosmos_framework/model/generator/pointflow_fk_attention.py#L1)。
@@ -303,6 +316,8 @@ D_model         = D_metres / 对应分支的scale
 每次重新规划时，用**当前主相机RGB、对齐深度、可见query mask、当前关节状态和相机标定**构建候选点，求当前FK，再执行6.5–6.6的相同过滤、FPS、特征和2cm体素化。此时不需要未来CoTracker轨迹；CoTracker的跨帧对应关系用于离线构建监督。当前窗口内固定选中的点身份；下一次获取新观测后可重新选点。
 
 第一阶段仿真闭环可继续用当前GT query mask，以匹配训练候选分布；仅有RGB时还不能直接复现这套输入，必须另行提供深度和候选区域。跨不同机器人任务应替换FK关键点和坐标转换，不能把task21的Wuji关节顺序套到其他手型。
+
+推理坐标系由开关 `POINTFK_GEOMETRY_FRAME=camera|robot_base` 决定（默认camera；交付时写入checkpoint的 `model_environment.json`，随模型走）。候选生成、选点、预测保存、真值分析与可视化仍在相机系；只在模型边界把anchor/法向换到base_link并重新体素化，模型输出的位移再旋转回相机系保存。实现在Bench2Dex worktree `/cpfs/user/shichaojian/Bench2Dex-Pointflow-fk-robotframe`（分支 `robotframe-inference`）的 `policy/Cosmos/pointfk_policy.py`。可选 `POINTFK_WORLD_FROM_ROBOT_BASE`（4×4 JSON）在运行时核对机器人根位姿，偏差>1e-4即报错。相机系训练的旧checkpoint不能配 `robot_base` 输入。
 
 当前文档核对的是训练数据/模型契约，并不等同于本地在线候选生成、模型加载和闭环已全部验证。回看dream时应区分预测点轨迹与“使用GT valid裁掉的展示点”，避免把视频生成时序偏差导致的空洞误认为点没有被选中。
 
@@ -337,7 +352,7 @@ p_camera = inverse(T_world_from_optical_camera)
            × p_robot_base
 ```
 
-相机记录采用Isaac轴约定，先通过 `isaac_world_from_optical` 转换为光学坐标外参。最终与 PointFlow 共用主视角相机坐标系、米制单位。
+相机记录采用Isaac轴约定，先通过 `isaac_world_from_optical` 转换为光学坐标外参。最终与 PointFlow 共用主视角相机坐标系、米制单位。`robot_base` 缓存中FK直接保留 `p_robot_base`（等价于对上式再乘 `robot_from_optical`），`fk.metadata.coordinate="robot_base_link"`，与PointFlow同处base_link系。
 
 ### 7.3 保存、监督与验证
 
@@ -591,6 +606,18 @@ OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
 
 PT中的action保留原始量纲、位移保留米制，读取时才归一化。latent适配manifest引用第二步的NPY，RGB使用软链接，**不会复制或重新编码一套视频**。搬走训练目录时，需同时携带引用文件并重定位路径。上述命令前台输出，并将stdout/stderr追加到`_training/logs/prepare.log`。
 
+**可选：生成 `robot_base` 坐标系训练目录。** 从已完成的相机系训练目录转换，不重跑选点；VAE latent与RGB用软链接，`window_index.json`、`normalization_train_only.json` 逐字节复制：
+
+```bash
+LD_LIBRARY_PATH='' PYTHONPATH=/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk \
+nice -n 19 /mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv/bin/python \
+  /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/tools/convert_pointfk_cache_to_robot_frame.py \
+  --source-bundle /data/shichaojian/sim_data/bench2dex_task27_ball_training \
+  --output /data/shichaojian/sim_data/bench2dex_task27_ball_training_robotframe --workers 32
+```
+
+输出目录必须是新目录（已有manifest会拒绝）；逐episode写完成记录，可断点续跑。另写 `frame_transforms.json`（每条episode的4×4与来源）。相机外参在episode内变化、外参帧数与 `fk21.json` 不符、或scale相对变化>1e-3时中止。task27：75,640窗口、74 GB、32进程约2分钟。也可用 `prepare_sim_pointfk_v3.py ... --frame robot`（需 `--local-export`）从轨迹重建，二者调用同一转换函数、逐字段相同。
+
 ### 8.6 第五步：选择模式并启动训练（默认8卡）
 
 **输入：** 第四步的`/data/shichaojian/sim_data/bench2dex_task06_fruit_training/`。
@@ -620,6 +647,14 @@ OUTPUT_ROOT=/data/shichaojian/runs/sim_task06_fruit_local_8gpu_20k \
 ```
 
 启动器按标签自动定位`bench2dex_task<TAG>_training`；自定义训练数据位置用`SIM_POINTFK_BUNDLE=/绝对路径`覆盖。16卡平台使用同一入口、同一TOML，另设`NNODES=2 NPROC_PER_NODE=8`并选独立`OUTPUT_ROOT`；平台需提供两节点rank与rendezvous信息。
+
+`robot_base` 训练只换训练目录，启动器从manifest读取 `frame` 并导出 `POINTFK_GEOMETRY_FRAME`：
+
+```bash
+SIM_POINTFK_BUNDLE=/data/shichaojian/sim_data/bench2dex_task27_ball_training_robotframe \
+OUTPUT_ROOT=/data/shichaojian/runs/<新目录> \
+  bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_sim_normalized.sh 27_ball nonlocal
+```
 
 正式启动时，真机与仿真共用`tools/prepare_normalized_run.py`保存归一化快照。仿真将训练目录中的`normalization_train_only.json`原样复制为`$OUTPUT_ROOT/action_stats.json`，训练/验证均读取该快照；路径和SHA256保存在实验`config.yaml`的`action_stats_path`、`action_stats_sha256`字段。快照不包含新的统计计算，归一化公式与数据划分不变。续训时统计不一致会拒绝启动，已有文件不会被覆盖。旧仿真实验缺少快照时，必须核对已有配置的bundle及selection manifest记录的统计SHA256后才能补齐；这是依据现有记录补档，不代表旧训练配置已经记录过该哈希。
 
@@ -707,7 +742,7 @@ P_future = anchor_xyz + D_pred_metres
 
 动作按`joint_names`保持本任务的真实维度（如06为36、07为48），读取时补齐64维，padding不参与动作loss。不同机器人复用本地各自的FK映射；云端`fk_window_sample`只做切窗打包，不用Wuji URDF重算其他机器人。
 
-几何scale不减均值、不clip，与action分位数归一化分开。stride1重叠窗口中的位移按窗口出现次数参与统计；验证集不参与两种统计。首次准备不手填别的任务scale，启动器自动读取本任务manifest。
+几何scale不减均值、不clip，与action分位数归一化分开。scale是位移三分量合并的标准差，只受旋转影响：task27相机系与 `robot_base` 分别为PointFlow 0.0353169 / 0.0353169、FK 0.0654471 / 0.0654471（相对差<1e-7）；转换器重算后写入新manifest，action统计不变。stride1重叠窗口中的位移按窗口出现次数参与统计；验证集不参与两种统计。首次准备不手填别的任务scale，启动器自动读取本任务manifest。
 
 本地早期十条统计确实由代码生成：
 
