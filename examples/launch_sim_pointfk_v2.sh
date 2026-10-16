@@ -35,6 +35,8 @@ case "$SIM_POINTFK_VARIANT" in
 esac
 readarray -t SCALES < <(python -c 'import json,os; d=json.load(open(os.environ["SIM_POINTFK_SELECTION_ROOT"]+"/manifest.json"))["train_only_scales"]; print(d["pointflow"]); print(d["fk"])')
 export POINTFLOW_DISPLACEMENT_SCALE="${SCALES[0]}" FK_DISPLACEMENT_SCALE="${SCALES[1]}"
+# Geometry frame of the selection cache (old caches have no field = camera); dataset/callbacks/handoff read it.
+export POINTFK_GEOMETRY_FRAME="$(python -c 'import json,os; print(json.load(open(os.environ["SIM_POINTFK_SELECTION_ROOT"]+"/manifest.json")).get("frame","camera"))')"
 export OUTPUT_ROOT="${OUTPUT_ROOT:-/data/shichaojian/runs/sim_v2_handguided1024_stage2_selective16_8gpu_20261005}"
 export IMAGINAIRE_OUTPUT_ROOT="$OUTPUT_ROOT"
 export SIM_ACTION_STATS_PATH="$SIM_POINTFK_BUNDLE/normalization_train_only.json"

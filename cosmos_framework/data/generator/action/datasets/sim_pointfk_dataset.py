@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -11,6 +12,7 @@ from torch.utils.data import Dataset
 from cosmos_framework.data.generator.action.action_processing import ActionAffineNormalization
 from cosmos_framework.data.generator.action.datasets.action_sft_dataset import ActionIterableShuffleDataset
 from cosmos_framework.data.generator.action.transforms import ActionTransformPipeline
+from cosmos_framework.data import frame_transform
 from cosmos_framework.data.pointflow_window import read_frame
 
 
@@ -40,6 +42,11 @@ class SimPointFKSFTDataset(Dataset):
         self.source_geometry_root = selection.get("source_geometry_root")
         if selection["schema"] != "sim_pointfk_handguided1024_v1":
             raise ValueError("Unsupported point selection cache")
+        # Old caches carry no ``frame`` field: they are camera-frame.
+        self.frame = selection.get("frame", frame_transform.CAMERA)
+        expected_frame = os.environ.get(frame_transform.FRAME_ENV)
+        if expected_frame and expected_frame != self.frame:
+            raise ValueError(f"{frame_transform.FRAME_ENV}={expected_frame} but cache frame is {self.frame}")
         self.rows = [r for r in selection["windows"] if r["split"] == ("validation" if split == "val" else split)]
         if not self.rows:
             raise ValueError(f"Empty split {split}")
@@ -108,6 +115,8 @@ class SimPointFKSFTDataset(Dataset):
                 source_path=str(episode_root / "pointflow"), preview_video=str(episode_root / "head.mp4")
             )
         np.testing.assert_array_equal(saved["raw_frame_ids"], ids)
+        if self.include_geometry and saved["pointflow"]["metadata"].get("frame", frame_transform.CAMERA) != self.frame:
+            raise ValueError("Sample frame differs from the selection manifest frame")
         if saved["joint_names"] != self.joint_names:
             raise ValueError("Action joint order changed")
         offset = self.offsets[name][start]

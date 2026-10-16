@@ -18,6 +18,7 @@ from cosmos_framework.callbacks.pointflow_visualize import (
     stitch_windows,
     trajectory_metrics,
 )
+from cosmos_framework.data import frame_transform
 from cosmos_framework.data.pointflow_window import _episode_metadata, read_frame
 from cosmos_framework.utils import callback, distributed, log, misc
 
@@ -94,7 +95,7 @@ def make_preview(
             else:
                 uv = read_frame(source / "uv_px.npy", int(row)).reshape(-1, 2)[ids]
                 k = read_frame(intrinsics_path, int(row)) if intrinsics_path.is_file() else _LABELED_INTRINSICS
-            xyz = xyz0 + flow[t]
+            xyz = frame_transform.points_to_camera(xyz0 + flow[t], metadata)  # overlays are drawn in the image
             projected = xyz @ k.T
             with np.errstate(divide="ignore", invalid="ignore"):
                 pixels = projected[:, :2] / projected[:, 2:3]

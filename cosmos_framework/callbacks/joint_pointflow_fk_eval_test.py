@@ -77,3 +77,33 @@ def test_simulation_overlay_uses_recorded_intrinsics_for_both_hands():
     record = {"frames_bgr": [np.zeros((480, 640, 3), np.uint8)] * 33}
     attach_fk_overlay(record, fk, fk["targets"]["displacement"], {})
     np.testing.assert_allclose(record["fk_pred_uv"], np.broadcast_to([200, 120], (33, 42, 2)))
+
+
+def test_fk_overlay_projects_robot_frame_anchor_in_camera_frame():
+    from cosmos_framework.data import frame_transform as ft
+
+    rng = np.random.default_rng(0)
+    camera = rng.normal(size=(21, 3)) * 0.1 + [0.0, 0.0, 1.0]
+    robot_from_cam = np.eye(4)
+    robot_from_cam[:3, :3] = [[0.0, -1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0]]
+    robot_from_cam[:3, 3] = [0.4, 0.5, 1.0]
+    disp = rng.normal(size=(32, 21, 3)) * 0.01
+    metadata = {
+        "intrinsics_px": np.array([[500.0, 0, 320], [0, 500.0, 240], [0, 0, 1]]),
+        "image_size_wh": np.array([640, 480]),
+    }
+    pf = {"inputs": {"image_size_wh": np.array([640, 480])}, "metadata": {}}
+    records = []
+    for fk in (
+        {"inputs": {"anchor_xyz": camera}, "targets": {"displacement": disp, "valid": np.ones((32, 21), bool)}, "metadata": metadata},
+        {
+            "inputs": {"anchor_xyz": ft.apply_points(robot_from_cam, camera)},
+            "targets": {"displacement": ft.apply_vectors(robot_from_cam, disp), "valid": np.ones((32, 21), bool)},
+            "metadata": dict(metadata, cam_from_frame=ft.invert_rigid(robot_from_cam).astype(np.float32)),
+        },
+    ):
+        record = {"frames_bgr": [np.zeros((480, 640, 3), np.uint8)] * 33}
+        attach_fk_overlay(record, fk, fk["targets"]["displacement"], pf)
+        records.append(record)
+    for key in ("fk_gt_uv", "fk_pred_uv"):
+        assert np.abs(records[0][key] - records[1][key]).max() < 1e-2

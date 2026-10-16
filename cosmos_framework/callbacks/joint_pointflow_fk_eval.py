@@ -9,6 +9,7 @@ import numpy as np
 import torch
 
 from cosmos_framework.callbacks.fk_eval import FKEvalCallback
+from cosmos_framework.data import frame_transform
 from cosmos_framework.callbacks.pointflow_eval_cases import evaluation_rng
 from cosmos_framework.callbacks.pointflow_visualize import render_case, stitch_windows
 from cosmos_framework.utils import distributed, log, misc
@@ -47,6 +48,7 @@ def attach_fk_overlay(record, fk, prediction, pointflow, *, dream_hw=None):
     valid = np.concatenate([valid[:1], valid])
     for name, displacement in (("gt", target), ("pred", pred)):
         xyz = anchor[None] + np.concatenate([np.zeros_like(anchor)[None], displacement])
+        xyz = frame_transform.points_to_camera(xyz, fk.get("metadata"))
         if "intrinsics_px" in fk.get("metadata", {}):
             k = numpy(fk["metadata"]["intrinsics_px"])
             projected = xyz.reshape(-1, 3) @ k.T
