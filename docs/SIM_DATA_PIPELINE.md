@@ -247,6 +247,8 @@ CoTracker提供RGB对应关系，仿真深度提供尺度。没有用已知物�
 
 每次独立FPS的首点是离候选质心最近的点，之后反复取距已选集合最远者；相同距离按候选顺序决胜。不是随机采样，也不是按未来运动量排名。两手重叠区域归最近手，距离完全相同由 `argmin` 归第一只手。不会扩大5cm半径强凑局部配额，不重复采样；总候选不足1024时保留实际N，后续使用变长打包。
 
+**可选：物体保底选点（objq32，默认关闭，关闭时缓存与上表逐字节相同）。** 开启后顺序改为：① 每个任务物体（task27：mini_soccer / tennis_ball / golf_ball / table_tennis 四个球；task21：msg / soy / vinegar；不含盒子、篮子）在自身候选点上FPS至多32点（不足则全取）；② 以这些点为初始集做全局FPS，使全局部分共512；③ 左右手5cm内各至多256（排除已选，同上表）；④ 全局补至1024。点序为物体、全局、左手、右手、补点，唯一、不用未来信息。物体归属用首帧（锚点帧）的仿真物体位姿做几何判定，训练预处理与本地推理共用同一函数 [object_membership / object_quota_hand_guided_fps](../cosmos_framework/data/pointflow_anchor_selection.py)：球为 `|x−球心| ≤ max(size_lwh)/2 + 5mm`；瓶/罐为落在物体定向盒外扩5mm内；盒子取 `labels/box3d/<obj>/{center_world, quat_world, size_lwh}`（世界系，经 `world_from_optical(extrinsic[start])` 转到相机光学系；该盒等于物体局部网格包围盒），同时落入多个物体时取归一化距离最小者。配方写入选点manifest的 `selection_recipe`（默认缓存无此字段），episode json 的 `object_quota` 记录每窗口各物体候选数与选中数。
+
 **512/256/256是预算，不是最终语义类别计数。** 全局512可能已经含手附近点；左右手局部候选也可能是盒子或物体表面，并非只选“手的mask”。因此既不保证最后恰好512个物体点、512个手点，也不保证盒子点低于某个比例。此策略增加接触附近的覆盖，但没有设置盒子类别上限。
 
 选点使用当前anchor XYZ与当前FK，不使用未来位移、未来可见率或存活长度。上游候选仍依赖仿真深度和oracle query mask；`selection_uses_future=False` 与 `uses_gt_query_mask=True` 同时成立。
@@ -316,6 +318,8 @@ D_model         = D_metres / 对应分支的scale
 每次重新规划时，用**当前主相机RGB、对齐深度、可见query mask、当前关节状态和相机标定**构建候选点，求当前FK，再执行6.5–6.6的相同过滤、FPS、特征和2cm体素化。此时不需要未来CoTracker轨迹；CoTracker的跨帧对应关系用于离线构建监督。当前窗口内固定选中的点身份；下一次获取新观测后可重新选点。
 
 第一阶段仿真闭环可继续用当前GT query mask，以匹配训练候选分布；仅有RGB时还不能直接复现这套输入，必须另行提供深度和候选区域。跨不同机器人任务应替换FK关键点和坐标转换，不能把task21的Wuji关节顺序套到其他手型。
+
+可选的物体保底推理开关 `POINTFK_OBJECT_QUOTA=32`（`POINTFK_OBJECT_TASK=task27|task21` 可强制任务，缺省时由场景物体名唯一判定）与上文objq32训练缓存配套：同一份选点函数逐字复制到 `policy/Cosmos/anchor_selection.py`（自 `# --- objq` 到文件末尾的文本与训练仓库逐字相同），物体归属取query帧的仿真物体位姿与物体局部网格包围盒，渲染id标签只写入 `live_geometry.jsonl` 做交叉核对，不参与选点。与旧的 `POINTFK_BALL_QUOTA`（渲染标签、仅task27）互斥，旧开关行为不变。实现在Bench2Dex worktree `/cpfs/user/shichaojian/Bench2Dex-Pointflow-fk-ballquota`（分支 `ballquota-inference`）的 `policy/Cosmos/sim_geometry.py`。
 
 推理坐标系由开关 `POINTFK_GEOMETRY_FRAME=camera|robot_base` 决定（默认camera；交付时写入checkpoint的 `model_environment.json`，随模型走）。候选生成、选点、预测保存、真值分析与可视化仍在相机系；只在模型边界把anchor/法向换到base_link并重新体素化，模型输出的位移再旋转回相机系保存。实现在Bench2Dex worktree `/cpfs/user/shichaojian/Bench2Dex-Pointflow-fk-robotframe`（分支 `robotframe-inference`）的 `policy/Cosmos/pointfk_policy.py`。可选 `POINTFK_WORLD_FROM_ROBOT_BASE`（4×4 JSON）在运行时核对机器人根位姿，偏差>1e-4即报错。相机系训练的旧checkpoint不能配 `robot_base` 输入。
 
@@ -617,6 +621,8 @@ nice -n 19 /mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv/bin/python \
 ```
 
 输出目录必须是新目录（已有manifest会拒绝）；逐episode写完成记录，可断点续跑。另写 `frame_transforms.json`（每条episode的4×4与来源）。相机外参在episode内变化、外参帧数与 `fk21.json` 不符、或scale相对变化>1e-3时中止。task27：75,640窗口、74 GB、32进程约2分钟。task21 v3的几何目录只有 `observations.hdf5`（外参字段同名，脚本自动改读）且 `fk21.json` 未记录基座位姿，需加 `--world-from-robot-base`（同一机器人 `multi_ur5_wuji_with_flange`，取task27 `fk21.json` 中的4×4）；输出 `/data/shichaojian/sim_data/bench2dex_task21_v3_training_robotframe`，60,190窗口、57 GB、约2分钟。校验：同一轨迹 `xxx` 与 `xxx_1`（相机不同）首窗掌心在base_link系中相差<1e-3 mm。也可用 `prepare_sim_pointfk_v3.py ... --frame robot`（需 `--local-export`）从轨迹重建，二者调用同一转换函数、逐字段相同。
+
+**可选：物体保底（objq32）训练目录。** 选点配方改变，需重跑本步（不能由已有缓存转换），加 `--object-quota 32 --object-task task27|task21`，输出新目录，其余参数与原训练目录相同：先把原 `normalization_train_only.json` 拷入新目录以复用划分和统计；task27 加 `--task-text 'Place the balls into the box.'`；task21 的划分不在统计文件里，须 `--split` 指向原训练目录的选点 `manifest.json`，并带原 `--cloud-cache /data/shichaojian/sim_data/bench2dex_task21_replay100_pointfk_raw_v1/datasets/bench2dex-task21-cosmos-cache`、`--latent-root /data/shichaojian/raw_data/bench2dex/task21/cosmos-cache/vae_window_latents`、原单一 `--task-text`，以及物体位姿 `--box3d-source '/data/shichaojian/raw_data/bench2dex/task21/replay-generalization/{episode}.hdf5'`（task27默认读 `<local-export>/<episode>/rgbd.hdf5`）。输出 `/data/shichaojian/sim_data/bench2dex_task27_ball_training_objq32`（75,640窗口、74 GB、32进程nice 19约11分钟）与 `/data/shichaojian/sim_data/bench2dex_task21_v3_training_objq32`（60,190窗口、59 GB、约8分钟）。`window_index.json`、`vae_window_latents/window_manifest.json`、`normalization_train_only.json` 与原目录逐字节相同，FK scale不变，仅PointFlow scale重算（task27 0.035317→0.035587，task21 0.036563→0.036370）。启动训练只需换 `SIM_POINTFK_BUNDLE`。
 
 ### 8.6 第五步：选择模式并启动训练（默认8卡）
 
