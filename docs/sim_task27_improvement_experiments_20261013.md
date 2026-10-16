@@ -214,9 +214,30 @@ es16各类SR：nolocal none/cov/inv/inv_cov 36/24/24/22，raw 38/20/22/24。产�
 - 手-物体相对误差（离线，接触窗口）：手2.2 cm、球2.1 cm、相对1.2 cm，手与球误差同向（相关0.75），相对位置比各自绝对位置准；相对位置损失空间小。
 - task21：倒下主要来自规划的松手高度过高与瓶身倾斜，不是太挤也不是执行偏差（规划与执行手位差约0.7 cm；规划高度≥6 cm覆盖soy倒下71%、vinegar 45%，未倒仅5%；规划间距<6 cm只占倒下的7%/17%）。此前“间距<6 cm倒下率64–89%”量的是倒下前0.5 s的距离，部分是倒下的结果。箱内物体点数与倒下无关。PF/FK在task21的提升（nolocal +41局，p=0.004）来自抓取/搬运类失败减少（主要inv_only），倒下比例不变（raw 18.7%、nolocal 17.5%）。报告 `/oss-shichaojian/outputs/infer/task21/analysis/placement_plan_20261016/README.md`、`/oss-shichaojian/outputs/infer/task27/analysis/pf_points_20261016/README.md`。
 
+关键数据（详表见各README）：
+
+| 项 | 数据 | 来源 |
+| --- | --- | --- |
+| golf对准偏差（执行） | 示范中位1.5 cm（p10/p90 1.1/2.4，50条中1条>3.3）；闭环放进1.8 / 失败3.3 | `/data/shichaojian/runs/demo_precision_20261015/summary.md`、`golf_env/README.md` |
+| golf对准偏差（规划，FK头） | 放进2.5 / 失败3.6；规划vs执行0.6 cm；规划<2 cm时放进78%，≥4 cm时27% | `golf_env/README.md` Q4 |
+| 掌心随桌面跟随比例 | 示范0.90、闭环0.57（同一回归口径） | `demo_precision_20261015/summary.md` |
+| 8样本落点离散 | 均方根0.2–0.3 cm；真值挑最优比随机好约0.2 cm；免真值挑选=随机 | `/data/shichaojian/runs/multisample_spread_20261015/summary.md` |
+| 球上点数（手远，中位） | golf 4–5（16%为0）、tennis 10、乒乓20、soccer 60；手<5 cm后golf约33–40 | `hand_obj_relative_20261016/summary.md`、`task27/analysis/pf_points_20261016/README.md` |
+| 接触窗口误差 | 手2.2、球2.1、相对1.2 cm，手-球误差相关0.75 | `hand_obj_relative_20261016/summary.md` |
+| PF/FK vs raw（cov_only，g3按球在箱内） | 成功 +12/+16 pp；golf +12/+13，tennis +13/+13（local/nolocal） | `pf_points_20261016/partA_tables.md` |
+| task21倒下 | 规划松手高度 倒下soy 8.3 / vinegar 5.4 cm vs 未倒3.7 / 4.1；规划间距<6 cm仅占倒下7%/17% | `task21/analysis/placement_plan_20261016/README.md` |
+| es8卡死 | 51%步不动；es32的“先停后动”块第10–13行才动 | `task27/analysis/es_chunk_20261015/README.md` |
+
+更正记录（以本节为准）：①“桌面跟随约40%”为误读，同口径为57%；②“PF/FK提升在tennis/乒乓、不在golf”不成立，cov_only下golf同样提升；③task21“间距<6 cm倒下64–89%”量的是倒下前0.5 s，部分是倒下的结果。
+
+判断：两个任务的瓶颈都是规划的空间精度（小物体对准、桌面高度、松手高度），raw/local/nolocal在此相同，现有PF/FK结构不改善它；PF/FK的已知作用是外观扰动鲁棒。已排除/降级：闭环挑样本（离散太小）、两阶段视频→IDM与一致性挑选（规划本身偏）、手-物体相对损失（相对误差小于绝对误差）、缩短执行步数（es8卡死、es16原因未定）。“给目标物体保底点数”既未被支持也未被否定（手远时golf点数几乎不变，相关分析无法检验）。
+
 ## 4. 待办
 
 - 40k结果出来后按逐球漏斗与配对比较筛选，重点看golf“触碰→举起”和cov_only。
 - golf抓取：待可视化确认失败形态（够不着、手指未合拢、抓后滑落）后设计针对性改动。
 - 原生WAM离线eval无现成脚本，未做。
+- 待决定（2026-10-16提出）：①推理端选点干预——nolocal 40k推理时从全局点中划32–64点给待抓球，200局与原结果配对（需改4090代码副本，存在训练/推理选点分布不一致；golf变好=强正证据，无变化=不能下结论），排在task21 g1之后；②通用方法——手/目标区域加大视频损失权重（对raw同样有效，不区分PF/FK），等模式混合与从头训结果再定。
+- task21示范松手高度需用新松手定义（手离瓶轴>R+2.5 cm持续3帧）在开发机重算后再与闭环比较；旧示范数5.6 cm口径不同。
+- 从头训各组20k闭环（seed43/indep/M1–M4 checkpoint已存）：用户说到时通知。
 - 代码合并：mask、cons分支及4090运行时worktree待结果确定后再合并到主分支。
