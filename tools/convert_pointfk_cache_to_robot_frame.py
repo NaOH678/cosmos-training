@@ -22,16 +22,23 @@ from cosmos_framework.data import frame_transform as ft
 SELECTION = "pointflow_fk_handguided1024"
 
 
-def convert_episode(src, dst, geometry_root, name, rows, split):
+def convert_episode(src, dst, geometry_root, name, rows, split, base_override=None):
     torch.set_num_threads(1)
     state = dst / f"{name}.json"
     if state.exists():
         return json.loads(state.read_text())
     root = Path(geometry_root) / name
-    base = np.array(json.loads((root / "fk21.json").read_text())["world_from_robot_base"], dtype=np.float64)
+    fk_meta = json.loads((root / "fk21.json").read_text())
+    if "world_from_robot_base" in fk_meta:
+        base = np.array(fk_meta["world_from_robot_base"], dtype=np.float64)
+    elif base_override is not None:  # older exports (task21 v3) do not record the base pose
+        base = np.array(base_override, dtype=np.float64)
+    else:
+        raise ValueError(f"{name}: fk21.json has no world_from_robot_base; pass --world-from-robot-base")
     import h5py
 
-    with h5py.File(root / "rgbd.hdf5", "r") as handle:
+    geometry_file = root / "rgbd.hdf5" if (root / "rgbd.hdf5").exists() else root / "observations.hdf5"
+    with h5py.File(geometry_file, "r") as handle:
         extrinsics = handle["cameras/cam_overhead/extrinsic_world_from_cam"][:]
     frames = json.loads((root / "fk21.json").read_text())["frames"]
     if len(extrinsics) != frames:
@@ -78,6 +85,7 @@ def main():
     p.add_argument("--geometry-root", type=Path, help="Defaults to manifest source_geometry_root")
     p.add_argument("--workers", type=int, default=32)
     p.add_argument("--limit-episodes", type=int, default=0)
+    p.add_argument("--world-from-robot-base", type=json.loads, help="4x4 JSON, used only when fk21.json lacks it")
     args = p.parse_args()
     src_cache = args.source_bundle / "datasets/cosmos-cache"
     src = src_cache / SELECTION
@@ -108,7 +116,7 @@ def main():
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         futures = {
             pool.submit(
-                convert_episode, src, dst, geometry_root, n, by_episode[n], by_episode[n][0]["split"]
+                convert_episode, src, dst, geometry_root, n, by_episode[n], by_episode[n][0]["split"], args.world_from_robot_base
             ): n
             for n in names
         }

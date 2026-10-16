@@ -616,7 +616,7 @@ nice -n 19 /mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv/bin/python \
   --output /data/shichaojian/sim_data/bench2dex_task27_ball_training_robotframe --workers 32
 ```
 
-输出目录必须是新目录（已有manifest会拒绝）；逐episode写完成记录，可断点续跑。另写 `frame_transforms.json`（每条episode的4×4与来源）。相机外参在episode内变化、外参帧数与 `fk21.json` 不符、或scale相对变化>1e-3时中止。task27：75,640窗口、74 GB、32进程约2分钟。也可用 `prepare_sim_pointfk_v3.py ... --frame robot`（需 `--local-export`）从轨迹重建，二者调用同一转换函数、逐字段相同。
+输出目录必须是新目录（已有manifest会拒绝）；逐episode写完成记录，可断点续跑。另写 `frame_transforms.json`（每条episode的4×4与来源）。相机外参在episode内变化、外参帧数与 `fk21.json` 不符、或scale相对变化>1e-3时中止。task27：75,640窗口、74 GB、32进程约2分钟。task21 v3的几何目录只有 `observations.hdf5`（外参字段同名，脚本自动改读）且 `fk21.json` 未记录基座位姿，需加 `--world-from-robot-base`（同一机器人 `multi_ur5_wuji_with_flange`，取task27 `fk21.json` 中的4×4）；输出 `/data/shichaojian/sim_data/bench2dex_task21_v3_training_robotframe`，60,190窗口、57 GB、约2分钟。校验：同一轨迹 `xxx` 与 `xxx_1`（相机不同）首窗掌心在base_link系中相差<1e-3 mm。也可用 `prepare_sim_pointfk_v3.py ... --frame robot`（需 `--local-export`）从轨迹重建，二者调用同一转换函数、逐字段相同。
 
 ### 8.6 第五步：选择模式并启动训练（默认8卡）
 
