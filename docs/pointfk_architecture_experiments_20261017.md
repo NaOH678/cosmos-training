@@ -43,7 +43,6 @@
 | E2 | M3的mask切的是**整个模态对，含anchor**（mask分支`build_modality_ids`：条件token也计入）。M3下action完全看不到PF（包括当前点云），只能经video间接获得物体信息；FK只与action交互 | M3的收益来自去掉跨组交互；此时action没有任何直接的物体几何输入 |
 | E3 | M2 action_no_geom 25k 58.5（nolocal 50.5、seed43 57.0）；M1 geom_readonly 49.0/54.0；M4 action_observed_vision 52.0/54.0 | 让action读带噪PF/FK没有收益；切掉action对带噪未来video的读取（M4）也没有收益 |
 | E4 | seed43（只改训练种子）25k 57.0 vs 50.5 | 单点种子波动约6.5 pp；结论必须跨checkpoint合并或补种子 |
-| E5 | ft40（40k续训4000步）：control不变；mask组原结果因推理未加mask作废，正在用mask运行时重测 | 4k续训会把结构差异压平，**不能用作筛选** |
 | E6 | indep 30/35k 52.5/49.5；P3 49.5 vs 55.0；推理补球点ballq32 600局无改善；execute_steps缩短变差 | 噪声调度、推理期补点、重规划都不是瓶颈 |
 | E7 | 模式混合：task27 mix_f25i15 40k 66.0（单点，对nolocal p=0.032）；task21 mix 25/30k不优于nolocal | 有苗头，未跨点确认，不作新结构默认设置 |
 | E8 | 闭环FK头 vs FK(action) 18.9 mm，按局均值预测失败AUC 0.82；FDM注入：视频几乎不随动作变；IDM注入GT视频：动作误差大幅下降 | action跟video走，video不跟action走；FK头与动作不一致是失败征兆 |
@@ -344,12 +343,12 @@ M3 mask不变的共享主干 → 原各模态输出头与loss
 | --- | --- | --- | --- |
 | 第一批 | R1 M3-seed43、R2 M3-task21、R3 M3a（零代码，3个8卡） | 用户确认后当天 | 约10-19上午 / 10-20中午 |
 | 第二批 | R4 E-rel、R5 E-rel-abs（开发+单测约2天，含4090推理端） | 约10-19 | 约10-21 / 10-22 |
-| 决策点 | robotframe/objq32 25k（10-18）、vw25 25k（10-19）、M3 40k、ft40 mask重测、R3 | — | 决定D1、选点、C是否进入第三批 |
+| 决策点 | robotframe/objq32 25k（10-18）、vw25 25k（10-19）、M3 40k、R3 | — | 决定D1、选点、C是否进入第三批 |
 | 第三批候选 | D1或robotframe+E-rel；E-rel+objq32；C（视vw25）；A（只给action/FK用command FK） | 视结果 | — |
 
 B、D3本轮不做（§3表）。
 
-筛选与训练预算：**不用4k续训筛选**（E5：续训把结构差异压平，EMA又平均了适应初期）。每组先做开关为0的原模型等价检查、单case通路检查和4卡50步冒烟，然后**从头训40k**（与M3同命令、同种子），按25/30/35/40k评测，以30–40k合并600局判断；有方向的组再补seed43。
+筛选与训练预算：**不用续训模型筛选**（续训模型不作为依据）。每组先做开关为0的原模型等价检查、单case通路检查和4卡50步冒烟，然后**从头训40k**（与M3同命令、同种子），按25/30/35/40k评测，以30–40k合并600局判断；有方向的组再补seed43。
 
 第一轮保持采样4步、guidance1、binomial5、execute_steps32及local开关不变，不同时改噪声、学习率、坐标系、选点和模式比例。
 没有必要机械采用某个分支“最新checkpoint”；选同一套明确可复现的baseline，加载时核对EMA、模式、归一化和真实运行时代码。

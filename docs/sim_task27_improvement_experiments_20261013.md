@@ -15,8 +15,6 @@
 | --- | --- | --- | --- | --- | --- |
 | guidance 2 | nolocal_s4_40000，`policy.g2.yaml` | 886，`runs/eval_200_8gpu_b5_g2` | 10-14 07:45 | 已完成：52.0 / 83.1（none/cov/inv/inv_cov 68/38/48/54） | §0.5 |
 | guidance 1.5 | nolocal_s4_40000，`policy.g15.yaml` | 899，`runs/eval_200_8gpu_b5_g15` | 10-14 07:45 | 已完成：48.0 / 80.0（64/36/44/48） | §0.5 |
-| WAM control 续训 g3 / g1 | `task27_cosmos_raw_ft40_wam_control` | 886 / 899，`runs/eval_200_8gpu_shared_b5{,_g1}` | 10-14 09:20 | 已完成：g3 44.5 / 78.5（60/28/52/38；raw 40k g3为45.0）；g1 52.5 / 81.9（76/38/52/44；raw 40k g1为51.0）。续训不改变WAM，结论见§2 | §2 |
-| WAM control 离线eval | `xm40_eval.sh wam_control default` | 开发机，`/data/shichaojian/runs/xmodal_ft40_20261013/wam_control_default` | 10-14 09:11 | 已跑完但无可比指标：WAM没有PF/FK联合eval输出（无 `joint_prediction.npz`），xm40_analyze匹配0个窗口；WAM的离线action评估需另写脚本，暂不做 | §2 |
 | 从头训 M1–M4 | §3 | `scr40-mask-m{1,2,3,4}` | 10-14 03:38–04:57 | 训练中：10-15 13:34 UTC iter M1 19980 / M2 19260 / M3 19640 / M4 19120（约6.0 s/it），无Traceback，预计10-17约01:00 UTC训完；之后25k–40k闭环g1 | §3 |
 | 从头训 seed43 / indep | §3 | `scr40-{seed43,indep}` | 10-14 05:30 | 训练中：10-15 13:34 UTC iter seed43 20540 / indep 20520（约5.6 s/it），无Traceback，iter_000020000已存，预计10-16约19:30 UTC训完 | §3 |
 | 从头训 cons / smooth | §3 | `scr40-{cons,smooth}` | 10-14 09:45提交 | 已取消（10-14 13:10，用户决定）：cons在开发机训到第693步后停掉（为FDM/IDM诊断让卡），不再恢复，输出保留在 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_cons_8gpu_40k_20261014`；smooth在集群排队时取消。节点改给模式混合训练 | — |
@@ -36,15 +34,15 @@
 | 锚点改用机器人坐标系（robotframe） | PF锚点与位移、FK关键点从相机光轴系换到机器人根坐标系（仿真中机器人固定，等于世界系加常数；用每帧相机外参变换）；选点不变（刚体变换下FPS与手5 cm邻域不变）；重算归一化统计；nolocal，从头训40k，其余同基础nolocal；推理端同步变换 | 训练：主仓库（新增转换脚本与默认关闭的坐标系字段，新数据目录 `/data/shichaojian/sim_data/bench2dex_task27_ball_training_robotframe`）；推理：Bench2Dex worktree `/cpfs/user/shichaojian/Bench2Dex-Pointflow-fk-robotframe`（开关 `POINTFK_GEOMETRY_FRAME`，默认camera）；方案 `/mnt/afs/experiments_20261016/robotframe/PLAN.md` | 10-16 | 实现完成，待冒烟：TR f9f8e4e/f6c8837/552736f/46f24f5，数据 /data/shichaojian/sim_data/bench2dex_task27_ball_training_robotframe，推理worktree /cpfs/user/shichaojian/Bench2Dex-Pointflow-fk-robotframe@d1406a9；SIM_DATA_PIPELINE已更新（fffd39f）；50步冒烟已排队（clusterx `rf-smoke-1016`，10-16 08:40 UTC，提交脚本 `/mnt/afs/experiments_20261016/robotframe/submit_robotframe.py`），通过后提交 `scr40-robotframe` 40k（输出 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_robotframe_8gpu_40k_20261016`）；task21数据同样已转换（`/data/shichaojian/sim_data/bench2dex_task21_v3_training_robotframe`，xxx/xxx_1掌心差<1e-3 mm）；冒烟改为4卡 `rf-smoke4-1016`（host-10-140-108-12，08:43 UTC起）；4卡冒烟通过（50步、第25步验证、存iter 50，无报错；iter49 loss 13.6–15.4，基础run同步13.4；eval预览+0帧点与手/球/箱重合）。数据终检（独立于转换用的外参：仿真box3d球心经base_link逆变换）：落在球上的锚点中位 soccer 67/tennis 11/golf 5/乒乓23（相机系对照全为0）；运动球的平均位移与球心位移方向余弦中位0.996、长度比0.95（相机系对照残差331 mm）。10-16 09:02 UTC提交 `scr40-robotframe` 40k（排队等节点）；待补 | §3.5 |
 | task21 锚点改用机器人坐标系 | 同task27 robotframe：nolocal从头训40k，种子42，仅换数据目录 `/data/shichaojian/sim_data/bench2dex_task21_v3_training_robotframe`（其余同 `sim_task21_ptfk_nonlocal_8gpu_40k_20261010`） | clusterx `scr40-robotframe-t21`，输出 `/data/shichaojian/runs/sim_task21_ptfk_nonlocal_robotframe_8gpu_40k_20261016`；4卡冒烟 `rf21-smoke4-1016`（108.12）；提交脚本 `/mnt/afs/experiments_20261016/robotframe/submit_robotframe.py` | 10-16 09:10 | 4卡冒烟通过（50步、验证、存iter 50，无报错；iter49 loss 13.98，基础run同步15.64；eval预览+0帧点与手/箱重合）；40k排队等节点；待补 | §3.5 |
 | 训练时物体保底选点（objq32，task27/task21） | 相机系不变，仅改选点：每个任务物体（task27四个球；task21 msg/soy/vinegar）在自身候选点上FPS至多32点，再全局FPS补到512，左右手各至多256，补足1024；物体归属用仿真物体位姿几何判定，训练与推理同一函数；nolocal从头训40k，种子42；与坐标系实验分开（各自单独对照原基线） | 训练仓库 `977269b`（选点函数）+ `9dbd945`（`prepare_sim_pointfk_v3.py --object-quota`）；数据 `/data/shichaojian/sim_data/bench2dex_task27_ball_training_objq32`、`/data/shichaojian/sim_data/bench2dex_task21_v3_training_objq32`；推理 `/cpfs/user/shichaojian/Bench2Dex-Pointflow-fk-ballquota`@`154b1d0`（分支 `ballquota-inference`），开关 `POINTFK_OBJECT_QUOTA=32`（可选 `POINTFK_OBJECT_TASK`） | 10-16 | 数据：task27 `/data/shichaojian/sim_data/bench2dex_task27_ball_training_objq32`（各球选中点中位 61/32/32/32，原68/11/5/22）、task21 `..._task21_v3_training_objq32`（msg/soy/vinegar 32/32/32，原23/27/22）；划分与动作统计逐字节同原数据，PointFlow scale 27: 0.035317→0.035587、21: 0.036563→0.036370。训练/推理选点在60个4090 query上逐索引一致，几何判定与渲染标签85,899点全一致。10-16 10:00 UTC提交4卡冒烟 `oq27-smoke4-1016`/`oq21-smoke4-1016` 与40k `scr40-objq32`/`scr40-objq32-t21`；两个4卡冒烟均通过（50步、验证、存iter 50，无报错；iter49 loss task27 15.41 / task21 13.99），40k排队等节点。推理需 `POINTFK_OBJECT_QUOTA=32`（ballquota worktree@154b1d0）；待补 | §3.5 |
-| 从头训各组闭环（25k起） | guidance 1，binomial5，200局，同种子：task27 scr40-seed43/indep/M1–M4、mix f25/f25i15、raw+mix f25（开发机）各25k；对照 nolocal/raw s4_25000 g1（新跑）；task21 mix f25i15/f25 25k，对照 task21 nolocal s4_25000 g1。之后30k/35k/40k随训练进度补 | 4090 886/899；交接按ft40流程（`/root/prep_ft40.sh` 类脚本、bench2dex-cloud-handoff skill），模型目录 `task27_cosmos_nolocal_scr40_<tag>_<step>` 等，说明 `/oss-shichaojian/outputs/infer/task27/analysis/scr40_closedloop_20261016/README.md` | 10-16 | 25k基本完成（10-16 15:40 UTC），SR%（LSCR%）；none/cov/inv/inv_cov，同种子配对，Fisher p对nolocal基线：<br>task27：基线nolocal 50.5（80.88）70/36/52/44；raw 54.0；seed43 57.0（84.38）66/38/62/62，p=0.14；indep 55.0（83.38）82/44/50/44；mix_f25 58.0（86.12）68/60/58/46，p=0.06；mix_f25i15 57.5（83.75）74/44/54/58，p=0.08；raw+mix_f25 53.0（82.25）对raw 54.0，p=0.89；M1 geom_readonly 49.0（81.75）64/42/50/40（mask运行时，p=0.84）；M4 action_observed_vision 52.0（83.38）70/42/50/46（p=0.84）；M2 action_no_geom 58.5（85.50）82/52/48/52（mask运行时重跑，p=0.13，对seed43 p=0.84）；M3 physical_split 60.0（84.12）82/46/52/60（p=0.07，对seed43 p=0.61）。M2/M3高于基线但与seed43（57.0）相当，25k单点仍不能区分。<br>task21：基线nolocal 70.0；mix_f25 63.0（90.50）84/56/52/60，p=0.17；mix_f25i15 65.5（89.00）78/58/58/68，p=0.39。<br>判断：仅换种子（seed43）就比基线高6.5点，task27所有新组（mix、indep、M1/M4）都落在基线与seed43之间（49–58），25k单点区分不了；task21两组mix低于基线。需等30/35/40k合并后再下结论。<br>M1–M4首轮作废：`worldact_root` 指向主运行时（无mask实现），M1得0%。已改为 `Bench2Dex-Pointflow-fk-mask` 运行时重跑；M1、M4的有效结果为上面的数。M2、M3在OSS上的改名未生效，旧目录 `eval_200_8gpu_b5_g1` 仍是无效run（已放 `INVALID_nomask.txt` 标记），有效重跑写入 `eval_200_8gpu_b5_g1_maskrt`（`RN_SUFFIX=_maskrt bash /root/launch_scr40.sh ...`，10-16 15:30 UTC起：M2在886、M3在899）。mask生效的判据：worker日志出现 `Attention backend selected: flash2 (... causal=False, varlen=True ...)`；无效run中为 `varlen=False`，且日志里有主运行时绝对路径。交接与说明 `/oss-shichaojian/outputs/infer/task27/analysis/scr40_closedloop_20261016/README.md` | §3 |
+| 从头训各组闭环（25k起） | guidance 1，binomial5，200局，同种子：task27 scr40-seed43/indep/M1–M4、mix f25/f25i15、raw+mix f25（开发机）各25k；对照 nolocal/raw s4_25000 g1（新跑）；task21 mix f25i15/f25 25k，对照 task21 nolocal s4_25000 g1。之后30k/35k/40k随训练进度补 | 4090 886/899；交接按bench2dex-cloud-handoff skill流程，模型目录 `task27_cosmos_nolocal_scr40_<tag>_<step>` 等，说明 `/oss-shichaojian/outputs/infer/task27/analysis/scr40_closedloop_20261016/README.md` | 10-16 | 25k基本完成（10-16 15:40 UTC），SR%（LSCR%）；none/cov/inv/inv_cov，同种子配对，Fisher p对nolocal基线：<br>task27：基线nolocal 50.5（80.88）70/36/52/44；raw 54.0；seed43 57.0（84.38）66/38/62/62，p=0.14；indep 55.0（83.38）82/44/50/44；mix_f25 58.0（86.12）68/60/58/46，p=0.06；mix_f25i15 57.5（83.75）74/44/54/58，p=0.08；raw+mix_f25 53.0（82.25）对raw 54.0，p=0.89；M1 geom_readonly 49.0（81.75）64/42/50/40（mask运行时，p=0.84）；M4 action_observed_vision 52.0（83.38）70/42/50/46（p=0.84）；M2 action_no_geom 58.5（85.50）82/52/48/52（mask运行时重跑，p=0.13，对seed43 p=0.84）；M3 physical_split 60.0（84.12）82/46/52/60（p=0.07，对seed43 p=0.61）。M2/M3高于基线但与seed43（57.0）相当，25k单点仍不能区分。<br>task21：基线nolocal 70.0；mix_f25 63.0（90.50）84/56/52/60，p=0.17；mix_f25i15 65.5（89.00）78/58/58/68，p=0.39。<br>判断：仅换种子（seed43）就比基线高6.5点，task27所有新组（mix、indep、M1/M4）都落在基线与seed43之间（49–58），25k单点区分不了；task21两组mix低于基线。需等30/35/40k合并后再下结论。<br>M1–M4首轮作废：`worldact_root` 指向主运行时（无mask实现），M1得0%。已改为 `Bench2Dex-Pointflow-fk-mask` 运行时重跑；M1、M4的有效结果为上面的数。M2、M3在OSS上的改名未生效，旧目录 `eval_200_8gpu_b5_g1` 仍是无效run（已放 `INVALID_nomask.txt` 标记），有效重跑写入 `eval_200_8gpu_b5_g1_maskrt`（`RN_SUFFIX=_maskrt bash /root/launch_scr40.sh ...`，10-16 15:30 UTC起：M2在886、M3在899）。mask生效的判据：worker日志出现 `Attention backend selected: flash2 (... causal=False, varlen=True ...)`；无效run中为 `varlen=False`，且日志里有主运行时绝对路径。交接与说明 `/oss-shichaojian/outputs/infer/task27/analysis/scr40_closedloop_20261016/README.md` | §3 |
 | 从头训各组闭环 30k/35k/40k | guidance 1，binomial5，200局，同种子；task27：seed43、indep、M1–M4（mask运行时）、mix_f25、mix_f25i15、raw+mix_f25；task21：mix_f25、mix_f25i15。共33个run。raw/local/nolocal基线已有，不重测 | A800上传 `/root/claude_tmp/upload_scr40/up_step.sh`（链 `up_chain_30k40k.sh`），4090准备 `/root/prep_step.sh`（由25k模型目录只替换步数派生，worldact_root/mask/indep不变；先暂存到/cpfs再拷OSS，等分片mtime稳定），驱动 `/root/drive_30k40k.sh`（886取偶数项、899取奇数项），评测 `/root/launch_scr40.sh` | 10-17 07:00 UTC | 进行中。seed43 30k首次评测因ossfs mtime竞态在暂存时中止（目录内 `ABORTED.txt`），有效结果在 `eval_200_8gpu_b5_g1_r2`。结果（SR%（LSCR%）；none/cov/inv/inv_cov；对照 g1 30k raw 52.0、local 54.5、nolocal 52.5）：30k M3 physical_split 63.5（85.88）66/60/66/62，对raw p=0.026、对nolocal p=0.033；M1 54.0（82.50）76/50/46/44；indep 52.5（81.50）68/44/54/44；M4 action_observed_vision 54.0（83.00）74/34/54/54。35k（对照 g1 raw 54.0、nolocal 57.0）：M3 65.5（87.88）74/58/66/64，对raw p=0.025、对nolocal p=0.10；indep 49.5（80.00）72/34/48/44。40k（对照 raw 51.0、nolocal 55.0）：mix_f25i15 66.0（87.88）76/56/68/64，对nolocal p=0.032、对raw p=0.003。task21 30k（对照 raw 63.0、nolocal 68.5）：mix_f25 67.0（90.67）82/62/60/64。M3 30k+35k合并400局 258 vs nolocal 219（p=0.006）、vs raw 212（p=0.001），cov_only两点均≥58（基线38–48），40k待出。10-17 12:40 UTC新增：indep 40k 47.0；M2 action_no_geom 30k 56.0；M4 35k 57.0；seed43 35k 55.0；task21 mix_f25 35k 54.0（对照nolocal 68.0）。注意：10-17冒烟发现PF/FK分支梯度未跨卡同步（见架构文档），以上PF/FK结果均带此问题，raw不受影响。排队事故：10-17 约04:20 UTC为P3插队停掉886上12个等待中的run（清单 `/root/claude_tmp/requeue_886.txt`），P3结束后漏了重新排队，886之后只跑驱动新提交的run；10-17 10:35 UTC用 `/root/claude_tmp/requeue_886_run.sh` 按原顺序重排（同run目录续跑）。其余待填 | §3 |
-| ft40 M1–M4 mask运行时重测 | 40k续训4000步的M1–M4（indep+mask），原g3/g1结果全用主运行时、未加mask，作废（各run目录放 `INVALID_nomask.txt`）；改 `policy.yaml` 的 worldact_root 为mask运行时（原文件留作 `policy.nomask.yaml`），guidance 1，binomial5，200局，同种子；对照起点nolocal 40k g1 55.0 | `RN_SUFFIX=_maskrt bash /root/launch_scr40.sh task27 task27_cosmos_nolocal_ft40_mask_<m> mask`，run-dir `eval_200_8gpu_b5_g1_maskrt`；899：action_no_geom、action_observed_vision；886：physical_split、geom_readonly（排在886重排队列之后） | 10-17 10:50 UTC | 排队中 | §2 |
-| 架构v2 第一批 R3 M3a（task27） | M3的6条规则中 `action<-pointflow` 改为 `action<-pointflow:noisy`（action可读当前PF anchor、不读带噪未来PF），从头训40k，种子42，nonlocal，其余同 `scr40-mask-m3`；对照task27 M3 | `/mnt/afs/experiments_20261017/arch/submit_batch1.py r3`（mask worktree），clusterx `scr40-m3a`，输出 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_mask_m3a_8gpu_40k_20261017`；4卡冒烟 `m3a-smoke27-1017` 通过（50步、验证、存iter 50，日志确认6条规则含`:noisy`） | 10-17 12:02 UTC | 训练中；25k–40k闭环g1（mask运行时） | 架构文档§3.1 |
-| 架构v2 第一批 R2 M3（task21） | M3从头训40k，task21，种子42，nonlocal；对照task21 nolocal | `submit_batch1.py r2`，clusterx `scr40-mask-m3-t21` | 待提交 | 待提交（按用户顺序排在A/C之后） | 架构文档§3.1 |
-| 架构v2 第一批 R1 M3 seed43（task27） | M3 + `trainer.seed=43`，其余同M3；对照task27 M3（种子42）与 scr40-seed43 | `submit_batch1.py r1`，clusterx `scr40-mask-m3-s43` | 待提交 | 待提交（排在R2之后） | 架构文档§3.1 |
-| 架构v2 第二批 R4/R5 E-rel（task27，M3上） | 12个查询点（双手掌心+指尖）各取最近16个任务物体点（无硬半径），相对坐标/RBF距离/法向/颜色/实例 + 每实例最近距离/点数 → 加到全部action输入行（零初始化）；R5同参数量但用相机系绝对坐标；从头训40k，M3，种子42；对照task27 M3 | 代码分支 `pointfk-arch`（`/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk-arch`），`model.config.pointfk_relation=rel|abs`；数据 `/data/shichaojian/sim_data/bench2dex_task27_ball_training_rel`（与原数据包逐窗口一致，仅加 `point_instance`，`prepare_sim_pointfk_v3.py --save-object-instance --object-task task27`）；`submit_batch2.py r4 r5`，clusterx `scr40-m3-erel` / `scr40-m3-erelabs` | 冒烟中 | 单测14项通过；4卡冒烟 `erel-smoke27-1017` 进行中 | 架构文档§7、实现细则§4 |
-| 架构v2 A1（task27，nonlocal，不用M3） | 网络内用 x_t−σv 估计干净action → URDF算指令FK（相机系）→ PF解码前cluster hidden交叉注意FK关键点（零初始化，门控(1−σ_a)²）；独立未来FK失效：mask `vision/action/pointflow<-fk:noisy` + `fk_loss_weight=0`，保留当前FK anchor；从头训40k，种子42；对照task27 nolocal | `model.config.pointfk_future_fk=action_derived pointfk_output_adapter=action_to_pf`；`submit_batch3.py a`，clusterx `scr40-a1` | 待冒烟 | 单测通过（指令FK与实际FK位移差14 mm，与离线诊断一致） | 实现细则§6 |
-| 架构v2 C0（task27，nonlocal，不用M3） | 同A的指令FK，按PF内参与uv→视频仿射投到主视角patch，每个带噪视频token以局部偏置交叉注意本样本本时间块的42个关键点（含null键），零初始化加到llm2vae前，门控(1−σ_a)²；首版只用FK、不含PF点，不加局部video loss；独立未来FK保留；从头训40k，种子42；对照task27 nolocal | `model.config.pointfk_output_adapter=geometry_to_video`；`submit_batch3.py c`，clusterx `scr40-c0` | 待冒烟 | 单测通过（投影与PF规则一致、局部性、门控） | 实现细则§6 |
+| PF/FK分支梯度未跨卡同步（问题与修复） | `pointflow_branch`、`fk_branch`（及后装模块）在FSDP包装之后安装，是普通参数，FSDP不做梯度all-reduce；各卡各练一份，checkpoint只存rank0那份。证据：已训checkpoint中这两组参数未分片（task21 local 40k：fk_branch 30、pointflow_branch 356个张量均未分片，主干与action/vision投影均分片）；4卡冒烟第20/40次前向4卡fk_branch参数和不同且发散（-0.011/-0.056/-0.064/-0.078）。影响：所有local/nolocal及其衍生PF/FK模型（M1–M4、mix、robotframe、objq32、vw25、indep、seed43）；raw不受影响。修复：`model.config.sync_plain_param_grads=true`（首次反向后从rank0广播net与EMA中的普通参数，此后每次反向后对其梯度做AVG all-reduce，在梯度裁剪之前），分支 `pointfk-arch` `4ca04c6`，2进程gloo单测通过 | `/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk-arch` | 10-17 | 修复版用于架构v2六个模型（R3/R4/R5/A/R2/R1）；用户要求先提交这六个；是否补修复版nolocal/M3基线待定，与旧基线对比时需注明修复差异 | 架构文档 |
+| 架构v2 第一批 R3 M3a（task27） | M3的6条规则中 `action<-pointflow` 改为 `action<-pointflow:noisy`（action可读当前PF anchor、不读带噪未来PF），从头训40k，种子42，nonlocal，其余同 `scr40-mask-m3`；对照task27 M3 | `/mnt/afs/experiments_20261017/arch/submit_batch1.py r3`（mask worktree），clusterx `scr40-m3a`，输出 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_mask_m3a_8gpu_40k_20261017`；4卡冒烟 `m3a-smoke27-1017` 通过（50步、验证、存iter 50，日志确认6条规则含`:noisy`） | 10-17 12:02 UTC（未修复版，12:55停止，输出保留不用） | 改用修复版重跑：`submit_arch_sync.py r3`，clusterx `scr40-m3a-sync`，输出 `..._mask_m3a_sync_8gpu_40k_20261017`；25k–40k闭环g1 | 架构文档§3.1；**10-17 15:10 UTC用户要求R系列全部暂停**（R3/R4/R5修复版已提交后停止，R1/R2未提交） |
+| 架构v2（梯度同步修复版） 第一批 R2 M3（task21） | M3从头训40k，task21，种子42，nonlocal；对照task21 nolocal | `submit_batch1.py r2`，clusterx `scr40-mask-m3-t21` | 待提交 | 待提交（按用户顺序排在A/C之后） | 架构文档§3.1；**10-17 15:10 UTC用户要求R系列全部暂停**（R3/R4/R5修复版已提交后停止，R1/R2未提交） |
+| 架构v2（梯度同步修复版） 第一批 R1 M3 seed43（task27） | M3 + `trainer.seed=43`，其余同M3；对照task27 M3（种子42）与 scr40-seed43 | `submit_batch1.py r1`，clusterx `scr40-mask-m3-s43` | 待提交 | 待提交（排在R2之后） | 架构文档§3.1；**10-17 15:10 UTC用户要求R系列全部暂停**（R3/R4/R5修复版已提交后停止，R1/R2未提交） |
+| 架构v2（梯度同步修复版） 第二批 R4/R5 E-rel（task27，M3上） | 12个查询点（双手掌心+指尖）各取最近16个任务物体点（无硬半径），相对坐标/RBF距离/法向/颜色/实例 + 每实例最近距离/点数 → 加到全部action输入行（零初始化）；R5同参数量但用相机系绝对坐标；从头训40k，M3，种子42；对照task27 M3 | 代码分支 `pointfk-arch`（`/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk-arch`），`model.config.pointfk_relation=rel|abs`；数据 `/data/shichaojian/sim_data/bench2dex_task27_ball_training_rel`（与原数据包逐窗口一致，仅加 `point_instance`，`prepare_sim_pointfk_v3.py --save-object-instance --object-task task27`）；`submit_batch2.py r4 r5`，clusterx `scr40-m3-erel` / `scr40-m3-erelabs` | 冒烟中 | 单测14项通过；4卡冒烟 `erel-smoke27-1017` 进行中 | 架构文档§7、实现细则§4；**10-17 15:10 UTC用户要求R系列全部暂停**（R3/R4/R5修复版已提交后停止，R1/R2未提交） |
+| 架构v2（梯度同步修复版） A1（task27，nonlocal，不用M3） | 网络内用 x_t−σv 估计干净action → URDF算指令FK（相机系）→ PF解码前cluster hidden交叉注意FK关键点（零初始化，门控(1−σ_a)²）；独立未来FK失效：mask `vision/action/pointflow<-fk:noisy` + `fk_loss_weight=0`，保留当前FK anchor；从头训40k，种子42；对照task27 nolocal | `model.config.pointfk_future_fk=action_derived pointfk_output_adapter=action_to_pf`；`submit_batch3.py a`，clusterx `scr40-a1` | 待冒烟 | 单测通过（指令FK与实际FK位移差14 mm，与离线诊断一致） | 实现细则§6 |
+| 架构v2 C0（task27，nonlocal，不用M3） | 同A的指令FK，按PF内参与uv→视频仿射投到主视角patch，每个带噪视频token以局部偏置交叉注意本样本本时间块的42个关键点（含null键），零初始化加到llm2vae前，门控(1−σ_a)²；首版只用FK、不含PF点，不加局部video loss；独立未来FK保留；从头训40k，种子42；对照task27 nolocal | `model.config.pointfk_output_adapter=geometry_to_video`；`submit_batch3.py c`，clusterx `scr40-c0` | 暂缓（用户10-17决定） | 单测通过（投影与PF规则一致、局部性、门控） | 实现细则§6 |
 | P3 接近接触时提前重规划（只改推理） | nolocal 40k g1，200局，同种子对g1基线55.0。每步看本块预测：预测指尖与预测球点距离<4.5 cm且本块已执行≥8步时截断本块重推理，每个球每局最多一次（来源 `/oss-shichaojian/outputs/infer/analysis/gap_levers_20261016/README.md` P3）。离线回放40局：每局每球各触发一次，触发步中位19.5，抓取时预测指尖–球距离中位0.27 cm（坐标系一致） | worktree `/cpfs/user/shichaojian/Bench2Dex-Pointflow-fk-p3`（`p3-replan-inference` `ed49d6e`，开关 `POINTFK_P3_REPLAN=1`，`POINTFK_P3_DIST_CM`、`POINTFK_P3_MIN_STEPS`；不支持 `--async-inference`），启动 `RN_SUFFIX=_p3 bash /root/launch_scr40.sh task27 task27_cosmos_nolocal_s4_40000 p3`，run `eval_200_8gpu_b5_g1_p3`；用户要求最高优先级，886队列首位 | 10-17 07:40 UTC | 完成：SR 49.5（99/200）vs g1基线55.0（110/200），Fisher p=0.32，未改善、略差；分组与golf抓取对准待分析 | §3.5 |
 | 降低video权重（vw25，从头训40k） | nolocal基础配置，种子42，相机系，仅 `model.config.rectified_flow_training_config.loss_scale` 10→2.5（action 10、PF/FK 1不变），video:action 1:1→1:4，检验降低video主导是否让action更多依赖几何；task27与task21各一 | `/mnt/afs/experiments_20261017/videoweight/submit_videoweight.py`（smoke27/smoke21/vw25/vw25t21）；推理用主运行时、无额外开关 | 10-17 08:20 UTC提交 | 冒烟通过（iter49 loss：task27 13.46、task21 12.80，config确认loss_scale 2.5、action_loss_weight 10）；40k已提交 `scr40-vw25` → `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_vw25_8gpu_40k_20261017`、`scr40-vw25-t21` → `/data/shichaojian/runs/sim_task21_ptfk_nonlocal_vw25_8gpu_40k_20261017`，排队中；结果：待填 | §3 |
 | guidance 1下PF/FK vs raw配对检验 | 30/35/40k合并，同种子配对，按扰动类（g3同算作对照） | 886 CPU，`/oss-shichaojian/outputs/infer/task27/analysis/g1_paired_20261014/`（`paired.py`、`summary.txt`） | 10-14 11:15 | 已完成，结论见§0.5（g1：cov_only nolocal 45.3 vs raw 34.7，p=0.011；总体 p=0.27） | §0.5 |
@@ -93,7 +91,6 @@ task21（run-dir `/oss-shichaojian/outputs/infer/task21/task21_cosmos_<m>_s4_<st
 
 - 推理关闭CFG（guidance 3→1）是目前最大的单项收益：nolocal 30/35/40k合并SR 48.2→54.8，同种子配对g1独赢100 vs g3独赢60（p=0.002）；raw/local 40k同向（45→51、50→55）。guidance 2为52.0、1.5为48.0，1最好。num_steps 4→8（43.5）、execute_steps 16/8（26.5/5.0）都更差。详见§0.5。
 - guidance 1下PF/FK相对raw总体不显著（nolocal 54.8 vs raw 52.3，p=0.27），唯一显著的仍是外观变化：cov_only nolocal 45.3 / local 46.0 vs raw 34.7（p≈0.01）；none类raw反而略高（76.7 vs 69.3，p=0.10）。PF/FK的作用是外观泛化，不是整体提升。
-- 续训4000步本身不带来变化（nolocal control 47.5 vs 47.5；WAM control g3 44.5 / g1 52.5 vs raw 40k 45.0 / 51.0）。40k上的结构类微调都更差（indep 36.0，M1–M4 14–40.5（作废：推理未加载mask，见§2）），加一致性损失只能拉回基线附近；但续训不足以评价结构改动，结构结论以从头训（§3，进行中）为准。
 - 一致性诊断：各模态之间彼此一致但一起错（FK头 vs FK(action) 14 mm，各自对真值26–31 mm），一致性损失空间有限；离线多采样挑选只降0.3 mm，不值得部署。
 - FDM/IDM真值注入：给真值视频，动作FK误差降43%（30.7→17.5 mm，越靠后的帧降得越多）；反过来视频/FK/PF对注入的动作几乎不敏感（≈种子噪声的1%）。信息流基本单向视频→动作，动作精度受梦出来的视频限制，这是video-action gap的直接证据。模式混合训练（§3，进行中）即针对此。
 
@@ -102,27 +99,22 @@ task21（run-dir `/oss-shichaojian/outputs/infer/task21/task21_cosmos_<m>_s4_<st
 - 训练步数比结构改动重要。4090上 `task27_cosmos_{raw,local,nolocal}_s4_*`（40k训练，binomial5，200局/点）：20k以内PF/FK不占优；25k–40k四点平均SR raw 43.8 / local 46.8 / nolocal 47.3，LSCR 76.0 / 79.9 / 80.4。单点200局SR标准误约3.5个点，比较以LSCR、多点合并和逐球漏斗为主。数值已逐项对过产物（42组SR/LSCR全部一致，均200局、审计passed、binomial5、execute_steps 32、ckpt步数匹配）。
 - PF/FK优势来自外观泛化：30k/35k/40k合并（每模型600局），cov_only SR raw 28.7 → nolocal 44.7 / local 40.7，同种子配对nolocal-only 34 vs raw-only 10（p≈0.0004），是唯一显著的扰动类；none持平，inv_cov略差（40.7 vs 44.7）。逐球看tennis提升最大（物理放置80.8→89.5%）。
 - 剩余瓶颈是golf：失败约70%在golf，“触碰→举起”约75%，各模型与raw无差别；其次golf“接近未触碰”。
-- 20k上的微调（独立sigma、一致性损失、固定mask、平滑损失，各4000步）离线与闭环都无收益：离线action MAE 0.0166–0.0174（基线0.0171）；屏蔽action看video时dAct仍约0.052，action对video的依赖不变；闭环（binomial5）基线46.0%，control/indep/indep_cons 42.0/41.0/42.0%，在噪声内。
 - 40k基础模型离线：MAE 0.0176，与20k相同；动作更平滑（lag-1自相关0.24→0.32，二阶/一阶1.19→1.12）；屏蔽video的dAct 0.0525，依赖不变。离线action误差不能预测闭环成功率。
 - binomial5动作平滑影响大：同一20k nolocal，平均每局放置球数2.06→3.1。
 
-## 0. 各组配置与目的
+## 0. 结构改动的定义（从头训练各组使用）
 
-共同设置：从nonlocal基础模型（20k一轮用iter 20000，40k一轮用iter 40000）加载EMA权重续训4000步，其余配置与原训练相同。除control外都开独立sigma（indep），其余改动叠加在indep之上。mask记法 `q<-k` 表示q模态的token不能attend到k模态的token。
+mask记法 `q<-k` 表示q模态的token不能attend到k模态的token（整对模态，含条件token；`k:noisy` 只切k的带噪token）。从头训的M1–M4不开indep。
 
 | 组 | 改动 | 目的 |
 | --- | --- | --- |
-| control | 无，原配置续训 | 对照：分离“多训4000步”本身的效果 |
-| indep | `independent_{action,fk,pointflow}_schedule=true`，`shift_action=5`；四模态各自采样噪声水平 | 原配置四模态共用同一sigma，action去噪进度被video绑定；独立后训练中会出现“video噪声大、action噪声小”等组合，让action学会在video不可靠时少依赖video，缓解dream video带偏action |
-| indep_cons | indep + `POINTFK_CONSISTENCY_WEIGHT=3`，`MODE=task` | 一致性损失：URDF正运动学FK(预测action)对齐FK(GT action)，权重(1−σ)²，梯度回到action；用机器人运动学把action约束在手部几何上 |
-| cons_all | indep_cons + `POINTFK_PF_FK_WEIGHT=10` + `POINTFK_SMOOTH_WEIGHT=10` | 约束全开：再加PF与FK之间的一致性、action平滑损失，检验多约束叠加 |
-| smooth_only | indep + `POINTFK_SMOOTH_WEIGHT=10` | 只加action平滑损失；对应binomial5后处理平滑的大收益，看能否在训练端学到 |
-| M1 `geom_readonly` | indep + mask `action<-pointflow, action<-fk, vision<-pointflow, vision<-fk` | PF/FK只读：几何可以读video/action，但video和action都读不到几何。检验几何作为“辅助监督”而非输入时是否足够 |
-| M2 `action_no_geom` | indep + mask `action<-pointflow, action<-fk` | 只切action读几何（video仍可读）：检验action是否直接依赖PF/FK |
-| M3 `physical_split` | indep + mask切断 FK↔vision、PF↔action、PF↔FK | 按物理含义分组：FK（手部运动学）只与action交互，PF（物体/场景点流）只与video交互，去掉跨组捷径 |
-| M4 `action_observed_vision` | indep + mask `action<-vision:noisy`（仅40k一轮） | action只看已观测的条件帧，看不到带噪的未来video；直接阻断dream video对action的影响 |
+| indep | `independent_{action,fk,pointflow}_schedule=true`，`shift_action=5`；四模态各自采样噪声水平 | 原配置四模态共用同一sigma，action去噪进度被video绑定；独立后让action学会在video不可靠时少依赖video |
+| M1 `geom_readonly` | mask `action<-pointflow, action<-fk, vision<-pointflow, vision<-fk` | PF/FK只读：几何可以读video/action，但video和action都读不到几何 |
+| M2 `action_no_geom` | mask `action<-pointflow, action<-fk` | 只切action读几何（video仍可读） |
+| M3 `physical_split` | mask切断 FK↔vision、PF↔action、PF↔FK | 按物理含义分组：FK只与action交互，PF只与video交互 |
+| M4 `action_observed_vision` | mask `action<-vision:noisy` | action只看已观测的条件帧，看不到带噪的未来video |
 
-推理侧开关 `JOINT_VISION_LEAD=k`（仅离线eval）：video先去噪k步再让action跟上，目的同M4，但不改训练。mask实现在分支 `pointflow-fk-mask`，一致性/平滑损失在 `pointflow-fk-cons`，环境变量说明见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md) §5。
+mask实现在分支 `pointflow-fk-mask`（`3788ac6`），4090推理需mask运行时 `/cpfs/user/shichaojian/Bench2Dex-Pointflow-fk-mask`（分支 `runtime-joint-attn-mask`，`10cfcdc`）。
 
 ## 0.5 当前最重要的发现：推理关闭CFG（guidance 3→1）
 
@@ -154,47 +146,46 @@ guidance扫描（nolocal 40k，单点200局）：1 → 55.0，1.5 → 48.0，2 �
 
 结论：两种guidance下，PF/FK（nolocal、local）相对raw唯一显著的优势都在外观扰动cov_only（g1约+11个点，p≈0.01；g3约+12–16个点），总体差异都不显著。关CFG后raw在无扰动场景提升最多（59→77），PF/FK在none上转为略低（69–72 vs 77，p=0.10–0.32，不显著）。即PF/FK的价值目前可归结为外观泛化，其余场景与raw持平。
 
-## 1. 20k一轮
 
-| 实验 | 设置 | 训练输出 |
-| --- | --- | --- |
-| control | 原配置续训4000步 | `/data/shichaojian/runs/ft_20261012/control` |
-| indep | `independent_{action,fk,pointflow}_schedule=true`，`shift_action=5` | `.../indep` |
-| indep_cons | indep + `POINTFK_CONSISTENCY_WEIGHT=3 MODE=task` | `.../indep_cons` |
-| M1/M2/M3 | indep + `model.config.joint_attn_mask=geom_readonly/action_no_geom/physical_split` | `.../mask_*` |
-| cons_all | indep + 一致性3 + `POINTFK_PF_FK_WEIGHT=10` + `POINTFK_SMOOTH_WEIGHT=10` | `.../cons_all` |
-| smooth_only | indep + `POINTFK_SMOOTH_WEIGHT=10` | `.../smooth_only` |
-| WAM control | 原生WAM 20k续训4000步 | `.../wam_control` |
+## 0.9 现有闭环结果综合分析（10-17 15:30 UTC，g1，binomial5，每点200局同种子）
 
-均从 `sim_task27_pointfk_nonlocal_20k`（WAM：`sim_task27_wam_20k`）iter 20000加载EMA。mask代码在分支 `pointflow-fk-mask`（`f9b6c5b`），cons代码在 `pointflow-fk-cons`（`8efe5d4`）。
+数据：4090上全部已完成g1 run（62个），按训练run把25/30/35/40k合并（每点200局，4点800局）；对照为同ckpt的raw/nolocal。p为Fisher，把同一训练run的不同ckpt当独立样本，**偏乐观**。另：除raw外所有PF/FK模型都带“PF/FK分支梯度未跨卡同步”问题。
 
-离线消融（24个验证窗口，EMA，默认eval已复现训练期指标；dAct为与同模型默认eval的action RMS差，噪声底约0.0017）：
+task27（合并SR%；四通道 none/cov/inv/inv_cov）：
 
-| 模型 | 默认MAE | 去几何 dAct / MAE | 去video dAct / MAE | PF ADE |
-| --- | --- | --- | --- | --- |
-| 基线 nolocal 20k | 0.0171 | 0.0196 / 0.0195 | 0.0522 / 0.0315 | 11.14 |
-| control | 0.0170 | 0.0194 / 0.0193 | 0.0513 / 0.0304 | 11.00 |
-| indep | 0.0173 | 0.0173 / 0.0192 | 0.0516 / 0.0307 | 11.35 |
-| indep_cons | 0.0166 | 0.0167 / 0.0184 | 0.0518 / 0.0307 | 11.14 |
-| M1 | 0.0173 | — | — | 11.06 |
-| M2 | 0.0174 | — | — | 11.22 |
+| 模型 | ckpt | SR | −raw | −nolocal | 四通道 |
+| --- | --- | --- | --- | --- | --- |
+| raw | 25–40k | 52.8 | — | −1.0 | 76/36/52/47 |
+| nolocal | 25–40k | 53.8 | +1.0 | — | 70/43/52/50 |
+| local | 25–40k | 55.6 | +2.9 | +1.9 | 72/48/51/52 |
+| seed43（nolocal只换种子） | 25–40k | 57.1 | +4.4 | +3.4 | 65/42/63/58 |
+| M3 physical_split | 25–40k | 62.2 | +9.5 | +8.5 | 74/52/62/61 |
+| M4 action_observed_vision | 25–40k | 55.2 | +2.5 | +1.5 | 72/41/53/54 |
+| M2 action_no_geom | 25–30k | 57.2 | +4.2 | +5.8 | 81/45/52/51 |
+| M1 geom_readonly | 25–35k | 50.5 | −2.8 | −2.8 | 67/43/47/45 |
+| indep | 25–40k | 51.0 | −1.7 | −2.7 | 72/40/50/42（55→52.5→49.5→47，随训练下降） |
+| mix_f25 | 25–30k | 58.5 | +5.5 | +7.0 | 75/55/57/47 |
+| mix_f25i15 | 25、40k | 61.8 | +9.3 | +9.0 | 75/50/61/61 |
+| raw+mix_f25 | 25、35k | 51.2 | −2.8 | −2.5 | 69/36/52/48 |
 
-mask模型不能再叠加 `JOINT_ATTN_BLOCK`，只做默认eval。脚本 `/mnt/afs/clusterx/xmodal-20261013/`，输出 `/data/shichaojian/runs/xmodal_ft4k_20261013/`。
+task21：raw 65.1、nolocal 69.2、local 67.6（25–40k）；mix_f25 61.3（25–35k，35k单点54.0），对nolocal −7.5；mix_f25i15 25k 65.5。
 
-闭环（4090，binomial5，200局，参考场景同raw）：`/oss-shichaojian/outputs/infer/task27/task27_cosmos_nolocal_{20000,ft4k_control,ft4k_indep,ft4k_indep_cons}/runs/eval_200_8gpu_b5/`；逐球漏斗 `/oss-shichaojian/outputs/infer/task27/analysis/gap_20261013/ft4k_b5/analysis.txt`。
+结论（只基于上表）：
+1. **训练run之间的波动是主要误差来源**：同配置只换种子，4点合并仍差3.4 pp（53.8 vs 57.1），单点最多差6.5 pp；同一run的多个ckpt高度相关，合并不能消除这部分。现有每个变体只有1个训练run，判断标准应是“超出两个nolocal run（53.8、57.1）的区间多少”，而不是p值。
+2. **PF/FK相对raw的总体收益很小**：task27 nolocal +1.0、local +2.9、seed43 +4.4，均在run间波动内；task21 nolocal +4.1（p≈0.09）。收益集中在遮挡通道cov_only：raw 36、nolocal 43、local 48、seed43 42、M3 52；无扰动通道none反而raw最高（76 vs 70）。
+3. **M3是唯一明显超出run间波动的结构**：62.2，高于nolocal两个run的上沿（57.1）5.1 pp，四个ckpt均≥60；增益分布在cov/inv/inv_cov三个扰动通道，none不变。但只有1个训练run、1个任务。
+4. **mask的其他形式不支持“切得越多越好”**：M1（视频与动作都不读几何）低于基线；M4（动作只看观测帧）与基线持平；M2（动作不读PF/FK，视频仍读）只有2个ckpt，处于波动上沿。M3与M2的差别是M3还切了FK↔视频与PF↔FK，同时保留FK↔动作。
+5. **模式混合在task27有正信号，在task21为负**：task27 mix_f25i15 61.8、mix_f25 58.5（均只2个ckpt）；task21 mix_f25 低于nolocal 7.5 pp。raw+mix 不涨，说明task27的增益若成立则与PF/FK有关，但跨任务不一致。
+6. **无效的改动**：indep（随训练下降）、推理期补球点、P3重规划、guidance≠1、execute_steps缩短。多数模型25k到40k没有持续上升。
 
-## 2. 40k一轮（进行中）
+## 2. 40k基础模型的推理参数与执行步数
 
-起点 `sim_task27_ptfk_nonlocal_8gpu_40k_20261010`、`sim_task27_wam_8gpu_40k_20261010` iter 40000；与20k一轮命令逐条比对，只改起点、输出目录 `/data/shichaojian/runs/ft_40k_20261013/<name>` 和任务名 `ft40-<name>-4k`。脚本 `/mnt/afs/experiments_20261013/ft40/`。
+推理参数（不训练，nolocal 40k@40000，binomial5，200局，2026-10-14 03:00 UTC起）：`num_steps` 4→8（886，run-dir `eval_200_8gpu_b5_ns8`），`guidance` 3→1（899，`eval_200_8gpu_b5_g1`）。策略文件为同目录 `policy.{ns8,g1}.yaml`，仅改该字段与 `output_dir`。
 
-- 同20k一轮的9组，另加M4 `action_observed_vision`（action只看已观测帧，不看带噪的未来video；规则 `action<-vision:noisy`，分支 `pointflow-fk-mask` `3788ac6`）。
-- 推理开关 `JOINT_VISION_LEAD=k`（video提前k步去噪完，action再跟上；同一提交，仅离线eval）。
-- 训完后自动：离线消融（`/data/shichaojian/runs/xmodal_ft40_20261013/`）；交接4090并跑200局binomial5闭环（`task27_cosmos_nolocal_ft40_<name>`，启动方法见Bench2Dex `deployment/cosmos/TASK27_INFERENCE.md`（使用文档，不含结果；结果以本文为准））。4090运行时原不支持 `joint_attn_mask`，已在worktree `/cpfs/user/shichaojian/Bench2Dex-Pointflow-fk-mask`（分支 `runtime-joint-attn-mask`，`10cfcdc`）移植，mask模型从该worktree启动。
-- 40k基础模型离线消融：`/data/shichaojian/runs/xmodal_40k_20261013/`。
-- 推理侧：40k nolocal/raw的 `execute_steps` 16、8（原32），`policy.es{16,8}.yaml`，run-dir `eval_200_8gpu_b5_es{16,8}`（raw为 `eval_200_8gpu_shared_b5_es{16,8}`）。
-- task21 40k离线消融（检验结论是否跨任务）。
+- num_steps 4→8：SR 47.5→43.5，LSCR 80.4→80.0，不改善，不再继续。产物 `task27_cosmos_nolocal_s4_40000/runs/eval_200_8gpu_b5_ns8/`。
+- guidance 3→1（即关闭CFG）：SR 47.5→55.0，LSCR 80.4→84.9，none/cov/inv/inv_cov 72/50/52/46。同种子配对 g1独赢36、原独赢21，McNemar p=0.063；后续多点确认见§0.5。
 
-execute_steps结果（40k@40000，binomial5，200局）：缩短执行步数明显变差，不再继续。
+execute_steps（40k@40000，binomial5，200局，guidance 3）：缩短执行步数明显变差，不再继续。`policy.es{16,8}.yaml`，run-dir `eval_200_8gpu_b5_es{16,8}`（raw为 `eval_200_8gpu_shared_b5_es{16,8}`）。
 
 | 模型 | es32（原） | es16 | es8 |
 | --- | --- | --- | --- |
@@ -203,38 +194,14 @@ execute_steps结果（40k@40000，binomial5，200局）：缩短执行步数明�
 
 es16各类SR：nolocal none/cov/inv/inv_cov 36/24/24/22，raw 38/20/22/24。产物 `task27_cosmos_{nolocal,raw}_s4_40000/runs/eval_200_8gpu*_b5_es16/`。
 
-40k微调闭环（4090，binomial5，200局，起点nolocal 40k@40000：SR 47.5 / LSCR 80.4，none/cov/inv/inv_cov 60/50/44/36）：
-
-| 微调 | SR | LSCR | none / cov / inv / inv_cov |
-| --- | --- | --- | --- |
-| control | 47.5 | 79.8 | 64 / 34 / 46 / 46 |
-| indep | 36.0 | 72.5 | 48 / 20 / 40 / 36 |
-| indep_cons | 45.0 | 77.4 | 56 / 32 / 50 / 42 |
-| cons_all | 44.5 | 78.9 | 60 / 30 / 50 / 38 |
-| M1 geom_readonly（video/action都不读PF/FK） | 22.5 | 62.1 | 26 / 22 / 20 / 22 |
-| M2 action_no_geom | 26.5（g1 36.0） | 64.1 | 34 / 16 / 34 / 22 |
-| M3 physical_split | 40.5（g1 41.5） | 72.6 | — |
-| smooth_only | 40.0（g1 56.0） | 75.0 | 48 / 32 / 36 / 44 |
-| M4 action_observed_vision | 14.0（g1 19.0） | 57.5 | 16 / 12 / 18 / 10 |
-| WAM control（起点raw 40k：g3 45.0 / g1 51.0） | 44.5（g1 52.5） | 78.5（g1 81.9） | 60 / 28 / 52 / 38 |
-
-> **作废说明（2026-10-16）**：本表M1–M4（ft40 mask）的闭环结果无效。这些模型目录的 `policy.yaml` 中 `worldact_root` 指向主checkout的运行时 `/cpfs/user/shichaojian/Bench2Dex-Pointflow-fk/third_party/worldact_runtime`，该运行时没有 `joint_attn_mask` 实现（仅 `Bench2Dex-Pointflow-fk-mask` 运行时有），推理时mask被忽略，训推不一致。基于M1–M4的结论（“固定mask严重下降”等）一并作废，需用mask运行时重测后再下结论。
-
-小结（括号内为guidance 1，基础模型g1为55.0）：续训4000步（control）不变，原生WAM续训同样不变（WAM control g3 44.5 vs raw 40k 45.0，g1 52.5 vs 51.0），说明续训本身不带来增益，ft40对比可直接与起点比较；独立sigma（indep）掉11个点，加一致性损失（indep_cons、cons_all）能拉回到基线附近但不超过；固定mask M1严重下降（action不读PF/FK后闭环崩，与离线MAE几乎不变形成反差，说明离线指标不可用于筛选）。产物 `/oss-shichaojian/outputs/infer/task27/task27_cosmos_nolocal_ft40_<name>/runs/eval_200_8gpu_b5/`。
-
-逐球漏斗（golf“触碰→举起”，基础 g3 75.6% / g1 78.0%）：control 77.1%，与基础相同；indep 66.4%，indep_cons 回到79.1%；mask类主要掉在这一步（M1 55.7%、M2 61.2%、M4 37.7%，M3 72.7%），M1/M2“接近未触碰”也升到27–29%（基础19.6%）；smooth_only在g1下83.3%。乒乓与网球是mask/indep损失最多的其余球。漏斗 `/oss-shichaojian/outputs/infer/task27/analysis/gap_20261013/ft40/analysis.txt`，交接与结果汇总 `/oss-shichaojian/outputs/infer/task27/analysis/ft40_20261014/README.md`，provenance `sim_inference_assets/task27/provenance/handoff_20261014_cosmos_nolocal_ft40/readiness.json`。
-
-推理参数（不训练，nolocal 40k@40000，binomial5，200局，2026-10-14 03:00 UTC起）：`num_steps` 4→8（886，run-dir `eval_200_8gpu_b5_ns8`），`guidance` 3→1（899，`eval_200_8gpu_b5_g1`）。策略文件为同目录 `policy.{ns8,g1}.yaml`，仅改该字段与 `output_dir`。
-
-- num_steps 4→8：SR 47.5→43.5，LSCR 80.4→80.0，不改善，不再继续。产物 `task27_cosmos_nolocal_s4_40000/runs/eval_200_8gpu_b5_ns8/`。
-- guidance 3→1（即关闭CFG）：SR 47.5→55.0，LSCR 80.4→84.9，none/cov/inv/inv_cov 72/50/52/46。同种子配对 g1独赢36、原独赢21，McNemar p=0.063，边缘显著。为确认，已排队 raw/local 40k 与 nolocal 35k/30k 的 g1（与原基线30/35/40k三点合并比较），后续每个ft40模型也同时跑 g1。启动方法见Bench2Dex `deployment/cosmos/TASK27_INFERENCE.md`（使用文档，不含结果；结果以本文为准）。
+40k基础模型离线消融：`/data/shichaojian/runs/xmodal_40k_20261013/`。
 
 ## 3. 从头训练的mask消融与一致性诊断（2026-10-14起）
 
-续训从已收敛的40k出发、只训4000步，结构改动来不及适应，EMA又平均了适应初期，正负结果都会被压平，不能据此判断改动本身（见§2小结）。因此：
+结构改动一律从头训40k，与基础模型同配置、同步数比较：
 
 - M1–M4从头训40k：命令与 `sim-task27-ptfk-nonlocal-40k`（2026-10-10）逐字相同，只加 `model.config.joint_attn_mask=<preset>`，从mask worktree（`pointflow-fk-mask` `3788ac6`）启动，不开indep，以单独隔离mask的作用。任务名 `scr40-mask-m{1,2,3,4}`，输出 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_mask_<preset>_8gpu_40k_20261014`，提交脚本 `/mnt/afs/experiments_20261014/scratch_mask/submit_scratch.py`。约2.5天；按基础40k同样在25k–40k各点上4090闭环，与基础模型同步数比较。
-- 对照（2026-10-14 05:30 UTC起，同一提交方式，脚本 `submit_scratch_base.py`）：`scr40-seed43` 基础配置只改 `trainer.seed=43`，用于估计“同配置不同种子”的闭环波动，M1–M4与基础模型的差异须超过这个波动才算数；`scr40-indep` 从头训开独立sigma（`independent_{action,fk,pointflow}_schedule=true`，`shift_action=5`），续训中indep掉11个点，从头训检验是否只是适应不足。输出 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_{seed43,indep}_8gpu_40k_20261014`。
+- 对照（2026-10-14 05:30 UTC起，同一提交方式，脚本 `submit_scratch_base.py`）：`scr40-seed43` 基础配置只改 `trainer.seed=43`，用于估计“同配置不同种子”的闭环波动，M1–M4与基础模型的差异须超过这个波动才算数；`scr40-indep` 从头训开独立sigma（`independent_{action,fk,pointflow}_schedule=true`，`shift_action=5`）。输出 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_{seed43,indep}_8gpu_40k_20261014`。
 - 损失类从头训（2026-10-14 09:45 UTC提交，脚本 `submit_scratch_loss.py`，从 `-cons` worktree启动，不开indep，以便与基础模型和seed43直接比较）：`scr40-cons` 只加action–FK一致性损失（`POINTFK_CONSISTENCY_WEIGHT=3 MODE=task`），`scr40-smooth` 只加action平滑损失（`POINTFK_SMOOTH_WEIGHT=10`）；两者均需 `POINTFK_CONSISTENCY_STATS`。输出 `/data/shichaojian/runs/sim_task27_ptfk_nonlocal_{cons,smooth}_8gpu_40k_20261014`。提交时无空闲节点，排队中。
 - 一致性诊断（不训练）：在40k nonlocal/local与20k nonlocal上，用约150–250个验证窗口量FK头 vs FK(预测action)、手附近PF vs FK、各自对GT的误差，并区分抓取阶段，判断各模态预测是否已经一致、一致性损失是否有空间。输出 `/data/shichaojian/runs/consistency_diag_20261014/`。代码与说明在分支 `pointflow-fk-cons`（worktree `/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk-cons`）的 `tools/pointfk_consistency_diag/` 与 `docs/pointfk_consistency_diag_20261014.md`，未合并到本分支。
 - 一致性诊断结果（2026-10-14，sanity通过）：各模态预测已相当一致，误差是“一起错”——FK头与预测action只差约14 mm，而各自对GT差26/31 mm；手附近PF–FK残差8 mm。抓取窗口误差高10–25%，但不一致只略增。即FK↔action、PF↔FK一致性损失可收紧的空间小，不针对主要误差；详见分支 `pointflow-fk-cons` 的 `docs/pointfk_consistency_diag_20261014.md`。
