@@ -160,7 +160,7 @@ def episode_job(args, name, split, latent):
     rows = []
     moments = {k: [0, 0.0, 0.0] for k in ("pointflow", "fk")}
     object_stats = None
-    if args.object_quota:
+    if args.object_quota or args.save_object_instance:
         geometry_file = args.local_export / name / "rgbd.hdf5"
         if not geometry_file.exists():
             geometry_file = args.local_export / name / "observations.hdf5"
@@ -191,7 +191,8 @@ def episode_job(args, name, split, latent):
         p, u, tid, normal = p[good], u[good], tid[good], vec[good, :, 0].astype(np.float32)
         normal[np.sum(normal * p, axis=1) > 0] *= -1
         fk = fk_window_sample(fk_archive, frame_ids, name, 20)
-        if args.object_quota:
+        member = None
+        if args.object_quota or args.save_object_instance:
             # Membership from the simulator box3d at the anchor frame (same rule as inference), camera frame.
             world_from_optical = frame_transform.world_from_optical(box_extrinsics[start])
             objects = [
@@ -199,11 +200,13 @@ def episode_job(args, name, split, latent):
                 for b in boxes
             ]
             member = object_membership(p, objects)
+        if args.object_quota:
             keep, detail = object_quota_hand_guided_fps(p, fk["inputs"]["anchor_xyz"], 1024, 0.05, member, args.object_quota)
             object_stats["available"].append([int((member == i).sum()) for i in range(len(boxes))])
             object_stats["selected"].append([int((member[keep] == i).sum()) for i in range(len(boxes))])
         else:
             keep, detail = hand_guided_fps(p, fk["inputs"]["anchor_xyz"], 1024, 0.05)
+        instance = None if member is None else member[keep].astype(np.int8)  # per selected point, -1: none
         p, u, tid, normal = p[keep].copy(), u[keep].copy(), tid[keep].copy(), normal[keep].copy()
         # Composed source RGB has unscaled head in the top 480 rows.
         import cv2
@@ -257,6 +260,9 @@ def episode_job(args, name, split, latent):
             point_block_seconds=np.arange(4, 33, 4) / 20,
         )
         point = pointflow_sample(window, name, start, args.seed, PointFlowTiming(fps=20, steps=32, steps_per_token=4))
+        if args.save_object_instance:
+            # Current-frame task-object id of each selected point (same membership as selection/inference).
+            point["inputs"]["point_instance"] = instance
         point["metadata"].update(
             source_path=str(src),
             preview_video=str(preview),
@@ -329,15 +335,23 @@ def main():
         help="0 (default): original hand_guided_fps. N>0: FPS up to N points inside each task object "
         "(simulator box3d membership) before the 512 global / 2x256 hand / fill budgets",
     )
-    p.add_argument("--object-task", choices=sorted(OBJECT_QUOTA_TASKS), help="Task object list for --object-quota")
+    p.add_argument("--object-task", choices=sorted(OBJECT_QUOTA_TASKS), help="Task object list for --object-quota / --save-object-instance")
+    p.add_argument(
+        "--save-object-instance",
+        action="store_true",
+        help="Also store pointflow.inputs.point_instance (int8 task-object id per selected point, -1 none) from the "
+        "same box3d membership; selection unchanged unless --object-quota",
+    )
     p.add_argument(
         "--box3d-source",
         default="{local_export}/{episode}/rgbd.hdf5",
         help="Per-episode HDF5 with labels/box3d/<obj>/{center_world,quat_world,size_lwh} (format fields: local_export, episode)",
     )
     args = p.parse_args()
-    if args.object_quota < 0 or (args.object_quota > 0) != (args.object_task is not None):
-        p.error("--object-quota N>0 and --object-task go together")
+    if args.object_quota < 0 or (args.object_quota > 0 or args.save_object_instance) != (args.object_task is not None):
+        p.error("--object-task is required by (and only valid with) --object-quota N>0 / --save-object-instance")
+    if args.save_object_instance and not args.local_export:
+        p.error("--save-object-instance needs --local-export")
     if args.object_quota and not args.local_export:
         p.error("--object-quota needs --local-export")
     if args.local_export:
@@ -479,6 +493,14 @@ def main():
     )
     if recipe:
         manifest["selection_recipe"] = recipe
+    if args.save_object_instance:
+        manifest["point_instance"] = dict(
+            task=args.object_task,
+            objects=[part for part, _ in OBJECT_QUOTA_TASKS[args.object_task]],
+            membership="simulator box3d at the anchor frame, camera optical frame (object_membership)",
+            margin_metres=OBJECT_MARGIN_METRES,
+            dtype="int8, -1 = no task object",
+        )
     if args.local_export:
         # Existing .pt caches may still contain adapter symlinks in their preview
         # metadata. Resolve those at load time without rewriting every tensor file.
