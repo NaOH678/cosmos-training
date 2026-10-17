@@ -8,6 +8,8 @@
 
 ### 进行中
 
+> **10-16 存储满中断**：约16:00 UTC `/data` 写满，M1–M4、task27 mix f25/f25i15、task21 mix f25/f25i15、robotframe×2、objq32×2 共12个训练失败（seed43、indep、开发机raw+mix已训完不受影响）。清理：删除784个 `optim/`（未训完的run保留 `latest_checkpoint.txt` 所指ckpt的optim）和56个iter≤50的冒烟/诊断ckpt，`model/` 未动；/data 100%→82%（可用9.4T）。脚本与清单 `/mnt/afs/experiments_20261016/cleanup/`。恢复：原命令逐字重交，任务名加 `-r1`（`/mnt/afs/experiments_20261016/resume_1016.py`；`submit_robotframe.py --suffix -r1 rf40 rf21 oq27 oq21`），从latest续训：M1/M3 39500、M2/M4 38000、task27 mix 36500/37000、task21 mix 32500/36000、robotframe 2000/1500；objq32无ckpt，从头训。
+
 | 实验 | 设置 | 位置 / 产物 | 启动（UTC） | 结果 | 结论去向 |
 | --- | --- | --- | --- | --- | --- |
 | guidance 2 | nolocal_s4_40000，`policy.g2.yaml` | 886，`runs/eval_200_8gpu_b5_g2` | 10-14 07:45 | 已完成：52.0 / 83.1（none/cov/inv/inv_cov 68/38/48/54） | §0.5 |
