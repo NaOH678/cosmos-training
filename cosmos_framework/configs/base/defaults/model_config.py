@@ -137,6 +137,11 @@ class RectifiedFlowTrainingConfig:
     # conditional-fit evaluation pairs clean GT video with noisy point tokens, a
     # combination the shared schedule never produces in training.
     independent_pointflow_schedule: bool = False
+    # Branches installed after FSDP wrapping (pointflow_branch, fk_branch) hold plain
+    # (non-DTensor) parameters that FSDP never all-reduces, so every rank trained its own copy.  True: broadcast
+    # those parameters (net and EMA) from rank 0 once, then average their gradients across data-parallel ranks
+    # after every backward.  False keeps the historical (unsynchronised) behaviour for exact reproduction.
+    sync_plain_param_grads: bool = False
 
     # When True, per-instance flow-matching loss is normalized by the count of
     # active (noisy) elements rather than all elements — preserves sum/active_count

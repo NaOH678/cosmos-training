@@ -1265,6 +1265,70 @@ class OmniMoTModel(ImaginaireModel):
         """
         mark_pointflow_boundary("end")
         flush_pointflow_marks()
+        self._sync_plain_param_grads()
+
+    def _plain_param_group(self):
+        """Data-parallel process group (None = default group) for the plain-parameter sync."""
+        dims = getattr(self, "parallel_dims", None)
+        if dims is None or not getattr(dims, "dp_enabled", False):
+            return None
+        mesh = dims.dp_mesh
+        if mesh.ndim == 1:
+            return mesh.get_group()
+        # HSDP mesh (replicate, shard): one group over all its ranks.  Without CP/TP that is the world.
+        if mesh.size() == torch.distributed.get_world_size():
+            return None
+        return mesh._flatten().get_group()
+
+    def _sync_plain_param_grads(self) -> None:
+        """Average gradients of trainable non-DTensor parameters across data-parallel ranks (see
+        ``model.config.sync_plain_param_grads``).  Called after every backward; averaging is linear, so it is
+        also correct under gradient accumulation.  The first call broadcasts those parameters of ``net`` and
+        ``net_ema`` from rank 0 so every rank starts from the same copy."""
+        if not getattr(self.config, "sync_plain_param_grads", False):
+            return
+        dist = torch.distributed
+        if not (dist.is_available() and dist.is_initialized()) or dist.get_world_size() == 1:
+            return
+        from torch.distributed.tensor import DTensor
+
+        group = self._plain_param_group()
+        if not getattr(self, "_plain_params_broadcast", False):
+            src = dist.get_global_rank(group, 0) if group is not None else 0
+            names = []
+            for tag, net in (("net", self.net), ("net_ema", getattr(self, "net_ema", None))):
+                if net is None:
+                    continue
+                for name, p in net.named_parameters():
+                    if not isinstance(p, DTensor):
+                        dist.broadcast(p.data, src=src, group=group)
+                        if tag == "net" and p.requires_grad:
+                            names.append(name)
+            tops = sorted({n.split(".")[0] for n in names})
+            log.info(
+                f"sync_plain_param_grads: broadcast plain params from rank {src}; averaging grads of "
+                f"{len(names)} trainable plain tensors in {tops}"
+            )
+            self._plain_params_broadcast = True
+        params = [p for p in self.net.parameters() if p.requires_grad and not isinstance(p, DTensor)]
+        # A parameter without a gradient on EVERY rank (unused this step) must stay grad-less, exactly as
+        # without the sync -- a zero gradient would still move it through weight decay / momentum.
+        has = torch.tensor([p.grad is not None for p in params], dtype=torch.float32, device=params[0].device if params else "cpu")
+        dist.all_reduce(has, op=dist.ReduceOp.MAX, group=group)
+        by_dtype: dict = {}
+        for p, flag in zip(params, has.tolist(), strict=True):
+            if flag == 0:
+                continue
+            if p.grad is None:
+                p.grad = torch.zeros_like(p)
+            by_dtype.setdefault(p.grad.dtype, []).append(p)
+        for dtype in sorted(by_dtype, key=str):
+            group_params = by_dtype[dtype]
+            grads = [p.grad for p in group_params]
+            flat = torch._utils._flatten_dense_tensors(grads)
+            dist.all_reduce(flat, op=dist.ReduceOp.AVG, group=group)
+            for g, synced in zip(grads, torch._utils._unflatten_dense_tensors(flat, grads), strict=True):
+                g.copy_(synced)
 
     def _log_pointflow_phases(self, iteration: int) -> None:
         """Report the accumulated per-phase step time, then start a new window.
