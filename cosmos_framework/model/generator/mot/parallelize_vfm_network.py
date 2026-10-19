@@ -84,6 +84,14 @@ def parallelize_vfm_network(
         # Collect parameters to ignore during FSDP wrapping
         ignored_params = set()
 
+        # Geometry branches installed before FSDP (OmniMoTModel.build_net) are sharded and their gradients
+        # reduce-scattered like the backbone.  The PointFlow Sonata encoder keeps its own (fp32) dtype while
+        # the codec follows the network dtype, and an FSDP unit needs one dtype, so the encoder is its own
+        # unit; codec and FK branch belong to the root unit (they run inside the root forward).
+        pointflow_branch = getattr(model, "pointflow_branch", None)
+        if pointflow_branch is not None:
+            fully_shard(pointflow_branch.geometry, mesh=parallel_dims.dp_mesh)
+
         model = fully_shard(
             module=model,
             mesh=parallel_dims.dp_mesh,

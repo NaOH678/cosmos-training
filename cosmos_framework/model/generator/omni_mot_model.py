@@ -297,6 +297,11 @@ class OmniMoTModel(ImaginaireModel):
 
         self.install_attention_dispatch(net)
 
+        # PointFlow / FK branches are installed BEFORE FSDP so fully_shard manages them like the backbone
+        # (sharded parameters, reduce-scattered gradients, sharded optimizer state).  Installing them after
+        # FSDP left them as plain per-rank tensors whose gradients were never synchronised.
+        branch_init = self._install_geometry_branches(net, dtype) if DEVICE == Device.CUDA else None
+
         net = parallelize_vfm_network(
             net,
             parallel_dims=self.parallel_dims,
@@ -307,6 +312,8 @@ class OmniMoTModel(ImaginaireModel):
 
         with misc.timer("meta to cuda and broadcast model states"):
             net = net.to(dtype=dtype)
+            if branch_init is not None:
+                self._cast_geometry_branches(net, branch_init)
             net.to_empty(device=DEVICE)
             if DEVICE == Device.CUDA:
                 # Weight initialization is not needed for other devices (cpu,
@@ -316,67 +323,13 @@ class OmniMoTModel(ImaginaireModel):
                 if lora_enabled:
                     self._init_lora_weights_post_materialization(net)
 
-                # PointFlow must be materialized before FSDP is initialized.  The
-                # branch is deliberately opt-in through a checkpoint path so all
-                # existing Cosmos recipes remain unchanged.
-                pointflow_checkpoint = os.environ.get("POINTFLOW_SONATA_CHECKPOINT")
-                if pointflow_checkpoint:
-                    from cosmos_framework.data.pointflow_window import PointFlowTiming
-
-                    token_mode = os.environ.get("POINTFLOW_TOKEN_MODE", "cluster")
-                    if token_mode not in ("cluster", "per_point"):
-                        raise ValueError(f"Unknown POINTFLOW_TOKEN_MODE: {token_mode}")
-                    net.install_pointflow(
-                        pointflow_checkpoint,
-                        timing=PointFlowTiming(
-                            fps=float(os.environ.get("POINTFLOW_FPS", "15")),
-                            steps=int(os.environ.get("POINTFLOW_STEPS", "32")),
-                            steps_per_token=int(os.environ.get("POINTFLOW_STEPS_PER_TOKEN", "4")),
-                        ),
-                        stage=int(os.environ.get("POINTFLOW_SONATA_STAGE", "3")),
-                        freeze_geometry=os.environ.get("POINTFLOW_FREEZE_SONATA", "false").lower()
-                        in {"1", "true", "yes", "on"},
-                        token_mode=token_mode,
-                    )
-                    scale = self.config.rectified_flow_training_config.pointflow_displacement_scale
-                    from cosmos_framework.model.generator.pointflow_scale import frame_scales_from_env
-
-                    frames = frame_scales_from_env(
-                        int(os.environ.get("POINTFLOW_STEPS", "32")),
-                    )
-                    if frames is None:
-                        log.info(
-                            f"PointFlow displacement scale: {scale} m/model-unit "
-                            "(must match the point selection; re-measure when the selection changes)"
-                        )
-                    else:
-                        log.info(
-                            f"PointFlow per-frame displacement scales ({len(frames)} values over "
-                            f"{int(os.environ.get('POINTFLOW_STEPS', '32'))} frames, "
-                            f"{frames[0]:.4f}..{frames[-1]:.4f} m/model-unit) override the scalar {scale}; "
-                            "checkpoints are tied to this vector"
-                        )
+                # Geometry branches were installed before FSDP (``_install_geometry_branches``); to_empty above
+                # wiped their values, so restore the install-time values (pretrained Sonata, fresh heads).
+                if branch_init is not None:
+                    self._restore_geometry_branches(net, branch_init)
                 if os.environ.get("POINTFLOW_FK_LOCAL_ROPE", "false").lower() == "true":
                     net.install_local_geometry_rope(
                         implementation=os.environ.get("POINTFLOW_FK_ATTN_IMPL", "partition")
-                    )
-
-                # FK is opt-in and independent of the PointFlow switch: v1 trains
-                # it alone, so the two gates must not imply each other.
-                if os.environ.get("FK_ENCODER_CHECKPOINT", "").lower() in {"1", "true", "yes", "on"}:
-                    from cosmos_framework.data.fk_window import FKTiming
-
-                    net.install_fk(
-                        timing=FKTiming(
-                            fps=float(os.environ.get("FK_FPS", "15")),
-                            steps=int(os.environ.get("FK_STEPS", "32")),
-                            steps_per_token=int(os.environ.get("FK_STEPS_PER_TOKEN", "4")),
-                        ),
-                        keypoints=int(os.environ.get("FK_KEYPOINTS", "21")),
-                        index_dim=int(os.environ.get("FK_INDEX_DIM", "64")),
-                        content_dim=int(os.environ.get("FK_CONTENT_DIM", "256")),
-                        decoder_dim=int(os.environ.get("FK_DECODER_DIM", "256")),
-                        xyz_scale=float(os.environ.get("FK_XYZ_SCALE", "1.0")),
                     )
 
         joint_mask_rules = joint_switches.resolve_joint_attn_mask(getattr(self.config, "joint_attn_mask", ""))
@@ -492,6 +445,7 @@ class OmniMoTModel(ImaginaireModel):
         config = self.config
         with misc.timer("Creating PyTorch model and ema if enabled"):
             self.net = self.build_net(dtype=self.precision)
+            self._check_no_unsynced_params(self.net)
             self._param_count = count_params(self.net, verbose=False)
             self._uses_aux_loss_free_load_balancing: bool = uses_aux_loss_free_load_balancing(self.net)
             self._uses_ema_router_bias: bool = uses_ema_router_bias(self.net)
@@ -1262,6 +1216,138 @@ class OmniMoTModel(ImaginaireModel):
         log.info(
             f"PointFlow phase markers installed: {sorted(name for name, _ in self.POINTFLOW_BACKWARD_MARKER_PARAMS)}"
         )
+
+    def _install_geometry_branches(self, net: torch.nn.Module, dtype: torch.dtype) -> dict | None:
+        """Install the env-selected PointFlow / FK branches on CPU (pretrained Sonata loaded, heads freshly
+        initialised), record their values, and move them to meta so FSDP wraps them with the backbone.
+
+        Returns ``{"params": ..., "buffers": ..., "dtypes": ...}`` (CPU copies keyed by full name) for
+        ``_restore_geometry_branches``, or ``None`` when no branch is selected."""
+        device = torch.device("cpu")
+        # The branch is deliberately opt-in through a checkpoint path so all
+        # existing Cosmos recipes remain unchanged.
+        pointflow_checkpoint = os.environ.get("POINTFLOW_SONATA_CHECKPOINT")
+        if pointflow_checkpoint:
+            from cosmos_framework.data.pointflow_window import PointFlowTiming
+
+            token_mode = os.environ.get("POINTFLOW_TOKEN_MODE", "cluster")
+            if token_mode not in ("cluster", "per_point"):
+                raise ValueError(f"Unknown POINTFLOW_TOKEN_MODE: {token_mode}")
+            net.install_pointflow(
+                pointflow_checkpoint,
+                device=device,
+                dtype=dtype,
+                timing=PointFlowTiming(
+                    fps=float(os.environ.get("POINTFLOW_FPS", "15")),
+                    steps=int(os.environ.get("POINTFLOW_STEPS", "32")),
+                    steps_per_token=int(os.environ.get("POINTFLOW_STEPS_PER_TOKEN", "4")),
+                ),
+                stage=int(os.environ.get("POINTFLOW_SONATA_STAGE", "3")),
+                freeze_geometry=os.environ.get("POINTFLOW_FREEZE_SONATA", "false").lower()
+                in {"1", "true", "yes", "on"},
+                token_mode=token_mode,
+            )
+            scale = self.config.rectified_flow_training_config.pointflow_displacement_scale
+            from cosmos_framework.model.generator.pointflow_scale import frame_scales_from_env
+
+            frames = frame_scales_from_env(
+                int(os.environ.get("POINTFLOW_STEPS", "32")),
+            )
+            if frames is None:
+                log.info(
+                    f"PointFlow displacement scale: {scale} m/model-unit "
+                    "(must match the point selection; re-measure when the selection changes)"
+                )
+            else:
+                log.info(
+                    f"PointFlow per-frame displacement scales ({len(frames)} values over "
+                    f"{int(os.environ.get('POINTFLOW_STEPS', '32'))} frames, "
+                    f"{frames[0]:.4f}..{frames[-1]:.4f} m/model-unit) override the scalar {scale}; "
+                    "checkpoints are tied to this vector"
+                )
+
+        # FK is opt-in and independent of the PointFlow switch: v1 trains
+        # it alone, so the two gates must not imply each other.
+        if os.environ.get("FK_ENCODER_CHECKPOINT", "").lower() in {"1", "true", "yes", "on"}:
+            from cosmos_framework.data.fk_window import FKTiming
+
+            net.install_fk(
+                device=device,
+                dtype=dtype,
+                timing=FKTiming(
+                    fps=float(os.environ.get("FK_FPS", "15")),
+                    steps=int(os.environ.get("FK_STEPS", "32")),
+                    steps_per_token=int(os.environ.get("FK_STEPS_PER_TOKEN", "4")),
+                ),
+                keypoints=int(os.environ.get("FK_KEYPOINTS", "21")),
+                index_dim=int(os.environ.get("FK_INDEX_DIM", "64")),
+                content_dim=int(os.environ.get("FK_CONTENT_DIM", "256")),
+                decoder_dim=int(os.environ.get("FK_DECODER_DIM", "256")),
+                xyz_scale=float(os.environ.get("FK_XYZ_SCALE", "1.0")),
+            )
+        names = [n for n in ("pointflow_branch", "fk_branch") if getattr(net, n, None) is not None]
+        if not names:
+            return None
+        init = {"params": {}, "buffers": {}, "dtypes": {}}
+        for name in names:
+            branch = getattr(net, name)
+            for key, value in branch.named_parameters():
+                init["params"][f"{name}.{key}"] = value.detach().clone()
+            for key, value in branch.named_buffers():
+                init["buffers"][f"{name}.{key}"] = value.detach().clone()
+            for child, module in branch.named_children():
+                dtypes = {p.dtype for p in module.parameters()}
+                if len(dtypes) == 1:
+                    init["dtypes"][f"{name}.{child}"] = dtypes.pop()
+            branch.to(device="meta")
+        log.info(f"Geometry branches {names} installed before FSDP ({len(init['params'])} parameter tensors)")
+        return init
+
+    def _check_no_unsynced_params(self, net: torch.nn.Module) -> None:
+        """Under data parallelism every trainable parameter must be FSDP-managed (a DTensor); a plain one
+        would train a separate copy per rank.  Refuse to start unless the explicit fallback sync is on."""
+        dims = getattr(self, "parallel_dims", None)
+        if dims is None or not getattr(dims, "dp_enabled", False):
+            return
+        from torch.distributed.tensor import DTensor
+
+        plain = [n for n, p in net.named_parameters() if p.requires_grad and not isinstance(p, DTensor)]
+        if plain and not getattr(self.config, "sync_plain_param_grads", False):
+            raise RuntimeError(
+                f"{len(plain)} trainable parameters are not managed by FSDP and would not be synchronised "
+                f"across ranks, e.g. {plain[:5]}; install them before parallelize_vfm_network"
+            )
+        log.info(f"FSDP manages all trainable parameters ({len(plain)} plain trainable tensors)")
+
+    @staticmethod
+    def _cast_geometry_branches(net: torch.nn.Module, init: dict) -> None:
+        """Undo ``net.to(dtype)`` on branch submodules that keep their own dtype (e.g. fp32 Sonata)."""
+        for name, dtype in init["dtypes"].items():
+            module = net.get_submodule(name)
+            if any(p.dtype != dtype for p in module.parameters()):
+                module.to(dtype=dtype)
+
+    @staticmethod
+    def _restore_geometry_branches(net: torch.nn.Module, init: dict) -> None:
+        """Write the install-time branch values into the materialized (possibly FSDP-sharded) network.
+        Rank 0's values are broadcast, so every rank starts from the same branch."""
+        from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
+        from torch.distributed.tensor import DTensor
+
+        for key, value in init["buffers"].items():
+            net.get_buffer(key).copy_(value)
+        params = dict(net.named_parameters())
+        sharded = any(isinstance(params[k], DTensor) for k in init["params"])
+        if sharded:
+            set_model_state_dict(
+                net,
+                init["params"],
+                options=StateDictOptions(full_state_dict=True, broadcast_from_rank0=True, strict=False),
+            )
+        else:
+            with torch.no_grad():
+                for key, value in init["params"].items():
+                    params[key].copy_(value)
 
     def on_after_backward(self, iteration: int = 0) -> None:
         """Close the backward timing window opened at the end of ``training_step``.

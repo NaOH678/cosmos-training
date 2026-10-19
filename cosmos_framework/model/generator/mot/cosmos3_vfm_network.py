@@ -219,8 +219,15 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         content_dim=256,
         decoder_dim=256,
         token_mode="cluster",
+        device=None,
+        dtype=None,
     ):
-        """Install after base materialization/loading, before optimizer/FSDP construction.
+        """Install the PointFlow branch.
+
+        With ``device``/``dtype`` given the branch is built there regardless of the network's own
+        (possibly meta) parameters; ``OmniMoTModel.build_net`` uses this to install it before FSDP so the
+        branch is sharded and gradient-synchronised like the backbone. Without them the network must be
+        materialized and the branch follows its first parameter's device/dtype.
 
         This explicit task-7 entry avoids losing pretrained Sonata weights to to_empty.
         Distributed initialization/resume orchestration is handled in task 9.
@@ -229,9 +236,11 @@ class Cosmos3VFMNetwork(PreTrainedModel):
 
         if self.pointflow_branch is not None:
             raise ValueError("PointFlow branch is already installed")
-        parameter = next(self.parameters())
-        if parameter.is_meta:
-            raise ValueError("Install PointFlow on a materialized network")
+        if device is None:
+            parameter = next(self.parameters())
+            if parameter.is_meta:
+                raise ValueError("Install PointFlow on a materialized network")
+            device, dtype = parameter.device, parameter.dtype
         if (
             self.config.joint_attn_implementation != "two_way"
             or self.video_temporal_causal
@@ -250,8 +259,8 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             content_dim=content_dim,
             decoder_dim=decoder_dim,
             token_mode=token_mode,
-        ).to(device=parameter.device)
-        self.pointflow_branch.codec.to(dtype=parameter.dtype)
+        ).to(device=device)
+        self.pointflow_branch.codec.to(dtype=dtype)
         self.pointflow_branch.train(self.training)
         from cosmos_framework.utils import log
 
@@ -263,7 +272,17 @@ class Cosmos3VFMNetwork(PreTrainedModel):
         )
 
     def install_fk(
-        self, *, timing, hidden_dim=None, keypoints=21, index_dim=64, content_dim=256, decoder_dim=256, xyz_scale=1.0
+        self,
+        *,
+        timing,
+        hidden_dim=None,
+        keypoints=21,
+        index_dim=64,
+        content_dim=256,
+        decoder_dim=256,
+        xyz_scale=1.0,
+        device=None,
+        dtype=None,
     ):
         """Install after base materialization/loading, before optimizer/FSDP construction.
 
@@ -275,9 +294,11 @@ class Cosmos3VFMNetwork(PreTrainedModel):
 
         if self.fk_branch is not None:
             raise ValueError("FK branch is already installed")
-        parameter = next(self.parameters())
-        if parameter.is_meta:
-            raise ValueError("Install FK on a materialized network")
+        if device is None:
+            parameter = next(self.parameters())
+            if parameter.is_meta:
+                raise ValueError("Install FK on a materialized network")
+            device, dtype = parameter.device, parameter.dtype
         # The temporal axis is the only thing FK takes from the video timeline, so
         # these have to agree before any of it means anything.  Same preconditions
         # the PointFlow branch checks, for the same reason.
@@ -298,8 +319,8 @@ class Cosmos3VFMNetwork(PreTrainedModel):
             content_dim=content_dim,
             decoder_dim=decoder_dim,
             xyz_scale=xyz_scale,
-        ).to(device=parameter.device)
-        self.fk_branch.to(dtype=parameter.dtype)
+        ).to(device=device)
+        self.fk_branch.to(dtype=dtype)
         self.fk_branch.train(self.training)
         from cosmos_framework.utils import log
 
