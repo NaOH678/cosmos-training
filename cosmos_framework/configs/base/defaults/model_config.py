@@ -244,6 +244,11 @@ class OmniMoTModelConfig:
     # Note "two_way" and "three_way" disallow and remove "End-of-Vision" or other text token in the generation tower.
     # "three_way" must only be used when introducing sparsity
     joint_attn_implementation: str = "two_way"  # "two_way" or "three_way"
+    # Fixed attention mask between generated modalities, used in training and inference: a preset of
+    # joint_sample_switches.JOINT_ATTN_MASK_PRESETS (geom_readonly / action_no_geom / physical_split) or
+    # explicit "query<-key" rules (";"-separated).  Blocks ALL tokens of the pair, text stays visible.
+    # Requires two_way attention, CP=1 and no local-RoPE geometry attention.  "" = off.
+    joint_attn_mask: str = ""
 
     # Per-layer NATTEN parameters
     # Must use "three_way" attention if used.
