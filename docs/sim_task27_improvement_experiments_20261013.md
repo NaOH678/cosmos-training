@@ -1,6 +1,25 @@
 # task27改进实验记录（2026-10-13起）
 
-目标：缓解video–action差距（不让dream video带偏action），把PF/FK相对原生WAM（raw）的闭环优势做大。本文记录实验、结果与产物位置，持续更新。耦合分析与开关见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md)，rollout失败分析见 [task27 rollout失败分析](./sim_task27_rollout_failure_analysis_20261013.md)。
+目标：缓解video–action差距（不让dream video带偏action），把PF/FK相对原生WAM（raw）的闭环优势做大。本文记录实验、结果与产物位置，持续更新。耦合分析与开关见 [PointFK与action耦合分析](archive/pointflow_fk_action_coupling_20261012.md)，rollout失败分析见 [task27 rollout失败分析](./sim_task27_rollout_failure_analysis_20261013.md)。
+
+## 当前状态与阅读说明（2026-10-21，先读这一节）
+
+- **梯度同步问题**：10-19 发现 PF/FK 分支一直没有跨卡同步。分支是在 FSDP 包装之后才装上的，每张卡各训一份，检查点只存了 0 号卡那份。所以**本文 10-19 之前所有带 PF/FK 的结论只能作参考**，例如"M3 比 nolocal 高约 10"。修复已合入主分支 `1f9c737`：分支改在 FSDP 包装之前安装。raw 没有 PF/FK，不受影响。
+- **同步版重训结果**：种子 42，g1 评测，200 局，20k / 25k / 30k 平均 SR：
+
+  | 实验 | task27 | task21 |
+  |---|---|---|
+  | M3 放开 PF↔FK | 62.7 | 70.2 |
+  | vw25 | 63.3（LSCR 只有约 69，失败局几乎一个球都没放进去） | 训练中 |
+  | M3 | 54.5 | 30k 待补 |
+  | 未同步 nolocal | 51.2 | 68.0 |
+  | raw | 52.5 | 64.2 |
+
+  PF↔FK 这座桥有用：放开 PF↔FK 比 M3 高约 8 个点。未同步版 M3 种子42 的 +10，同步后没有复现。
+- **在跑的实验**：同步版 nolocal 基线、M3 放开 PF↔FK 种子43、组合（M3 放开 PF↔FK + objq32）、raw+vw25，均为 task27、task21 各一组。另一个会话在做 robotgeometry-v1（V1），task27 平均 68.7，task21 在训练中。V1 用了仿真里的真值手/物体分割作为输入，mask 也不彻底，所以它的提升来自哪里还要做消融。
+- **评测波动**：同一个检查点重测会差 0–7 个点；换种子差约 5 个点。只有 20k、25k、30k 三个点都稳定，才下结论。
+- **已删除的 worktree**：文中提到的 `-mask`、`-modemix`、`-fsdp`、`-cons` 训练 worktree，以及 4090 上的 `Bench2Dex-Pointflow-fk-{mask,p3,robotframe}` 推理 worktree，已于 10-21 删除，分支都还在。旧的 mask 检查点可以用 `Bench2Dex-Pointflow-fk-fsdp` 推理，已验证加载结果一致。
+- **完整结果表**在本地 `paper_scj/实验_scr40_20261019*.xlsx`。
 
 ## 实验台账（进行中与待补）
 

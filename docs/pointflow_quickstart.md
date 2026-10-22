@@ -19,7 +19,20 @@ PointFlow支持per-point和cluster；当前仿真实验采用cluster stage2 + sk
 实机500点的full/selective、lifted160等历史对照见
 [局部四轴实验记录](archive/pointflow_fk_local_mrope_20261002.md)，不作为所有数据集的默认配方。
 
-### 当前仿真实验（2026-10-05）
+### 当前仿真主线（2026-10-21）
+
+- **代码**：本工作区主分支（`1f9c737` 及之后）。PF/FK 分支在 FSDP 包装之前安装，由 FSDP 切分并跨卡同步梯度。**10-19 之前所有带 PF/FK 的训练都没有跨卡同步**（每张卡各训一份，检查点只存了 0 号卡那份），那时的结论只能作参考。
+- **配方**：nonlocal，不用 local RoPE。task27（`27_ball`）和 task21（`21_v3`）成对训练。学习率按 40k 周期，训到 30k 手动停。训练内评测每 2000 步一次。默认种子 42，关键实验要补种子 43。
+- **变体都通过 override 配置**：
+  - 模态 mask：`model.config.joint_attn_mask=...`；
+  - 视频 loss 权重：`model.config.rectified_flow_training_config.loss_scale=2.5`；
+  - 种子：`trainer.seed=43`；
+  - objq32 选点：把 `SIM_POINTFK_BUNDLE` 换成 `*_training_objq32` 数据包。
+- **目前最好的配置**：M3 放开 PF↔FK，即 mask `fk<-vision;vision<-fk;pointflow<-action;action<-pointflow`。20–30k 平均 SR：task27 62.7（raw 52.5），task21 70.2（raw 64.2）。
+- **闭环评测**：在 4090 上测，guidance 1，200 局，四类场景，评测 20k、25k、30k 三个点。流程见 Bench2Dex 推理仓库的 `deployment/cosmos/TASK27_INFERENCE.md` 中"当前自动评测流程"一节。
+- **实验记录与结论**：[task27/task21 实验台账](sim_task27_improvement_experiments_20261013.md)，开头的"当前状态"一节是最新的总结。
+
+### 2026-10-05 的仿真配置（历史）
 
 先用10条仿真数据（8训练、2验证）检查拟合和联合生成质量，效果通过后扩到100条。
 当前保留：8×A800、每卡batch16、累积1、selective AC（Flash2+QKVO）、1024点、
@@ -156,7 +169,22 @@ bash examples/launch_pointflow_labeled29_sandwich.sh
 
 ## 3. 启动训练
 
-### 仿真 PointFlow-FK（当前配方）
+### 仿真（当前主线，2026-10-21）
+
+```bash
+# task27；task21 把 27_ball 换成 21_v3，job.name 换成 sim_task21_ptfk_nonlocal
+OUTPUT_ROOT=/data/shichaojian/runs/sim_task27_ptfk_nonlocal_<变体>_8gpu_40k_<日期> \
+EXTRA_TAIL_OVERRIDES='job.name=sim_task27_ptfk_nonlocal trainer.max_iter=40000 scheduler.cycle_lengths=[40000] trainer.validation_iter=2000 model.config.joint_attn_mask="fk<-vision;vision<-fk;pointflow<-action;action<-pointflow"' \
+bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_sim_normalized.sh 27_ball nonlocal
+```
+
+- **raw（只有视频和动作）**：最后的模式参数改成 `wam`。
+- **nolocal 基线**：去掉 `joint_attn_mask`。
+- **提交到集群**（单机 8 卡，排除 108.81、108.193 两台机器）：用 `/mnt/afs/experiments_20261017/m3mix/submit_m3mix.py [--apply] <preset>`，同步版的预设是 `sync*`。其中 `MASK`、`MIX` 开头的旧预设指向已删除的 worktree，不要再用。
+- **30k 手动停**：停之前必须等 30k 的模型和优化器都写完，并且 `latest_checkpoint.txt` 已经指向 30000。
+- **存储**：A800 每天 08:00 UTC 自动清理检查点（`/mnt/afs/experiments_cleanup/daily_cleanup.sh`）。
+
+### 仿真 PointFlow-FK（历史：2026-10-05 的 v2 配方）
 
 ```bash
 OUTPUT_ROOT="/data/shichaojian/runs/sim_v2_stage2_bs16_20k_$(date +%Y%m%d_%H%M%S)" \
@@ -179,9 +207,9 @@ OUTPUT_ROOT=/data/shichaojian/runs/sim_v3_94train_6val_handguided1024_stage2_8gp
   bash /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk/examples/launch_sim_pointfk_v3.sh
 ```
 
-当前数据准备记录见[实验队列E7b](./pointflow_experiment_queue_20260930.md#e7b--task21-v3全局轨迹94训练6验证数据准备中)。
+当前数据准备记录见[实验队列E7b](archive/pointflow_experiment_queue_20260930.md#e7b--task21-v3全局轨迹94训练6验证数据准备中)。
 
-### 仿真task27 ball
+### 仿真task27 ball（历史：2026-10-08 的 20k 配方，当时默认用 local RoPE）
 
 数据已生成，目录格式与task21 v3一致；94训练/6验证，共75,640窗，1024点、stage2、skip1,2、PB4和local RoPE。
 
@@ -215,7 +243,7 @@ OUTPUT_ROOT=/data/shichaojian/runs/real_normalized/sandwich_nonlocal_20k_2026100
 NNODES=2 NPROC_PER_NODE=8 bash examples/launch_real_normalized.sh sandwich nonlocal
 ```
 
-六组完整命令及配方见[实验队列E8](./pointflow_experiment_queue_20260930.md#e8--真机归一化重训系列等待中)。
+六组完整命令及配方见[实验队列E8](archive/pointflow_experiment_queue_20260930.md#e8--真机归一化重训系列等待中)。
 入口自动固定5%验证划分、归一化统计快照与20000步,开启启动验证和每500步验证。
 
 真机与仿真启动器共用`tools/prepare_normalized_run.py`，在`$OUTPUT_ROOT/action_stats.json`保存实际使用的统计快照，并将读取路径和SHA256写入实验配置；续训校验一致性，不覆盖不同统计。仿真源统计仍是各任务训练目录的`normalization_train_only.json`，WAM/nonlocal/local均遵循同一归档规则，见[仿真启动步骤](SIM_DATA_PIPELINE.md#86-第五步选择模式并启动训练默认8卡)。
@@ -265,10 +293,10 @@ OUTPUT_ROOT=/data/shichaojian/runs/<新目录,每次必换> bash /mnt/afs/WorldA
 | `POINTFLOW_SELECT_REGION_QUOTAS` | 空(扁平排名) | 分层语义配额,如 `2:0.40,3:0.45,4:0.15`(手/物/台面);需配合 `SELECT_TOP_N>0`,组内仍按 GT 运动排名,缺额全局回补 |
 | `POINTFLOW_SELECT_PHANTOM_GUARD=true` | false | 幻影点(uv 冻结但 3D 漂移)降级到排名末尾;101 集实测选中点幻影占比 7.5%→0.7% |
 | `POINTFLOW_WINDOW_CACHE_ROOT` | 空(在线算) | 预计算窗口缓存目录(数据管线步骤 3b);缓存后每样本读 ~120KB 而非 ~205MB |
-| `JOINT_SAMPLE_SEED_OFFSETS` | 空 | eval探针:只换指定模态的联合采样初始噪声,如 `pointflow:1,fk:1`;用法见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#3-联合采样种子探针) |
-| `JOINT_ATTN_BLOCK` | 空 | eval/推理:屏蔽模态间带噪token的attention,如 `action<-pointflow,action<-fk`;模态 vision/action/pointflow/fk,不支持local RoPE;见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
-| `JOINT_GEOM_LEAD` / `JOINT_SAMPLER_STEPS_OVERRIDE` | 空 | 推理:几何提前k步去噪完 / 覆盖联合采样步数;见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
-| `POINTFK_CONSISTENCY_WEIGHT` / `_MODE` / `_STATS` | 0 / task / 空 | 训练:URDF(action)一致性损失,>0启用,需给action归一化统计;见 [PointFK与action耦合分析](./pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
+| `JOINT_SAMPLE_SEED_OFFSETS` | 空 | eval探针:只换指定模态的联合采样初始噪声,如 `pointflow:1,fk:1`;用法见 [PointFK与action耦合分析](archive/pointflow_fk_action_coupling_20261012.md#3-联合采样种子探针) |
+| `JOINT_ATTN_BLOCK` | 空 | eval/推理:屏蔽模态间带噪token的attention,如 `action<-pointflow,action<-fk`;模态 vision/action/pointflow/fk,不支持local RoPE;见 [PointFK与action耦合分析](archive/pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
+| `JOINT_GEOM_LEAD` / `JOINT_SAMPLER_STEPS_OVERRIDE` | 空 | 推理:几何提前k步去噪完 / 覆盖联合采样步数;见 [PointFK与action耦合分析](archive/pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
+| `POINTFK_CONSISTENCY_WEIGHT` / `_MODE` / `_STATS` | 0 / task / 空 | 训练:URDF(action)一致性损失,>0启用,需给action归一化统计;见 [PointFK与action耦合分析](archive/pointflow_fk_action_coupling_20261012.md#5-模态间消融与新开关) |
 
 ### resume 语义(查证结论)
 
@@ -301,7 +329,7 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 
 ## 6. 历史状态快照（不是实时运行状态）
 
-当前仿真配方见§0和§3，以下保留早期集群与实机实验背景。
+当前仿真主线见§0和§3。下面保留早期集群和实机实验的背景，供查历史。
 
 ### 6.0 2026-09-28：新集群贯通
 
@@ -345,20 +373,23 @@ latents → scale 标定 + 幻影扫描 + 可视化验证 → 训练)。
 
 ## 文档地图
 
-**新来的 agent 推荐阅读顺序**：本页§0/§3 →
-[仿真数据与当前配方](archive/pointflow_sim_v2_data_20261004.md) →
-[action归一化对照](archive/pointflow_action_normalization_comparison_20261005.md) →
-[数据pipeline](./pointflow_data_pipeline.md)。实机历史按需查形态对比与实验队列。
+**新来的人或 agent 推荐阅读顺序**：
+1. 本页 §0、§3；
+2. [实验台账](sim_task27_improvement_experiments_20261013.md)，先读开头的"当前状态"；
+3. [仿真数据 Pipeline](SIM_DATA_PIPELINE.md) 和 [仿真数据目录规范](sim_pointfk_data_format.md)；
+4. 架构方案和实现：[方案](pointfk_architecture_experiments_20261017.md)、[实现](pointfk_architecture_implementation_20261017.md)；
+5. 真机数据看 [数据 pipeline](./pointflow_data_pipeline.md)。
+
+9 月到 10 月初的开发记录，包括当时的配方、形态对比、实验队列、逐点 token 主线等，已移到 [archive/](archive/README.md)，只供查历史。
 
 ### 入口与状态(先读)
 
 | 文档 | 内容 |
 | ---- | ---- |
-| [pointflow_sim_v2_data_20261004.md](archive/pointflow_sim_v2_data_20261004.md) | 当前仿真配方、数据路径、选点、性能与联合eval验证历史 |
-| [pointflow_action_normalization_comparison_20261005.md](archive/pointflow_action_normalization_comparison_20261005.md) | 两套仓库的action统计/公式差异、实际加载文件、扩容约定 |
-| [pointflow_form_comparison_observations_20261001.md](archive/pointflow_form_comparison_observations_20261001.md) | **形态对比观测档案**:per_point/cluster 四形态全 case 数据(cond/joint/漂移)、架构事实(file:line)、未解问题清单、方案池、数据位置 |
-| [pointflow_experiment_queue_20260930.md](archive/pointflow_experiment_queue_20260930.md) | **实验队列**:A/B/E1~E5 状态与启动命令、产物路径、sandwich 共享数据产物 |
-| [pointflow_per_point_tokens_20260919.md](archive/pointflow_per_point_tokens_20260919.md) | 主线实验记录(最长最全):从 300 点验证到 101 集全量的全部结论与误差分析 |
+| [sim_task27_improvement_experiments_20261013.md](sim_task27_improvement_experiments_20261013.md) | **当前实验台账**：task27/task21 的所有实验、结果、决定，开头有最新状态 |
+| [sim_task27_rollout_failure_analysis_20261013.md](sim_task27_rollout_failure_analysis_20261013.md) | task27 闭环失败分析 |
+| [pointfk_architecture_experiments_20261017.md](pointfk_architecture_experiments_20261017.md) / [pointfk_architecture_implementation_20261017.md](pointfk_architecture_implementation_20261017.md) | 架构实验方案和实现（R4、A1、robotframe 等） |
+| [archive/README.md](archive/README.md) | 归档文档索引（历史配方、形态对比、实验队列、逐点 token 主线等） |
 
 ### 操作手册(动手前查)
 
