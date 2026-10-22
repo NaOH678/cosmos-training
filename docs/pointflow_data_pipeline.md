@@ -1,7 +1,7 @@
 # PointFlow 数据处理 Pipeline 操作手册 — 2026-09-24(2026-09-28 修订:补 9.24 efep 转换步骤;2026-09-30 修订:4a scan 工具并行化 + per-frame 向量)
 
 每接入一批新数据(新任务/新集数/新导出的 flow)都按本文档走一遍。主线实验
-记录在 `docs/pointflow_per_point_tokens_20260919.md`,本文档只讲操作。
+记录在 `docs/archive/pointflow_per_point_tokens_20260919.md`,本文档只讲操作。
 
 ## 总览
 

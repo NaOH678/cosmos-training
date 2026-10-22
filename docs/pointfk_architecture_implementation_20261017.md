@@ -1,249 +1,283 @@
-# Point/FK 架构实验：实现细则（2026-10-17）
+# Point/FK 架构实验：当前实现说明（更新于 2026-10-19）
 
-配套[实验方案](pointfk_architecture_experiments_20261017.md)。本文是待实现的规格，不表示下面的模块、配置或测试已经存在。只核查代码和现有数据，未修改模型、未启动训练。
+本文描述当前 R4、A1 训练实现，替代 2026-10-17 的 v2 待实现规格。文件名保留，便于已有链接继续使用。配套[实验方案](pointfk_architecture_experiments_20261017.md)是历史设计背景，其中排期和未实现方案不能替代本文的实现状态。
 
-**10-17修订（v2）**：按实验方案§1.1证据改为在mask分支上以M3为基线；首个实现目标由D-base改为简化的E-rel（§4）；D1/D3、A/B/C的状态见各节开头。原D-base规格备份在 `/mnt/afs/experiments_20261017/doc_backup/`。
+**实际训练代码根目录**：`/mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk-arch`，下文源码路径均相对于此目录。用户原文档位于不带 `-arch` 的工作区；文档位置不代表训练使用该工作区的代码。
 
-## 1. 实现基线与先后顺序
+**本次更新范围**：R4 当前手–物关系编码、R5 绝对几何对照、A1 动作推导 FK 到 PointFlow 的输出适配器、robotframe 数据、优化器与 8 卡同步，以及当前运行契约。D1/D3/B/C 等历史提案不属于本次两个训练任务。
 
-代码落点改为mask分支 `WorldAct-cosmos3-edge-droid-sft-pointflow-fk-mask`（`3788ac6`，含`joint_attn_mask`），新开分支实现；主工作区`3f6c3f3`没有mask，不能作为E-rel的落点。默认：M3 `physical_split`、原四模态WAM、当前相机坐标缓存、原选点/PTV3/cluster/skip/PB/local RoPE、原归一化和采样器、nolocal配置、种子42、不开indep。checkpoint、数据manifest、归一化文件、URDF和FK映射均记录路径与SHA；不要在实施时顺便更换这些设置。
+## 1. 当前实验与共同基线
 
-顺序：第一批R1–R3零代码（实验方案§3.1），同时开发E-rel（§4）；E-rel通过§9验收后从头训40k（R4/R5）。D1等robotframe结果，D3不做；A/C延后，B本轮不做。E-rel只使用当前几何，不需要未来action→FK。
+R4 和 A1 是两个分别训练的实验，当前没有把两者叠加到同一个模型。
 
-本工作区与modemix、cons不是一个版本。WAM/FDM/IDM混合是独立训练变量，首轮不开。M3是E-rel的默认attention设置，mask规则不改；E-rel注入在embedding层，不受mask影响。
-
-## 2. badcase与消融如何约束设计
-
-| 证据 | 本轮具体决定 | 不据此做什么 |
+| 项目 | R4 | A1 |
 | --- | --- | --- |
-| 几何预测较好，但action对几何干预较弱 | D直接增强action输入；B直接修正action输出，分别检验 | 不再只优化独立FK头的显示效果 |
-| 手和球共同偏，接触窗相对误差小于绝对误差 | 保留全局相机特征；D1补掌部坐标表达；考核绝对落点 | 不把手球相对距离loss当主损失 |
-| 箱子/球已有高度信息，相机高度也随机 | D1使同一物体相对手掌的位置更易读取 | 不补假桌面点，不把相机z直接当桌高 |
-| task21主要问题含规划松手过高、瓶身倾斜 | 记录松手阶段动作FK高度/朝向与专家偏差 | 不用统一“降低手高度”或距离越小越好的奖励 |
-| 动作干预对视频影响弱，GT视频可显著改善action | C单独建立本次action→video通路；D3只测试当前几何输入 | 不把D3称为未来动作控制视频 |
-| 推理补球点600局无改善，P3提前重规划无改善 | 保持选点及execute_steps32 | 不认为结构能凭空恢复0点目标或学出未演示的重抓 |
-| M3从头训30k/35k显著优于同期基线（合并p=0.006） | 新结构以M3为基线，mask不变 | 不声称已有实验支持“增加所有模态互联” |
-| M3切的是整个模态对（含anchor），action看不到任何PF | E-rel只把**当前干净**的手–物关系送进action输入；R3零代码检验“放开当前PF anchor” | 不让action重新读带噪PF（B的做法） |
-| M2/M1/M4：action读带噪几何无益，切action←带噪video也无益 | B本轮不做；C延后 | 不把“更多耦合”当默认方向 |
-| 续训模型不作为依据（用户10-17） | 结构改动一律从头训40k | 不用续训模型筛选或否定结构 |
-| 原方案自查：首窗口10根指尖3 cm内全无物体点 | kNN不设硬半径，RBF距离编码，另给每实例最近距离 | 不用硬3 cm邻域 |
+| 要检验的问题 | 当前手–物空间关系能否改善动作决策 | 预测动作的运动学信息能否改善物体点运动预测 |
+| 新增信息通路 | 当前几何关系 → action 输入 embedding | 本次预测 action → command FK → PF 解码前 hidden |
+| 输入缓存 | `*_training_robotframe_rel` | `*_training_robotframe` |
+| 关系编码器 | `pointfk_relation="rel"` | 关闭 |
+| 输出适配器 | 关闭 | `pointfk_output_adapter="action_to_pf"` |
+| 未来 FK 设置 | 保留原预测与原 FK loss | 屏蔽未来 FK 对其他模态的读取，FK loss 权重为 0；采样状态仍保留 |
+| 新增损失 | 无 | 无额外接触/刚性/command-FK 损失；使用 video/action/PF 原有损失 |
 
-证据入口：[主实验台账](sim_task27_improvement_experiments_20261013.md)第3、3.5节及台账30k/P3行；cons的`docs/pointfk_consistency_diag_20261014.md`第4—7节。80条badcase仅采用用户给出的报告，未重新逐案观看；这些选中失败不能用于估算整体可挽救比例。
+共同设置：robot-base 坐标、米制、M3 `physical_split` 基础隔离、nolocal 配置、seed=42、从基础模型重新训练 40k，不从旧冻结适配器短训恢复。当前作业每项单机 8 GPU，DP shard=8、DP replicate=1、CP=1，`sync_plain_param_grads=True`。
 
-## 3. 数据接口：补一个逐点实例字段，不改选点
+M3 隔离 PF↔action、PF↔FK、vision↔FK 的直接主干注意力。R4 在 action 输入新增当前几何通路；A1 在 PF 输出端新增 action-derived FK 通路，均是明确的结构变量。
 
-以下形状是当前双手、32步配置。实现应从timing和映射读取，首版仅支持该配置时明确检查，不静默套用其他机器人。
+实现配置入口：`tools/pointfk_revision_overrides.py:16`（`revision_overrides`）、`:66`（`revision_environment`）。该工具默认 8 卡；历史上仍支持的 6 卡选项不用于当前两个作业。
 
-| 变量 | 形状/单位 | 来源与约束 |
+## 2. 数据、坐标与标签：实际已有内容
+
+当前接口仅支持本轮双手关节命令配置：当前动作行 + 32 个未来物理步，共 33 行；有效关节命令 52 维，可 padding 到 64；每只手 21 个 FK 关键点，共 42 点。
+
+| 字段 | 形状/语义 |
+| --- | --- |
+| `pointflow.inputs.anchor_xyz` | 当前可见点位置，拼接为 `[N,3]`，robot_base、米 |
+| `normal` / `color` | 当前点法向 / RGB；关系编码中颜色除以 255 |
+| `point_batch` | 每个点所属样本；样本间不得混合 |
+| `point_instance` | 当前实例编号，R4 必需；`-1` 表示不属于已标注任务实例 |
+| `fk.inputs.anchor_xyz` | 当前双手 `[B*42,3]`，robot_base、米 |
+| 原 PF 未来位移与有效性 | 仍用于原有监督，不供 R4 选邻点或 A1 构造几何 |
+
+**实际实例列表以 manifest 为准**：
+
+- task27：`soccer, tennis_ball, golf_ball, table_tennis`，4 个球，编号 0–3。
+- task21：`msg, soy, vinegar`，3 个瓶，编号 0–2。
+- 当前这两份缓存没有额外容器类别。旧 v2 中“箱子已经作为额外实例加入”的要求尚未落实到当前缓存，不能据此把实例数设为 5。未归属任务实例的点为 `-1`，不进入 R4 候选。
+
+实例标签来自当前 anchor 帧仿真 box3d 的几何归属，margin=0.005 m，属于前向可见的当前实例输入，不是未来标签。task27 manifest 中提及 camera optical frame 描述的是生成 membership 时的坐标约定；转换后实际点坐标由顶层 `frame="robot_base"` 声明。离散标签沿用，不再次计算或变换。
+
+缓存根目录 `/data/shichaojian/sim_data/`：
+
+| 用途 | task27 bundle | task21 bundle |
 | --- | --- | --- |
-| 当前关节q0 | 每样本`[52]`，物理关节单位 | action第0个条件行反归一化；不是未来GT action |
-| 当前FK anchor | 每样本`[42,3]`，米 | 原FK输入，左右各21点 |
-| 当前点XYZ/UV | 拼接后`[N,3]` / `[N,2]` | 原PF inputs；N为batch各样本点数之和 |
-| 细粒度点特征f | `[N,C0]` | `geometry.voxel_features[original_to_voxel]`；当前C0=32，代码读取实际维度 |
-| cluster映射 | `[N]` | `geometry.original_to_cluster`；总cluster数K，不重新聚类 |
-| 当前点类别 | `[N]`，int8 | v2：只需“任务物体实例k / 容器 / 其他”。由数据准备时的位姿几何归属得到（见下），**作为前向输入**（仿真两端都有真实值） |
-| 当前点实例 | `[N]`，int8 | 0..K-1为任务物体（task27四球、task21三瓶），K为容器（task27箱子），-1为其他（含手、桌、干扰物） |
-| 原PF未来监督 | `[32,N,3]` / `[32,N]` | 原位移/valid，只进原loss及指定的新loss，不用于D选邻居 |
+| R4/R5 | `bench2dex_task27_ball_training_robotframe_rel` | `bench2dex_task21_v3_training_robotframe_rel` |
+| A0/A1 | `bench2dex_task27_ball_training_robotframe` | `bench2dex_task21_v3_training_robotframe` |
 
-**v2实例来源**：`tools/prepare_sim_pointfk_v3.py`在`--object-quota`时已用仿真box3d在anchor帧计算`object_membership(p, objects)`（与推理`anchor_selection.object_membership`同一规则），但**没有存进样本**。改动：
-- 无论是否开quota，都计算membership并存为样本字段`pointflow.inputs.point_instance = member[keep]`（int8）；箱子作为第K类加入objects列表（kind=box）。
-- 只重跑点缓存准备这一步（不重跑tracking）；VAE等视频缓存能否直接复用（软链/共享路径）实施时核对，不能复用则先问用户再决定。
-- 选点保持默认`hand_guided_fps`，生成新bundle（如`bench2dex_task27_ball_training_rel`、`bench2dex_task21_v3_training_rel`）；与原bundle逐样本比对`point_ids`完全一致，只多一个字段。
-- `PointFlowBatch`的inputs增加可选`point_instance`（拼接、`.to()`/`.to_cuda()`），缺失时填-1；开启E-rel而样本无该字段时报错，不静默当作“无物体”。
-- 推理端：4090 `sim_geometry`里已有`_quota_camera_objects()`+`object_membership`（objq/ballquota分支），对最终选出的1024点算同样的`point_instance`传给模型。训推须用同一份objects列表（含箱子）和margin。
+manifest 相对路径：`datasets/cosmos-cache/pointflow_fk_handguided1024/manifest.json`。PF 和 FK 元数据均需与 `robot_base` 一致；launcher 与网络前向有检查，不静默回退相机缓存。
 
-原方案的`track_label`读取与分类头在v2首版不需要（只用物体实例，手的状态由FK anchor提供）；真机阶段再加分类头。
+完整 R4 标签缓存已生成：task27 75,640 个窗口，task21 60,190 个窗口。task27 从已有 camera-rel 缓存转换，标签、点编号、UV、颜色、有效性保持一致，几何往返最大误差约 `4.77e-7 m`；task21 在已有 robotframe 样本上只增加 `point_instance`，逐窗口核对原字段不变。未重新跟踪或重新选择点。验证报告在 `/mnt/afs/experiments_20261018/arch_6gpu_81/` 下的 `task27_cache_report.json`、`task21_cache_report.json`、`task21_labels_report.json`；目录中的历史 `6gpu_81` 名称不代表当前训练卡数或节点约束。
 
-原方案统计的“首窗口10根指尖3 cm内均无物体点”是v2放弃硬半径的直接依据；训练日志按阶段记录kNN最近距离分布。
+推理部署必须复用相同的坐标、实例列表、membership 规则、margin 与关节归一化。本文不声称 4090 推理运行时已经完成同步部署或闭环验收；训练冒烟通过也不能替代该检查。
 
-## 4. E-rel：当前手–物关系 → action输入（v2，替代原D-base）
-
-### 4.1 接入位置
-
-不需要`prepare_geometry`重构，不读PTV3特征，不改PF/FK payload。只在`mot/cosmos3_vfm_network.py`中`_encode_action`产生action输入embedding之后、送入主干之前加一个增量：
-
-```python
-# 伪代码；禁止读取任何未来监督
-rel = relation_encoder(pf.inputs.anchor_xyz, pf.inputs.normal, pf.inputs.rgb, pf.inputs.point_instance,
-                       fk.inputs.anchor_xyz, pf.sample_offsets)          # [B, H]
-action_emb[rows_of_sample_b] += gate * rel[b]                           # 33行全部，含条件行
-# 可选（pointfk_relation_to_fk_anchor）：
-fk_emb[anchor_rows_of_query_q_in_sample_b] += gate * proj_fk(site_feat[b, q])
-```
-
-样本归属用packing的payload/span元数据，不能用`global_index // 33`猜。FK anchor行用FK payload里的当前anchor索引（若无显式字段，新增`anchor_indexes`）。
-
-### 4.2 查询点与邻点
-
-- 查询点12个：左右手各`[0,4,8,12,16,20]`（掌心+5指尖），右手索引加21；映射与现有42点定义不符即报错。
-- 候选点：`point_instance >= 0`（任务物体+容器）。每个查询点取k=16个最近候选点，**不设半径**；候选不足16时用有效mask补齐，不重复取点。
-- 批内实现：FP32距离`[B,12,Nmax]` + padding mask → `topk` → gather `[B,12,16,*]`；无Python循环、无CPU kNN、无`.item()`。
-
-### 4.3 编码
-
-逐邻点特征（单位米）：
-- `Δxyz / 0.05`（邻点−查询点，相机系）；
-- `RBF(d)`：8个中心均匀分布在0–0.20 m，宽0.025 m；
-- 法向（3）、RGB（3，[0,1]）、实例one-hot（K+1）、有效位。
-
-共享MLP `→64→64`（SiLU），对16邻点做有效mask下的max与mean，得到128维。再拼每个实例的“最近距离（RBF 8维）+ `log1p(该实例在1024点中的点数)` + 无点标记”，经`Linear→128`得到查询点特征`site[B,12,128]`。
-
-### 4.4 注入
-
-- action：按手拼接`[B, 6×128]×2 → 1536` → `MLP(1536→512→H)` → 乘门控 → 广播加到该样本全部33行action输入embedding。数值、condition mask、loss mask不变。
-- 可选FK anchor：`site[B,q] → Linear(128→H)` → 加到对应的12个当前FK anchor token（不改未来FK变量）。首个训练run（R4）开启与否需在提交前定，R5必须相同。
-- R5 E-rel-abs：同一网络与参数量，只把`Δxyz`改为邻点相机系绝对坐标`xyz/0.5`、把RBF距离改为`RBF(‖xyz‖)`，其余不变。
-
-**初始化**：每条注入的最后一层权重与bias为0，前层正常初始化，门控固定为1。开关关闭时不构造模块，不改变原模型随机初始化顺序。H取网络`hidden_size`，不写死。
-
-## 5. D1与D3：各自只增强一处
-
-> v2状态：D1等robotframe 25k/30k结果（robotframe有效则优先全局机器人系+E-rel）。若做D1，把§4.3的`Δxyz`旋到当前掌坐标，其余沿用E-rel。D3不做（M3下video已直接读PF）。以下保留原规格。
-
-### D1：补手掌坐标，不改RoPE/缓存坐标系
-
-扩展`TorchRobotFK`，新增返回指定link完整变换的方法，原`forward(q)`返回关键点的接口保留。当前实现最后已经应用`world_from_robot_base`；返回手掌变换时也必须应用它，不能关键点在world而朝向还在base。
-
-若缓存为相机坐标，用当前`q0`计算的42点与当前FK anchor估计一次刚体`R,t`，只对齐当前状态；已提供并验证的frame transform优先复用。将掌部位置和朝向一起变换到PF所在坐标。不得拿预测未来/GT未来逐帧拟合。机器人坐标缓存另走明确分支，不能重复转换。
-
-若`R_palm`将掌坐标列向量旋到相机坐标，点的行向量局部坐标为`(point_cam - palm_translation) @ R_palm`。D1给关系编码补左右手各自的局部XYZ及指尖距离，不替换原相机XYZ、UV或位置编码。先验证掌中心得到0、掌X轴前移1cm得到局部`[0.01,0,0]`；再验证已知整体刚体变化时局部坐标不变。
-
-刚体拟合残差、单位和左右手映射必须记录；误差超出该数据的已核查容差时启用诊断/报错，不能悄悄将错误变换作为训练输入。这个实现只需要当前状态、当前anchor、现有URDF，不读GT未来。
-
-相机坐标的约定一致不等于真实数据已经精确米制配准。PF继续用自己的估计内参，FK继续用自己的现有投影；拟合当前FK不能修正PF深度/尺度误差。因此本轮主要落在已核查的仿真数据，迁移真机前需重新量测相对几何误差，不能把3cm当作跨数据源的真实接触距离。
-
-### D3：只改当前视频输入embedding
-
-使用D的逐点两类关系特征，经已有`uv_to_video`得到当前点在拼图画布上的像素。复用`video_aligned_point_positions`的像素中心规则：转patch后含`+0.5/stride-0.5`修正；不要额外重复resize。`stride`取实际latent/patch总缩放，不写死16。
-
-以双线性权重向相邻4个patch scatter，手/物体分两路累计`sum(weight * probability * feature)`与`sum(weight * probability)`，各自归一化，附两路coverage；投影到H后加到原vision embedding。没有覆盖的patch严格增量0，越界点丢弃，不钳到边界。聚合不采用未归一化求和，防止手点数量压过小球。
-
-只处理每个视频payload的第0个已观测latent、主视角实际区域。使用`ModalitySpan.payload_index/payload_start`与`token_shapes`定位flatten后的行；使用真实view区域与pad信息裁剪，不能用RoPE的全局空间origin当数组索引。多样本、拼图下半部腕视角、反射padding区都不能串入。IDM即使全部视频为条件，也只注入当前第0帧。
-
-建议在全部原模态编码完成后统一调用`frontend.inject`；它作用于`_encode_vision`产生的embedding，不必在`_encode_vision`内部提前写入随后会被覆盖的数据。D3不改VAE输入/latent、未来vision条件mask或原视频loss。梯度经特征与新投影回到前置模块；当前UV本身不需梯度。
-
-## 6. A/B/C共用的预测动作→FK接口
-
-> v2状态：A、C延后到第三批，B本轮不做（理由见实验方案§3表）。以下保留原规格。在M3上实现A1/C时注意：A1的FK→PF适配器、C的FK→video适配器都绕过了M3切掉的边，需作为显式设计决定，而非默认。
-
-新增独立`action_geometry.py`，不要调用只在loss里使用的`pointfk_consistency.action_x0_hat`：后者读取训练epsilon和目标速度重建输入，不能成为推理前向依赖。
-
-建议接口`estimate_clean_action(action_xt, predicted_velocity, sigma_per_row, condition_mask, domain_id)`。条件行原样返回`action_xt`；生成行用FP32的`action_xt - sigma * velocity`。sigma来自动作实际采样/加噪状态，不用video sigma或timestep embedding值代替。通过打包元数据映射逐行sigma，不能将一个noisy-only向量误广播到包含条件行的33行。
-
-接着按训练使用的domain归一化参数反变换，只取有效52维并核对joint_names，再用`TorchRobotFK`计算关键点。原action padding到64的其余维不送入URDF。当前q0决定相机刚体变换，所有32步共用；未来关节角保持可微。关节越限/NaN必须统计；首版不把越限硬裁剪偷偷写回最终动作，几何支路如需稳定限幅必须独立配置并记录饱和比例。
-
-上述52维接口仅适用于当前关节指令domain。其他数据若是末端位姿/增量控制，直接拒绝此FK路径，不能把它当作52个关节角；几何helper应有明确domain检查。
-
-WAM/IDM用本次干净动作估计；FDM直接用完整给定动作。当前`_decode_action`在没有noisy action时返回dummy零值供图一致性使用，**不能拿它当FDM动作**。新helper应从条件行读真实给定值。所有几何分支强度默认乘`(1-sigma_action)^2`，条件动作取sigma=0；独立sigma训练时不能错用PF/video的噪声强度。
-
-FK输出单位固定米，语义固定command FK。原数据未来FK来自实际状态，不能当相同目标混用。32个物理步先完整计算；确需8组token时每组拼4步的位置/位移后编码，不只拿一个端点代替整组。
-
-### A：需要同时更改采样契约，不只是删loss
-
-先将`_decode_action`移到PF decode前（只解码一次），恢复干净动作，产生FK token，再以局部适配器条件化PF decode。A0只去未来FK，A1再加适配器。当前anchor编码需与未来motion编码拆开：不能给原FK branch喂全零motion并继续附加336个“假未来token”，那不叫移除未来变量。
-
-A1首版把每4步FK位移拼接，投影成`[8,42B,128]`；PF的`point_hidden[8,K,H]`投影为128维query，同样本/同时间组读取42个FK key/value（2个head，每head64维），再经零初始化投影残差加回原PF hidden，交给原codec decode。该小cross-attention不增加主干token，也不修改主干attention backend。加入当前点到骨段的关系描述，物体支路保留独立MLP和有效性特征，不把FK位移直接加到物体GT目标；混合cluster按两路成员权重合成。A1只测试这条解码条件通路，不同时强制手部PF改成“FK位移+残差”输出，避免额外改变监督参数化。
-
-`OmniMoTModel`的训练噪声构造、joint state拼接/拆分、velocity field、采样积分、eval输出都需排除未来FK；anchor仍是条件。最终eval新增`fk_command`由最终action算出，原`preds_fk`/独立FK ADE不得继续伪造返回。A0/A1丢弃旧未来FK专属权重时列加载清单，EMA同样处理。
-
-### B：最终action只有一份，修正的是速度
-
-原主干先解码原PF与初步action；用它们的干净估计构建手/物体关系。PF位移乘原displacement scale后加anchor，不能把归一化位移当米。手部绑定使用当前固定对应；物体在各预测物理步按3cm/16点读取邻域，仅使用预测位置与当前类别，不读取GT valid。
-
-两路摘要与该时刻action hidden拼接，MLP输出`delta_velocity[32,52]`，padding维和条件行置0。最终`v_action = v_base + (1-sigma_action)^2 * delta_velocity`，再按原接口计算action loss/采样更新。最终command FK重新由最终action估计计算。首版不把该修正再送回PF，避免同次循环。
-
-B0用相同维度、近似参数量的普通PF特征交互，B1才分身体/物体；两个组使用相同loss。如果初步action直接辅助监督，B0/B1也必须相同；首版仅监督最终action更容易比较。
-
-### C：可微投影必须送到实际视频输出路径
-
-解码action/PF后恢复32步干净几何，分别用已有内参及真实画布映射soft splat到视频patch。FK与PF不互换内参；PF内参由normalized矩阵恢复时用自身`image_size_wh`。z≤0或超出主视角者无贡献，不钳边；输出中带覆盖和sigma。四个物理步各自投影后，将对应特征拼接压缩为一组，按既有timing连接到8个未来latent时间组。
-
-首版`video_delta = zero_init_projection(MLP(concat(video_hidden, geometry_map)))`，只加到被覆盖的未来主视角hidden，再交给原`llm2vae`输出速度；分支强度用action噪声门控，PF通道再按PF噪声独立门控。无需加第二遍主干或新大型图像编码器；IDM没有生成视频时不修改条件内容。
-
-纯FK辅助loss能更新action，不能保证video服从它；C这个前向适配器才提供同次响应。投影位置的梯度可经双线性权重和FP32 FK回到action；patch索引本身不可微，越界/空覆盖也没有该路径，所以必须在可见内点单测，不能只检查总loss有限。
-
-## 7. Loss：先固定原损失，只逐项增加
-
-| 组 | 首轮loss | 可选后续消融 |
-| --- | --- | --- |
-| R3 M3a、R4 E-rel、R5 E-rel-abs | 原四模态loss，不加任何新loss | 视结果再比较command FK loss |
-| D1（若做） | 同R4 | — |
-| B0/B1（本轮不做） | 原四模态loss + 同一type_CE | 单独比较手部关系loss |
-| A0/A1（延后） | 原video/action/PF loss + 相同类别设置 | 单独比较command FK loss |
-| C（延后） | 原四模态loss + 同一type_CE | C0只适配器；C1另加局部video loss |
-
-（以下type_CE仅适用于真机阶段或B/C，v2首版不用。）0.01是首次试跑的分类系数建议，不是实验得出的最优值。CE按有标签当前点归一化，未知点ignore；额外记录两类召回/混淆与不同类别来源。D-match也保留相同分类辅助头/loss，但不用其输出分流，以免混入额外监督差异。
-
-可选command FK loss：预测action经FK与**GT指令经同一FK**比较，距离先除0.03m，再用SmoothL1，按有效物理步/关键点归一化，乘动作低噪声权重；不拿实际状态FK强行作command目标。可选手部关系loss：预测PF与动作FK的相对关系，比较其GT PF与GT指令FK的相对关系，不将差值逼为0；固定当前对应，沿预测action和PF双向反传。
-
-C1局部loss使用原视频**速度误差**，在GT当前/未来手部投影或已有物体框覆盖的patch上按有效patch归一化，建议额外系数0.25；无有效ROI该项0。ROI只在loss构造，不进入网络或选邻居。VAE latent patch不等于精确像素区域，这只是局部加权，不冒称像素级接触监督。若物体框资源尚未接好，先只用现有手部GT轨迹投影并注明不含未选中小球，不能把缺失区域写成全0负样本。
-
-第一轮不加穿透、接触保持、物体随手、恢复奖励。所有新loss同时记录未加权值、有效数量及对action/PF/视频头的梯度量级；不能仅凭系数10:1推断谁支配训练。
-
-## 8. 配置、改动文件与提交边界
-
-以下为**拟新增**配置，不是可立即执行的环境变量：
+## 3. R4 / A1 的信息流区别
 
 ```text
-# v2首版
-pointfk_relation = off | rel | abs          # R4=rel，R5=abs
-pointfk_relation_k = 16
-pointfk_relation_rbf_max_m = 0.20
-pointfk_relation_to_fk_anchor = false | true
-# 保留给后续（v2首版不实现）
-pointfk_frontend = off | base | palm_local | video_input | palm_local_video_input
-pointfk_type_source = predicted | observed
-pointfk_output_adapter = off | action_to_pf | geometry_to_action | geometry_to_video
-pointfk_future_fk = predicted | action_derived
+R4：当前点云 + 当前实例 + 当前手部 FK
+                   ↓
+             手–物关系编码
+                   ↓
+         action 输入 embedding + 关系增量
+                   ↓
+                主干 → 动作预测
+
+A1：主干 → 本次动作速度预测 → 干净动作估计
+                                  ↓
+                           反归一化 + URDF FK
+                                  ↓
+                         32步 command FK 位移
+                                  ↓
+      原 PF hidden + 局部交叉注意力适配器残差
+                                  ↓
+                           原 PF codec 解码
 ```
 
-参数进入结构化model config（与`joint_attn_mask`同处），launcher只负责传参；同时打印最终解析值。禁止仅训练读env而部署默认关闭。
+R4 给决策提供当前状态关系；A1 给运动预测提供预测动作的运动学条件。A1 同次前向没有把修正后的 PF 再送回动作头重新预测；但 PF 损失可沿可微通路回传到动作预测。
 
-| 建议提交 | 文件/职责 | 完成标准 |
-| --- | --- | --- |
-| 1 数据 | `tools/prepare_sim_pointfk_v3.py`存`point_instance`；`sim_pointfk_dataset.py`、`pointflow_batch.py`打包；生成`*_rel` bundle | 与原bundle `point_ids`逐样本一致；旧样本兼容；缺字段报错 |
-| 2 关系模块 | 新`model/generator/pointfk_relation.py` | 批内kNN、无硬半径、空实例/不足16点不NaN |
-| 3 注入 | `mot/cosmos3_vfm_network.py`（`_encode_action`之后）、模型配置 | 关闭逐位等价M3；零初始化输出等价；token数/RoPE/mask不变 |
-| 4 推理端 | 4090新worktree `Bench2Dex-Pointflow-fk-rel`（基于含`object_membership`的objq/ballquota分支）：vendor提交2/3到`third_party/worldact_runtime`；`sim_geometry`/`live_geometry`产出`point_instance`；`tools/prepare_sim_inference.py`写对应`worldact_root` | 同一训练帧在训练端与推理端算出的`point_instance`和`site`特征一致 |
-| 后续 | D1（`robot_fk_torch.py`掌变换）、A/B/C（`action_geometry.py`等，原规格） | — |
+## 4. R4：当前手–物关系 → action 输入
 
-不把训练dataset导入推理核心；model模块只消费张量契约。旧checkpoint/EMA初始化新增参数保持相同，恢复新checkpoint时验证配置一致。
+代码：`cosmos_framework/model/generator/pointfk_relation.py:55`（`PointFKRelation`）、`:95`（`site_features`）；主网络接入位于 `cosmos_framework/model/generator/mot/cosmos3_vfm_network.py:1380`。
 
-## 9. 必须通过的验收与实验记录
+### 4.1 查询位置与每实例 kNN
 
-### 开始训练前：小而有针对性的测试
+左右手各用索引 `[0,4,8,12,16,20]`，即手掌与五个指尖，右手索引加 21，共 12 个查询位置。对每个查询位置、每个任务实例**分别取最近的 k=16 个当前可见点**。
 
-1. **数据**：manifest路径、point_ids、标签对齐；batch两样本不同点数，拼接buffer无别名；旧样本无标签时可运行。
-2. **局部关系（v2）**：k近邻正确（与numpy暴力解比对）；候选不足16时有效mask正确、不重复；某实例0点时“无点标记”=1且不NaN；`point_instance=-1`（手、桌）的点不进入候选。
-3. **packing**：两样本不同K、无几何样本、文本/动作跨度变化；PF/FK/action增量只落在该样本对应索引。D3额外检查主/腕视角、当前/未来、padding和越界UV。
-4. **零初始化与梯度**：同seed原模型/关闭开关输出等价；开启零初始化输出在数值容差内等价；第二次优化后关系模块有梯度。无几何时新参数仍需接入零贡献计算图，避免不同rank稀疏样本触发unused parameter问题。
-5. **训推一致（v2新增）**：取一个训练episode首帧，在4090用live geometry重放，比较`point_ids`、`point_instance`与`site`特征（容差1e-5）；推理日志打印E-rel开关与worldact_root。
-6. **时间/噪声**：逐行动作sigma、条件行保持、52/64维、32步/8组对应；FDM全条件、IDM全视频条件、独立sigma都单独测试。将GT未来/GT类别改成随机数，应不改变固定模型同输入的前向输出，只改变相应loss。
-7. **几何**：FK与现有实现同关节同点顺序比较；掌局部坐标刚体不变性；中心附近的FK/投影梯度与有限差分一致。A额外验证采样state确实没有未来FK维度。
+这不是全场景竞争一个 16 点预算。task27 最多产生 `12×4×16` 个有效邻域条目，task21 最多 `12×3×16`；同一个原始点可被不同查询位置重复选中，因此条目数不等于独立点数。
 
-之后非rank0单卡batch1跑一次训练前向/反向、保存恢复与完整joint eval，再8卡检查真实max batch16、compile和选择性checkpoint兼容。attention继续flash2+varlen，不引入natten，不为了新模块恢复全量稠密attention矩阵。
+选邻居不设硬半径，避免手尚未接近时没有信息。每实例不足 16 点时使用有效 mask，不复制点凑数；零点实例显式记录缺失。距离在 FP32 下按 `[B,12,I,Nmax]` 计算，随后 `topk`，不做 CPU kNN。
 
-几何距离批内可用`[B,10,Nmax]`的FP32距离加padding mask，topk后gather到`[B,10,16,*]`；避免Python逐指尖循环、每step CPU kNN或`.item()`同步。3cm筛选发生在point层，不把1024个原始点新增为主干token。记录step时间和推理时间再决定缓存当前context，首轮不把缓存加速与架构收益混为同一实验。
+### 4.2 局部特征与距离衰减
 
-### 训练后：同时验证“通路存在”和“通路有用”
+每个邻点输入为：`(point-query)/0.05`、8 维距离 RBF、法向、RGB、I 维实例 one-hot、有效位。RBF 中心均匀覆盖 0–0.20 m，宽度实际为 `0.20/(8-1)` m，不能沿用旧文档的 0.025 m。
 
-- 固定观测与噪声，关闭新增模块，对比action规划的绝对落点/松手位置与视频局部变化；D不能用未来动作响应作唯一验收。
-- B/A/C使用小幅可行动作干预，并在每次去噪持续注入对应动作；与相同输入重复采样噪声比较。PF/视频需在对应手部方向正确地变化，而非整幅图随便变。
-- task27分别统计0点目标、少点、正常覆盖及物体类别；用原HDF物体真值作离线评估，不送入模型。ADE仅针对已选点，不能代表目标没被遗漏。
-- task21重点看松手高度、姿态和放后撤离/碰倒； FK掌姿态只能反映手，瓶身倾斜仍需原物体真值或视频另测，不能等同。
-- 同一训练预算、guidance1、4步、binomial5、execute_steps32，四通道同seed配对；先200局/任务作筛选，有收益后补独立训练种子与30/35/40k，不能只挑最高checkpoint。M3 30k结果仍属于待跨点确认的证据。
+共享 MLP 为 `Linear→64→SiLU→64→SiLU`。邻点到查询位置距离为 d，其局部支持权重：
 
-每组记录：代码commit、完整配置、缓存manifest/normalizer/URDF SHA、加载/跳过权重、EMA、分类来源与召回、邻域空率/数量、刚体拟合残差、注入范数、梯度、时间、SR/LSCR和固定badcase视频。效果差不多且开销增加明显的组不优先合并；架构更复杂本身不是收益。
+\[
+w(d)=\exp\left[-\frac12(d/0.10)^2\right].
+\]
 
-v2：本轮开发止于E-rel（R4/R5）通过上述验收并提交从头训40k；4卡50步冒烟后上8卡，step时间增加需<5%。D1视robotframe结果；A/C视vw25与R3/R4结果，B本轮不做。判定标准见实验方案§7（30–40k合并600局，R4相对M3 ≥ +4 pp且p<0.05）。
+先将 64 维点特征乘 w，再分别求有效点 max 与 mean。mean 除以**有效点数**，不除以权重总和，以免远处点被重新归一化成强信号；max 同样乘权重。空邻域的局部结果为零。
 
-## 10. 当前代码入口（修改前定位）
+10、20、30 cm 的权重约为 0.607、0.135、0.011。0.10 m 是当前设定的软衰减尺度，不是硬接触半径，也没有实验保证它最优。
 
-- [dataset读取](../cosmos_framework/data/generator/action/datasets/sim_pointfk_dataset.py:19)、[PointFlowBatch字段和设备迁移](../cosmos_framework/data/pointflow_batch.py:14)、[batch构造](../cosmos_framework/data/pointflow_batch.py:137)。
-- [现有geometry聚合映射](../cosmos_framework/model/generator/pointflow_geometry.py:17)、[PTV3与codec当前接入](../cosmos_framework/model/generator/pointflow_branch.py:149)。
-- [网络模态编码与decode顺序](../cosmos_framework/model/generator/mot/cosmos3_vfm_network.py:1039)、[action输入编码](../cosmos_framework/model/generator/mot/cosmos3_vfm_network.py:834)、[条件action的dummy输出](../cosmos_framework/model/generator/mot/cosmos3_vfm_network.py:882)。
-- [packing span定义](../cosmos_framework/data/generator/sequence_packing/modality.py:20)、[PF payload](../cosmos_framework/model/generator/pointflow_sequence.py:13)。
-- [现有URDF计算](../cosmos_framework/model/generator/robot_fk_torch.py:56)、[当前刚体拟合](../cosmos_framework/model/generator/robot_fk_torch.py:165)。
-- [UV resize/pad组合](../cosmos_framework/data/generator/action/pointflow_source.py:239)、[不能用于前向的GT依赖loss helper](../cosmos_framework/model/generator/pointfk_consistency.py:108)。
+### 4.3 远处摘要与缺失语义
 
-以上行号对应本轮核查版本，改代码后可能移动；函数名和职责是实际定位依据。
+每个查询位置、每个实例另拼接：
+
+- 最近**可见点**相对查询位置的向量 `/0.5`，保留远处方向；它不是物体中心或真实接触点。
+- 最近距离的 8 维 RBF 与 `log1p(distance/0.05)`；后者在超过 20 cm 后仍能表达距离。
+- `log1p(当前可见点数)`、实例缺失标记，以及平均局部支持度。
+
+因此“局部贡献衰减”不意味着整个 R4 在远距离时输出零：方向、距离及可见性摘要仍可用于接近物体。缺失实例也不等价于距离为零。R4 无法凭空恢复没有进入点云的物体表面。
+
+### 4.4 注入方式与当前边界
+
+每个实例的局部 max/mean 与摘要拼接后，所有实例经 `Linear→128→SiLU` 形成每查询位置 128 维特征。12 个位置拼成 1536 维，经 `1536→512→H` 映射成每样本一个关系增量，广播加到该样本全部 33 行 action 输入 embedding，包含当前条件行。
+
+原动作数值、条件/损失 mask 不变；不增加主干 token，不改 PF codec、RoPE 或主干注意力后端。当前实现**只注入 action 输入，没有旧提案中的可选 FK-anchor 注入**。最后投影权重和 bias 为零初始化，没有额外可学习门控。
+
+R4 不读取未来动作、未来 PF/FK 或未来有效性监督。k=16 是局部预算选择，尚无 16/32/64 消融证明最优。点稀疏或物体复杂时仍可能不足；可见点距离也不能当作完整表面的精确接触距离。
+
+## 5. R5 与其他历史方案的状态
+
+R5 已有 `mode="abs"` 实现与预设，用作参数量匹配的绝对几何对照，但它不是当前两个平台任务之一。
+
+R5 按**每实例可见点质心**选邻点，12 个位置使用相同的物体选择，不依赖手位置；输入绝对 robot-base XYZ、到原点的 RBF、物体质心摘要。该设计避免“仅替换坐标但仍按手选邻点”泄漏相对关系。RBF 上限为 1 m，绝对坐标尺度为 0.5 m；同样保留相应的有效性及支持度汇总。R4/R5 比较必须保持其他训练设置相同。
+
+D1 掌坐标、D3 视频输入注入、B 动作输出修正、C 视频输出适配器均不属于当前 R4/A1 运行配置。`action_geometry.py` 中保留的 camera/C0 路径不代表 A1 使用相机拟合或当前启用了 C0。历史提案不作为已完成实现或效果证据。
+
+## 6. A1：本次预测动作 → command FK → PointFlow
+
+代码：`cosmos_framework/model/generator/action_geometry.py:24`（动作估计）、`:56`（`ActionGeometry`）、`:145`（`FKToPointAdapter`）；主网络 `_command_fk` 位于 `cosmos_framework/model/generator/mot/cosmos3_vfm_network.py:385`，适配器接入位于 `:1659`。
+
+### 6.1 恢复本次干净动作估计
+
+主干运行后，先解码一次动作速度，再在 PF decode 前构造几何。动作生成行使用 FP32：
+
+\[
+\hat x_0=x_t-\sigma_{action}\,v_\theta.
+\]
+
+逐行动作 sigma 从实际动作 timesteps / num_train_timesteps 获取；不使用视频/PF sigma。当前条件行 sigma 必须为 0。条件动作直接取给定输入，忽略该行的 dummy 预测，因此全条件动作情形不会错误读取 dummy 零动作。
+
+helper 只读当前前向已有的带噪动作、预测速度和噪声状态，不调用依赖训练 epsilon 或目标速度的 loss-only helper。不能将训练未来 GT 动作塞入 WAM 前向来替代预测动作。
+
+### 6.2 反归一化与原生机器人 FK
+
+仅支持 joint-command domain=28；要求 52 个互不重复的 joint_names。使用对应 bundle 的 `normalization_train_only.json` 中 q01/q99，中点为 offset，半范围下限为 0.05；offset/scale 存为模型持久 buffer。padding 后多出的 12 维不进入 URDF。
+
+输入为 `[B,33,52或64]`，使用 URDF 原生 base_link FK 得到 `[B,33,42,3]`，返回未来 32 步相对当前的位移 `[B,32,42,3]`。**robot_base 路径不拟合 camera/world 刚体变换**；当前 FK 与当前 anchor 的逐点误差必须不超过 5 mm，否则报错。
+
+该输出是预测关节命令对应的 **command FK**。它不保证机器人实际执行轨迹相同，也不等于数据中的 actual-state FK，更不包含物体动力学或接触求解。
+
+### 6.3 四步一组的局部交叉注意力
+
+32 个物理步完整计算后组成 8 个时间块。每个关键点的四步位移拼为 12 维 `/0.05`，再拼当前 anchor XYZ `/0.5`，经 MLP 与关键点身份 embedding 编成 128 维 key/value 输入。
+
+PF 的 `point_hidden[8,K,H]` 作为 query 来源；query 同时包含点簇绝对位置，以及该簇到当前手部最近骨段的偏移和对数距离。手部骨段按现有 21 点拓扑构造，手掌对应退化线段。
+
+每个样本、每个时间块内部做 2-head、128 维交叉注意力，读取双手 42 个关键点运动；不跨样本或时间块，不新增主干 token。点簇到当前各骨段距离 d 带来 attention bias：`-0.5*(d/0.10)^2`。
+
+额外提供可学习 null key，其 value 恒为零，使点簇可以不读取手部运动。交叉注意力输出投影后还乘最近骨段距离的支持度 `exp(-0.5*(d_min/0.10)^2)`，连同投影 bias 一起衰减。这里是当前接近程度，不能解释为真实接触标签；也不是沿预测轨迹逐步判断未来接触。
+
+### 6.4 动作可靠性门控与输出残差
+
+每个四步块用最不可靠的一行动作 sigma：
+
+\[
+g_b=\left(1-\max_{t\in b}\sigma_{action,t}\right)^2.
+\]
+
+高噪声动作产生的几何修正弱，低噪声时更强，当前条件行不参与未来四步块门控。最终：
+
+\[
+h_{PF,new}=h_{PF,base}+g_b\,s(d_{min})\,W_{out}\,Attention(Q,K,V).
+\]
+
+此式中的 `W_out` 表示含 bias 的输出投影；权重与 bias 零初始化。原 PF codec 和独立预测通路保留，适配器不把 FK 位移直接加到物体目标、不强制物体刚性跟手，也没有额外手部/物体分类分流或混合成员加权实现。
+
+动作估计→FK→适配器没有 detach，因此 PF 损失可沿该通路更新动作预测；零初始化首步的梯度分布受输出投影为零影响，不能要求所有上游参数首步都有非零梯度。同次前向动作只解码一次，PF 修正不会再回送动作头形成第二轮预测。
+
+### 6.5 未来 FK：当前做了什么、尚未做什么
+
+A0/A1 预设在 M3 基础上追加 `vision<-fk:noisy;action<-fk:noisy;pointflow<-fk:noisy` 的禁止规则，并设置 `pointfk_future_fk="action_derived"`、`fk_loss_weight=0`。
+
+**当前没有把未来 FK 的 token、噪声/采样 state 或独立 decode 从整个系统删除。** 原独立 FK 输出仍可能存在，但它不是 action-derived command FK，不应拿其 ADE 证明 A1 的动作运动学预测准确，也不能宣称 A1 已节省未来 FK 对应的 token/计算。
+
+因此当前 A1 是“屏蔽未来 FK 条件 + 零 FK loss + action→FK→PF 适配器”的实验。A0 预设保持同一屏蔽和 loss 设置，仅关闭适配器，是隔离适配器作用的直接对照；当前两个任务没有同时提交 A0。A1 与原 M3 的差异包含未来 FK 屏蔽/loss 改动，不能把全部收益都归因于适配器。彻底移除未来 FK 仍需另行修改噪声构造、state 拼拆、采样积分和评估接口。
+
+## 7. 优化器与修正后的 8 卡同步
+
+新增模块必须同时满足 `requires_grad=True` 与进入优化器 param_groups。当前配方将 `pointfk_relation`、`output_adapter` 纳入 optimizer allowlist，两者新模块 LR multiplier 均为 25，与已有新几何模块的设置一致。入口：`cosmos_framework/configs/base/experiment/action/posttrain_config/action_policy_singlerighthand_edge.py:254`。
+
+曾发现旧六卡 A1 短训中 `output_adapter` 漏选，被冻结，50 步后输出头仍为零；该短训不能作学习证据，当前作业不恢复其 checkpoint。修正后启动时强制做优化器成员检查，缺失/冻结直接报错，而不是只看总 loss 是否下降。
+
+同步覆盖 FSDP 外的普通非 DTensor 模块：
+
+1. checkpoint 加载后、第一次前向前，通过 pre-hook 广播普通参数和 buffers；训练网络与 EMA 均覆盖。不能等第一次 backward 之后才同步初始化。
+2. 每次 backward 后，普通可训练参数梯度在数据并行组内求和并除以组大小。部分 rank 未使用的参数贡献零；所有 rank 都未使用时保留 `grad=None`。
+3. FSDP 的 DTensor 梯度仍走原同步流程。
+
+源码：`cosmos_framework/model/generator/plain_param_sync.py:6`；`omni_mot_model.py:433` 的 pre-hook、`:1355` 的 `_sync_plain_param_grads`（均位于 `cosmos_framework/model/generator/`）。
+
+审计实现：`cosmos_framework/model/generator/pointfk_training_audit.py:23`、`:54`。启动输出 `POINTFK_OPTIMIZER_AUDIT`；设置 `POINTFK_GRAD_AUDIT=1` 时，在指定 backward 次数输出各 rank 梯度与 head 更新量，达到检查点仍未更新则报错。当前流水线的 smoke 门槛要求第 50 次 backward 八个 rank 均有记录、head 更新非零且相互一致。
+
+## 8. 当前配置与运行记录入口
+
+完整预设应同时使用 environment 和 overrides，不能只复制某一个开关。以下命令只打印配置，不提交任务：
+
+```bash
+cd /mnt/afs/WorldAct-cosmos3-edge-droid-sft-pointflow-fk-arch
+python tools/pointfk_revision_overrides.py r4 --task 27 --gpus 8
+python tools/pointfk_revision_overrides.py a1 --task 27 --gpus 8
+# task21 将 --task 改为 21；A1 不需要 R4 的实例缓存。
+```
+
+两个平台任务：`arch-r4-rf8-any-1018`、`arch-a1-rf8-any-1018`。每项 8 GPU、112 CPU、1920 GiB 内存；不限制 hostname，在当前队列可用节点调度。用户已明确授权**本批次不限制总节点占用数**，不表示永久修改其他批次规则。
+
+流水线目录 `/mnt/afs/experiments_20261018/arch_rf8_queue/`。每项依次执行：8-rank NCCL 小模块同步检查 → task27、task21 各 50 步 smoke → task27、task21 各从基础模型重新训练 40k。smoke 不计入正式 40k，task21 正式训练等待该项 task27 完成。2026-10-19 检查时四次 smoke 已成功，新增模块八卡更新一致；这不等于完成闭环效果验收。
+
+正式输出目录模板：
+
+```text
+/data/shichaojian/runs/{r4|a1}_t{27|21}_rf8_optfix_scr40_20261018/
+  cosmos3_action/action_sft/sim_task{27|21}_{r4|a1}_rf8_optfix/
+    checkpoints/
+    pointflow_eval/
+```
+
+实时训练日志模板：
+
+```text
+/mnt/afs/experiments_20261018/arch_rf8_queue/{r4|a1}/
+  {r4|a1}_t{27|21}_rf8_optfix_scr40_20261018.log
+```
+
+**当前平台日志的可见性限制**：`run_pipeline.py` 将子训练进程 stdout/stderr 重定向到上述文件；平台控制台主要显示阶段开始/结束，停在 `starting` 不等于训练停住。应检查文件中最新 step、时间戳和异常堆栈。2026-10-19 排查确认 step 0 正式验证共 26 案例（2 train + 2 episodes×3 stages×4 windows），含联合采样和视频输出，耗时约 4 分半；此外启动前两次 smoke 约 17 分钟，因此不能直接拿另一项未做相同预检的任务步数比较启动速度。本文更新不修改这一日志行为。
+
+## 9. 验证范围、限制与后续比较
+
+已有测试覆盖关系近邻/稀疏与空实例/远距离衰减、动作逐行 sigma/FK/适配器、robotframe 转换、配置、优化器漏选保护；实际 8 卡 NCCL 预检检查初始化、参考平均梯度、可选/未用参数、AdamW 更新和 EMA buffers。四次实际 8 卡 50 步训练验证了前后向、保存以及新增模块学习与同步。
+
+这些证据不保证训练到 40k 的稳定性或任务成功率提升。仍需按相同预算和推理协议比较：
+
+- R4 对 robotframe + 修正同步的 M3；R5 用于区分显式相对关系与额外绝对几何容量。
+- A1 对相同未来 FK 屏蔽/loss 设置的 A0，才能单独判断适配器作用。
+- 训推坐标、membership、normalizer、URDF 和配置一致后，再做闭环 SR/LSCR 及配对检验；不以训练 ADE 或单次 smoke 替代。
+- 当前两个任务没有同时完成/提交上述全部控制组，也没有 16/32/64 邻点或 0.10 m 尺度消融结果。
+
+不宣称恢复了未观测物体、获得真实接触标签、移除了未来 FK 采样变量、实现物体刚性跟随或已经证明闭环收益。
+
+## 10. 当前实现定位
+
+下列行号对应 2026-10-19 核查版本；代码后续变动时以函数名为准。所有源码均在本文开头的 `-arch` 根目录。
+
+| 源码入口（file:line） | 职责 |
+| --- | --- |
+| `cosmos_framework/model/generator/pointfk_relation.py:55` | R4/R5 模块与零初始化 |
+| `cosmos_framework/model/generator/pointfk_relation.py:95` | 按实例 kNN、局部衰减与远处摘要 |
+| `cosmos_framework/model/generator/mot/cosmos3_vfm_network.py:1380` | R4 当前几何计算并送入 action 编码 |
+| `cosmos_framework/model/generator/action_geometry.py:24` | 本次逐行动作干净估计 |
+| `cosmos_framework/model/generator/action_geometry.py:56` | 反归一化与 robot-base command FK |
+| `cosmos_framework/model/generator/action_geometry.py:127` | 当前点到手部骨段的关系 |
+| `cosmos_framework/model/generator/action_geometry.py:145` | A1 局部交叉注意力、null 与残差 |
+| `cosmos_framework/model/generator/action_geometry.py:209` | 四步块动作可靠性门控 |
+| `cosmos_framework/model/generator/mot/cosmos3_vfm_network.py:385` | domain、当前行与 frame 检查；构造 command FK |
+| `cosmos_framework/model/generator/mot/cosmos3_vfm_network.py:1659` | PF decode 前注入 A1 残差 |
+| `cosmos_framework/model/generator/plain_param_sync.py:6` | 第一次前向前同步普通参数与 buffers |
+| `cosmos_framework/model/generator/omni_mot_model.py:1355` | backward 后普通参数梯度平均 |
+| `cosmos_framework/model/generator/pointfk_training_audit.py:23` | 优化器完整选入检查 |
+| `cosmos_framework/model/generator/pointfk_training_audit.py:54` | 梯度及实际 head 更新审计 |
+| `tools/pointfk_revision_overrides.py:16` | M3/R4/R5/A0/A1 当前配置预设 |
+
+旧 v2 原文备份在 `/mnt/afs/experiments_20261019/architecture_doc_update/implementation.before.md`。本次更新仅修改文档，不修改模型、训练代码、运行进程或 checkpoint。

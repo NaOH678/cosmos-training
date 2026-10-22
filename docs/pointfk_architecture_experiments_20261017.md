@@ -31,7 +31,7 @@
 6. 10-17台账新增：从头训练M3 physical_split在30k达到63.5%，同期nolocal为52.5%。接近时提前重规划P3为49.5%，基线55.0%，没有显示改善。（v2更新见下表E1：35k也领先，两点合并已显著。）
 
 依据：主工作区 `docs/sim_task27_improvement_experiments_20261013.md` §3.5及最新台账；
-`cons/docs/pointfk_consistency_diag_20261014.md` §4—7；`modemix/docs/pointflow_fk_action_coupling_20261012.md` §7。
+`cons/docs/pointfk_consistency_diag_20261014.md` §4—7；`modemix/docs/archive/pointflow_fk_action_coupling_20261012.md` §7。
 
 ### 1.1 v2补充证据（10-17，决定取舍）
 
