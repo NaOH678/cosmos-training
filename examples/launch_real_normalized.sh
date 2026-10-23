@@ -85,6 +85,8 @@ TAIL_OVERRIDES=(
 if [[ "$VARIANT" != wam ]]; then
     TAIL_OVERRIDES+=("trainer.callbacks.pointflow_eval.val_episodes=$VAL_EPISODES" trainer.callbacks.pointflow_eval.val_windows=1)
 fi
+# Extra Hydra overrides appended last (later value wins), e.g. EXTRA_TAIL_OVERRIDES='trainer.max_iter=40000 scheduler.cycle_lengths=[40000]'
+if [[ -n "${EXTRA_TAIL_OVERRIDES:-}" ]]; then read -r -a _extra <<< "$EXTRA_TAIL_OVERRIDES"; TAIL_OVERRIDES+=("${_extra[@]}"); fi
 if [[ "${DRY_RUN:-0}" == 1 ]]; then
     export IMAGINAIRE_OUTPUT_ROOT="$ROOT/pointflow_outputs/real_action_normalization_20261006/resolved_configs"
     python -m cosmos_framework.scripts.train --dryrun --sft-toml="$TOML_FILE" -- "${TAIL_OVERRIDES[@]}"
