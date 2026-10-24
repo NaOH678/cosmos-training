@@ -1631,6 +1631,32 @@ class OmniMoTModel(ImaginaireModel):
             total_loss += consistency_w * consistency_loss
             losses_dict.update(consistency_metrics)
 
+        # Opt-in four-tower consistency (E2, 10-24): action->FK, FK->PointFlow, PointFlow->video; see fourtower_consistency.py.
+        from cosmos_framework.model.generator.fourtower_consistency import weights as fourtower_weights
+
+        fourtower_w = fourtower_weights()
+        if any(v > 0 for v in fourtower_w.values()):
+            if data_batch_packed.fk_data is None or data_batch_packed.pointflow_data is None or data_batch_packed.action is None:
+                raise ValueError("four-tower consistency needs action, FK and PointFlow labels on every batch")
+            from cosmos_framework.model.generator.fourtower_consistency import compute_fourtower_losses
+            from cosmos_framework.model.generator.pointflow_scale import broadcast_scale as _pf_scale
+
+            fourtower_loss, fourtower_metrics = compute_fourtower_losses(
+                self,
+                out_net,
+                data_batch_packed,
+                gen_data_noised,
+                fk_scale=rf_cfg.fk_displacement_scale,
+                pf_scale=_pf_scale(
+                    rf_cfg.pointflow_displacement_scale,
+                    data_batch_packed.pointflow_data.timing.steps,
+                    data_batch_packed.pointflow_data.displacement.device,
+                ),
+                w=fourtower_w,
+            )
+            total_loss += fourtower_loss
+            losses_dict.update(fourtower_metrics)
+
         if self.config.sound_gen:
             if data_batch_packed.sound is not None:
                 assert isinstance(data_batch_packed.sound.condition_mask, list), (
