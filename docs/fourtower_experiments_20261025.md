@@ -17,8 +17,8 @@
 |---|---|---|
 | D0 | 诊断（不训练）：FDM/IDM 真值注入 + 视频扰动，测同步 nolocal 25k/30k | 完成，见下文 |
 | E0 | 同步 nolocal + J→V 屏蔽（`joint_attn_mask=action_observed_vision`） | t21 训练中；t27 排队 |
-| E2 | 同步 nolocal + L_JM + L_MF + L_FV 三项一致性 loss | 代码 `0a6b59d`；8 卡冒烟测试排队，权重待确认 |
-| E1 | 50/30/20 混合噪声 | 待写代码 |
+| E2 | 同步 nolocal + L_JM + L_MF + L_FV 三项一致性 loss | 代码 `0a6b59d`；冒烟测试排队（8 卡、4 卡各一个），权重待确认 |
+| E1 | 50/30/20 混合噪声：50% 四塔共享 σ，30% 各塔独立 σ，20% 极端（10% FDM：动作+FK 干净；10% IDM：视频+PF 干净），推理仍同步去噪 | 代码 `1125d62`（`FOURTOWER_NOISE_MIX` + `SIM_MODE_PROBS`）；4 卡冒烟测试排队 |
 | H1 | 本体历史（PDF E5 H-M + H-J） | 待写代码 |
 | H2 | 视频历史（H-V），H1 有正收益才做 | — |
 
