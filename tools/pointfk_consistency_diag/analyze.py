@@ -67,7 +67,7 @@ def window_metrics(P, ep, s):
     # PF vs FK near the hand, as compute_pf_fk_loss
     apf = T(pt["pointflow"]["inputs"]["anchor_xyz"]); afk = anchor[0]
     dist = torch.cdist(apf, afk); near_d, partner = dist.min(-1)
-    near = (near_d <= pc.pf_fk_radius()).nonzero(as_tuple=True)[0].numpy(); key = partner[near].numpy()
+    near = (near_d <= float(os.environ.get("POINTFK_PF_FK_RADIUS", "0.05"))).nonzero(as_tuple=True)[0].numpy(); key = partner[near].numpy()
     r["n_near"] = len(near)
     if len(near):
         v = pvalid[:, near] & fvalid[:, key]
