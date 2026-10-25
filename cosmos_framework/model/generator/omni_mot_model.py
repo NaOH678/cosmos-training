@@ -1048,6 +1048,31 @@ class OmniMoTModel(ImaginaireModel):
                 initial_mrope_temporal_offset=memory_info["initial_temporal_offset"],
             )
 
+        # Opt-in E1 noise mixture (FOURTOWER_NOISE_MIX=1, 10-25): shared / independent / FDM / IDM per sample; see fourtower_noise.py.
+        from cosmos_framework.model.generator import fourtower_noise
+
+        self._fourtower_noise = None
+        if self.training and fourtower_noise.enabled():
+            if sigmas_action is None or sigmas_pointflow is None or sigmas_fk is None:
+                raise ValueError("FOURTOWER_NOISE_MIX needs independent_{action,pointflow,fk}_schedule=True")
+            if gen_data_clean.num_vision_items_per_sample is not None:
+                raise ValueError("FOURTOWER_NOISE_MIX supports one vision item per sample")
+            dev = sigmas_vision.device
+            vision_clean = torch.tensor([bool(torch.all(m == 1)) for m in packed_sequence.vision.condition_mask], device=dev)
+            action_clean = torch.tensor([bool(torch.all(m == 1)) for m in packed_sequence.action.condition_mask], device=dev)
+            sigmas_action, sigmas_pointflow, sigmas_fk, pf_drop, fk_drop, mix_metrics = fourtower_noise.mix_sigmas(
+                vision_clean,
+                action_clean,
+                torch.tensor(action_sample_indices, dtype=torch.long, device=dev),
+                sigmas_vision,
+                sigmas_action,
+                sigmas_pointflow,
+                sigmas_fk,
+                frac=fourtower_noise.indep_frac(),
+            )  # [n_action,1], [B,1], [B,1], [B], [B]
+            timesteps_action = sigmas_action * self.rectified_flow_action.noise_scheduler.config.num_train_timesteps
+            self._fourtower_noise = dict(pf_drop=pf_drop, fk_drop=fk_drop, metrics=mix_metrics)
+
         # Under independent_action_schedule, overwrite the vision-based action timestep the
         # packer injected with the action timestep, so the denoiser's action timestep embedding
         # matches the sigma used to noise action tokens.
@@ -1513,6 +1538,12 @@ class OmniMoTModel(ImaginaireModel):
 
         rf_cfg = self.config.rectified_flow_training_config
         normalize_by_active = rf_cfg.normalize_loss_by_active
+        # E1 noise mixture (fourtower_noise.py): clean towers drop out of their loss; None when off.
+        from cosmos_framework.model.generator import fourtower_noise
+
+        noise_mix = getattr(self, "_fourtower_noise", None)
+        if noise_mix is not None:
+            losses_dict.update(noise_mix["metrics"])
         if self.config.vision_gen:
             assert data_batch_packed.vision is not None, "Vision packed data required when vision_gen is True"
             assert isinstance(data_batch_packed.vision.condition_mask, list), (
@@ -1529,6 +1560,8 @@ class OmniMoTModel(ImaginaireModel):
                 rectified_flow=rectified_flow_vision,
                 normalize_by_active=normalize_by_active,
             )
+            if noise_mix is not None:
+                fm_loss_vision = fourtower_noise.active_rescale(fm_loss_vision, data_batch_packed.vision.condition_mask)
             loss_scale = (
                 rf_cfg.image_loss_scale if is_image_batch and rf_cfg.image_loss_scale is not None else rf_cfg.loss_scale
             )
@@ -1554,6 +1587,8 @@ class OmniMoTModel(ImaginaireModel):
                     raw_action_dim=data_batch_packed.action.raw_action_dim,
                     normalize_by_active=normalize_by_active,
                 )
+                if noise_mix is not None:
+                    fm_loss_action = fourtower_noise.active_rescale(fm_loss_action, data_batch_packed.action.condition_mask)
 
                 # Yihuai: In case the video loss is too large (1.5) and covers the action loss (0.05), we scale up the action loss to match the video loss to improve action precision.
                 total_loss += fm_loss_action * rf_cfg.action_loss_weight
@@ -1581,7 +1616,9 @@ class OmniMoTModel(ImaginaireModel):
                 fm_point, point_metrics = pointflow_loss(
                     out_net["preds_pointflow"],
                     gen_data_noised.pointflow,
-                    data_batch_packed.pointflow_data,
+                    data_batch_packed.pointflow_data
+                    if noise_mix is None
+                    else fourtower_noise.drop_samples(data_batch_packed.pointflow_data, noise_mix["pf_drop"]),
                     scale=broadcast_scale(
                         rf_cfg.pointflow_displacement_scale,
                         data_batch_packed.pointflow_data.timing.steps,
@@ -1603,7 +1640,9 @@ class OmniMoTModel(ImaginaireModel):
             fm_fk, fk_metrics = fk_loss(
                 out_net["preds_fk"],
                 gen_data_noised.fk,
-                data_batch_packed.fk_data,
+                data_batch_packed.fk_data
+                if noise_mix is None
+                else fourtower_noise.drop_samples(data_batch_packed.fk_data, noise_mix["fk_drop"]),
                 scale=rf_cfg.fk_displacement_scale,
                 objective=rf_cfg.fk_loss_objective,
                 charbonnier_eps=rf_cfg.fk_charbonnier_eps,
