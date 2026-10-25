@@ -67,11 +67,19 @@ def test_fv():
     out["lat"] = img
     out["preds_vision"] = [img] * B
     act = torch.ones(B, dtype=torch.bool)
+    os.environ["FOURTOWER_CONS_FV_CROP"] = "0"
     l, m = fc.loss_fv(None, out, data, noised, pf_scale=ps, active=act, eps=0.01, frac=1.0, pool=1)
     l.backward()
     assert float(m["fourtower_fv_tracks"]) > 0 and float(l) > 0
     assert img.grad.abs().sum() > 0 and out["preds_pointflow"].grad.abs().sum() > 0
     print("fv ok", float(l), int(m["fourtower_fv_tracks"]))
+    # crop path (decode stub = identity, so 1 pixel per latent cell): same colours, shifted coordinates
+    fc.VAE_STRIDE = 1
+    os.environ["FOURTOWER_CONS_FV_CROP"] = "48"
+    lc, mc = fc.loss_fv(None, out, data, noised, pf_scale=ps, active=act, eps=0.01, frac=1.0, pool=1)
+    assert 0 < float(mc["fourtower_fv_tracks"]) <= float(m["fourtower_fv_tracks"]) and float(lc) > 0
+    print("fv crop ok", float(lc), int(mc["fourtower_fv_tracks"]))
+    del os.environ["FOURTOWER_CONS_FV_CROP"]
 
 
 if __name__ == "__main__":

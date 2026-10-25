@@ -26,6 +26,8 @@ FOURTOWER_CONS_SIGMA_MAX             float, default 0.5.
 FOURTOWER_CONS_FV_FRAC               float, default 0.25.
 FOURTOWER_CONS_FV_POOL               int, default 2 (decoded frames are average-pooled by this factor).
 FOURTOWER_CONS_FV_MAX                int, default 1 (at most this many decoded samples per rank and step).
+FOURTOWER_CONS_FV_CROP               int, default 16 (decode only this many latent cells per side, centred on the sample's
+                                     tracks; 0 = whole frame, which does not fit in memory with the optimiser state).
 FOURTOWER_CONS_MF_RADIUS             metres, default 0.015 (Gaussian sigma of the PF read-out around a keypoint).
 FOURTOWER_CONS_EPS                   Charbonnier eps in each loss's units, default 0.01.
 L_JM also needs POINTFK_CONSISTENCY_STATS (and optionally _URDF / _FK_JSON), see ``pointfk_consistency``.
@@ -159,6 +161,9 @@ def loss_mf(out_net, data_batch_packed, gen_data_noised, *, fk_scale, pf_scale, 
     return loss, {"fourtower_mf_loss": loss.detach(), "fourtower_mf_keypoints": mask.float().sum()}
 
 
+VAE_STRIDE = 16  # Wan2.2 VAE spatial compression
+
+
 def decode_with_grad(model, latent):
     """Frozen Wan2.2 VAE decode that keeps the autograd graph: [C,T,H,W] -> [3,T',H',W'] in [-1,1]."""
     iface = model.tokenizer_vision_gen.model  # the @no_grad wrapper; its .model is the WanVAE_ module
@@ -190,8 +195,19 @@ def loss_fv(model, out_net, data_batch_packed, gen_data_noised, *, pf_scale, act
         if not len(pi):
             continue
         lat, _ = x0_vision(out_net, gen_data_noised, b)
+        anchor = inputs["anchor_xyz"][pi].float()
+        crop = int(_env("FOURTOWER_CONS_FV_CROP", "16"))
+        y0 = x0 = 0
+        if crop > 0:  # latent cells; the VAE is local, so a crop decodes (nearly) the same pixels at a fraction of the memory
+            lh, lw = lat.shape[-2:]
+            ch, cw = min(crop, lh), min(crop, lw)
+            centre = project_to_video(anchor, inputs, b).median(0).values / VAE_STRIDE  # [2] (x, y) in latent cells
+            y0 = int(min(max(round(float(centre[1]) - ch / 2), 0), lh - ch))
+            x0 = int(min(max(round(float(centre[0]) - cw / 2), 0), lw - cw))
+            lat = lat[..., y0 : y0 + ch, x0 : x0 + cw]
         frames = decode_with_grad(model, lat)  # [3,T,H,W]
         t_frames, h, w = frames.shape[1:]
+        stride = h // lat.shape[-2]  # pixels per latent cell
         if t_frames != pf_data.timing.steps + 1:
             raise ValueError(f"L_FV: {t_frames} decoded frames vs {pf_data.timing.steps} PointFlow steps")
         # The model crops the right/bottom padding of the 640x640 canvas off the latents (_remove_padding_from_latent),
@@ -200,13 +216,13 @@ def loss_fv(model, out_net, data_batch_packed, gen_data_noised, *, pf_scale, act
         if h > vh or w > vw:
             raise ValueError(f"L_FV: decoded {w}x{h} exceeds video_size_wh {vw}x{vh}")
         low = F.avg_pool2d(frames.transpose(0, 1), pool) if pool > 1 else frames.transpose(0, 1)  # [T,3,h',w']
-        anchor = inputs["anchor_xyz"][pi].float()
         pos = torch.cat([anchor[None], anchor[None] + x0_pf[:, pi]])  # [T,N,3], step 0 = anchor
-        uv = project_to_video(pos, inputs, b)  # [T,N,2] full-res video pixels
+        uv = project_to_video(pos, inputs, b) - pos.new_tensor([x0 * stride, y0 * stride])  # [T,N,2] pixels of the decoded crop
         grid = torch.stack([(uv[..., 0] + 0.5) / w * 2 - 1, (uv[..., 1] + 0.5) / h * 2 - 1], -1)  # align_corners=False
         color = F.grid_sample(low, grid[:, :, None], mode="bilinear", align_corners=False)[..., 0]  # [T,3,N]
         valid = torch.cat([torch.ones_like(pf_data.valid[:1, pi]), pf_data.valid[:, pi]])  # [T,N]
-        inside = (grid.abs() <= 1).all(-1)
+        margin = stride if crop > 0 else 0  # skip the outer latent cell of a crop (decoded without its neighbours)
+        inside = ((uv >= margin) & (uv <= uv.new_tensor([w, h]) - margin)).all(-1)
         ok = valid[:-1] & valid[1:] & inside[:-1] & inside[1:]
         errs.append(_charbonnier((color[1:] - color[:-1]).transpose(1, 2), eps))  # [T-1,N]
         masks.append(ok)
