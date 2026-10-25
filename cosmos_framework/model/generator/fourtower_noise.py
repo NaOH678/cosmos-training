@@ -2,11 +2,11 @@
 
 FOURTOWER_NOISE_MIX=1 turns it on; it needs independent_{action,pointflow,fk}_schedule=True (so every tower has its
 own draw) and SIM_MODE_PROBS on the dataset for the extreme samples (e.g. wam:0.8,forward_dynamics:0.1,inverse_dynamics:0.1).
-Per training sample:
+Per training sample (the PDF's 50 / 30 / 20 mixture):
   wam, prob 1-FOURTOWER_INDEP_FRAC: shared sigma -- action / PF / FK take the video sigma (the legacy synced path);
-  wam, prob FOURTOWER_INDEP_FRAC (default 0.375, i.e. 30% of all samples at 80% wam): every tower keeps its own draw;
-  forward_dynamics (action rows clean by the dataset plan): FK clean too (sigma 0, no FK loss); video + PF noisy at the video sigma;
-  inverse_dynamics (all video frames clean by the plan): PF clean too (sigma 0, no PF loss); action + FK noisy at one shared sigma.
+  wam, prob FOURTOWER_INDEP_FRAC (default 0.375, i.e. 30% of all samples at 80% wam): every tower draws sigma ~ U(0, 1);
+  forward_dynamics (action rows clean by the dataset plan): FK clean too (sigma 0, no FK loss); video + PF at full noise (sigma 1);
+  inverse_dynamics (all video frames clean by the plan): PF clean too (sigma 0, no PF loss); action + FK at full noise (sigma 1).
 Clean towers drop out of their loss, and the video / action losses are averaged over the samples that still have noisy
 tokens (an all-wam batch is unchanged). Validation and inference are untouched (synchronous denoising).
 """
@@ -31,11 +31,11 @@ def indep_frac() -> float:
 
 
 def mix_sigmas(vision_clean, action_clean, action_index, sigma_vision, sigma_action, sigma_pf, sigma_fk, *, frac, generator=None):
-    """Return (sigma_action [n,1], sigma_pf [B,1], sigma_fk [B,1], pf_drop [B], fk_drop [B], metrics).
+    """Return (sigma_vision [B,1], sigma_action [n,1], sigma_pf [B,1], sigma_fk [B,1], pf_drop [B], fk_drop [B], metrics).
 
     vision_clean [B] / action_clean [n] bool: the sample's video / action is all conditioning (IDM / FDM by the plan).
-    action_index [n]: batch slot of each dense action entry. All sigmas are the independent draws; the video sigma is
-    the shared one ([B,1], one value per sample).
+    action_index [n]: batch slot of each dense action entry. The video sigma ([B,1]) is the shared draw; the other
+    inputs are only used for their shape and device.
     """
     B = sigma_vision.shape[0]
     if sigma_vision.shape[1] != 1:
@@ -46,20 +46,29 @@ def mix_sigmas(vision_clean, action_clean, action_index, sigma_vision, sigma_act
     idm = vision_clean.to(dev) & ~fdm
     wam = ~(fdm | idm)
     indep = wam & (torch.rand(B, generator=generator, device=dev) < frac)
-    shared = ~indep  # shared wam rows, plus the noisy side of FDM / IDM
+    shared = wam & ~indep
     sv = sigma_vision[:, :1]
-    sigma_pf = torch.where(shared[:, None], sv, sigma_pf)
-    sigma_fk = torch.where(shared[:, None], sv, sigma_fk)
-    sigma_pf = torch.where(idm[:, None], torch.zeros_like(sigma_pf), sigma_pf)
-    sigma_fk = torch.where(fdm[:, None], torch.zeros_like(sigma_fk), sigma_fk)
-    sigma_action = torch.where(shared[action_index][:, None], sv[action_index], sigma_action)
+
+    def pick(n, rows):  # per-row sigma [n,1]: shared -> video draw, independent -> U(0,1), FDM / IDM -> fixed below
+        u = torch.rand(n, 1, generator=generator, device=dev)
+        return torch.where(shared[rows][:, None], sv[rows], u)
+
+    every = torch.arange(B, device=dev)
+    one, zero = torch.ones(B, 1, device=dev), torch.zeros(B, 1, device=dev)
+    sigma_vision = torch.where(fdm[:, None], one, pick(B, every))  # IDM video is conditioning (sigma ignored)
+    sigma_pf = torch.where(fdm[:, None], one, torch.where(idm[:, None], zero, pick(B, every)))
+    sigma_fk = torch.where(idm[:, None], one, torch.where(fdm[:, None], zero, pick(B, every)))
+    sigma_action = torch.where(idm[action_index][:, None], 1.0, pick(len(action_index), action_index))  # FDM: conditioning
     metrics = {
         "fourtower_mix_shared": (wam & ~indep).sum().float(),
         "fourtower_mix_indep": indep.sum().float(),
         "fourtower_mix_fdm": fdm.sum().float(),
         "fourtower_mix_idm": idm.sum().float(),
     }
-    return sigma_action, sigma_pf, sigma_fk, idm, fdm, metrics
+    if os.environ.get("FOURTOWER_NOISE_DEBUG") == "1":  # smoke tests: per-step mixture on stdout
+        print("[noisemix] " + " ".join(f"{k}={int(v)}" for k, v in metrics.items())
+              + f" sv={sigma_vision[:, 0].tolist()} sa={sigma_action[:, 0].tolist()} spf={sigma_pf[:, 0].tolist()} sfk={sigma_fk[:, 0].tolist()}", flush=True)
+    return sigma_vision, sigma_action, sigma_pf, sigma_fk, idm, fdm, metrics
 
 
 def drop_samples(clean, drop):

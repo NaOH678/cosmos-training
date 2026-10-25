@@ -1007,6 +1007,44 @@ class OmniMoTModel(ImaginaireModel):
                 batch_size=gen_data_clean.batch_size, iteration=iteration
             )  # [B,1]
 
+        # Opt-in E1 noise mixture (FOURTOWER_NOISE_MIX=1, 10-25): shared / independent / FDM / IDM per sample; see fourtower_noise.py.
+        from cosmos_framework.model.generator import fourtower_noise
+
+        self._fourtower_noise = None
+        if self.training and fourtower_noise.enabled():
+            if sigmas_action is None or sigmas_pointflow is None or sigmas_fk is None:
+                raise ValueError("FOURTOWER_NOISE_MIX needs independent_{action,pointflow,fk}_schedule=True")
+            if gen_data_clean.num_vision_items_per_sample is not None:
+                raise ValueError("FOURTOWER_NOISE_MIX supports one vision item per sample")
+            dev = sigmas_vision.device
+            # FDM / IDM come from the dataset plan (SIM_MODE_PROBS): every action row / every video latent is conditioning
+            vision_clean = torch.tensor(
+                [len(set(p.condition_frame_indexes_vision)) >= t for p, t in zip(sequence_plans, num_vision_latent_frames)],
+                device=dev,
+            )
+            action_clean = torch.tensor(
+                [
+                    len(set(sequence_plans[i].condition_frame_indexes_action)) >= x.shape[0]
+                    for i, x in zip(action_sample_indices, gen_data_clean.x0_tokens_action)
+                ],
+                device=dev,
+            )
+            sigmas_vision, sigmas_action, sigmas_pointflow, sigmas_fk, pf_drop, fk_drop, mix_metrics = (
+                fourtower_noise.mix_sigmas(
+                    vision_clean,
+                    action_clean,
+                    torch.tensor(action_sample_indices, dtype=torch.long, device=dev),
+                    sigmas_vision,
+                    sigmas_action,
+                    sigmas_pointflow,
+                    sigmas_fk,
+                    frac=fourtower_noise.indep_frac(),
+                )
+            )  # [B,1], [n_action,1], [B,1], [B,1], [B], [B]
+            timesteps_vision = sigmas_vision * self.rectified_flow_video.noise_scheduler.config.num_train_timesteps
+            timesteps_action = sigmas_action * self.rectified_flow_action.noise_scheduler.config.num_train_timesteps
+            self._fourtower_noise = dict(pf_drop=pf_drop, fk_drop=fk_drop, metrics=mix_metrics)
+
         # Broadcast timesteps/sigmas across CP group to ensure consistency
         if self.parallel_dims is not None and self.parallel_dims.cp_enabled:
             src_rank = 0  # use cp rank 0 to broadcast timesteps/sigmas
@@ -1047,31 +1085,6 @@ class OmniMoTModel(ImaginaireModel):
                 skip_text_tokens=memory_info["skip_text"],
                 initial_mrope_temporal_offset=memory_info["initial_temporal_offset"],
             )
-
-        # Opt-in E1 noise mixture (FOURTOWER_NOISE_MIX=1, 10-25): shared / independent / FDM / IDM per sample; see fourtower_noise.py.
-        from cosmos_framework.model.generator import fourtower_noise
-
-        self._fourtower_noise = None
-        if self.training and fourtower_noise.enabled():
-            if sigmas_action is None or sigmas_pointflow is None or sigmas_fk is None:
-                raise ValueError("FOURTOWER_NOISE_MIX needs independent_{action,pointflow,fk}_schedule=True")
-            if gen_data_clean.num_vision_items_per_sample is not None:
-                raise ValueError("FOURTOWER_NOISE_MIX supports one vision item per sample")
-            dev = sigmas_vision.device
-            vision_clean = torch.tensor([bool(torch.all(m == 1)) for m in packed_sequence.vision.condition_mask], device=dev)
-            action_clean = torch.tensor([bool(torch.all(m == 1)) for m in packed_sequence.action.condition_mask], device=dev)
-            sigmas_action, sigmas_pointflow, sigmas_fk, pf_drop, fk_drop, mix_metrics = fourtower_noise.mix_sigmas(
-                vision_clean,
-                action_clean,
-                torch.tensor(action_sample_indices, dtype=torch.long, device=dev),
-                sigmas_vision,
-                sigmas_action,
-                sigmas_pointflow,
-                sigmas_fk,
-                frac=fourtower_noise.indep_frac(),
-            )  # [n_action,1], [B,1], [B,1], [B], [B]
-            timesteps_action = sigmas_action * self.rectified_flow_action.noise_scheduler.config.num_train_timesteps
-            self._fourtower_noise = dict(pf_drop=pf_drop, fk_drop=fk_drop, metrics=mix_metrics)
 
         # Under independent_action_schedule, overwrite the vision-based action timestep the
         # packer injected with the action timestep, so the denoiser's action timestep embedding
