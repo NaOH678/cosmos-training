@@ -41,6 +41,34 @@
 
 本节说明我们实际怎么提交原生 WAM 训练，以及一条训练从启动到写出 checkpoint 经过了哪些代码。适配新显卡前，建议先把下面的数据加载和训练逻辑看一遍。目前只需要适配 `wam` 变体，`nonlocal` / `local`（PointFlow/FK 分支）不在范围内。
 
+#### 0. 数据和权重在哪里下载
+
+训练需要的数据和权重都放在 S3 兼容存储上：
+
+- endpoint：`http://d-ceph-ssd2-inside.pjlab.org.cn`（内网）
+- bucket：`dexmanip`
+- A800 上的 rclone 远端名是 `xlc-HDD2`，所以下面的路径都写成 `xlc-HDD2:dexmanip/...`。访问密钥找管理员要，不写在仓库里。
+
+| 内容 | 桶内路径 | 下载后设置 |
+|---|---|---|
+| 仿真 WAM 数据（Bench2Dex task27） | `dexmanip/shichaojian/wam_datasets_20261029/sim_task27_ball_wam/` | `SIM_POINTFK_BUNDLE` |
+| 真机 WAM 数据（单右手 sandwich） | `dexmanip/shichaojian/wam_datasets_20261029/real_sandwich_wam/` | `SINGLERIGHTHAND_RAW_ROOT=.../raw`、`SINGLERIGHTHAND_CACHE_ROOT=.../cache`，以及白名单和统计文件（见该目录的 README） |
+| 数据说明、加载验证脚本、A800 环境包列表 | `dexmanip/shichaojian/wam_datasets_20261029/README.md`、`verify_wam_loaders.py`、`env/pip_freeze_a800.txt` | — |
+| 4B 初始化权重（DCP 格式，训练直接加载） | `dexmanip/shichaojian/models/cosmos3-edge-droid-dcp/` | `BASE_CHECKPOINT_PATH` |
+| 4B 的 HF 目录（tokenizer、processor、配置、VAE） | `dexmanip/shichaojian/models/cosmos3-edge-droid/` | `EDGE_DROID_MODEL_PATH`；`WAN_VAE_PATH=<该目录>/vae/Wan2.2_VAE.pth` |
+| 16B（Nano）：policy-droid 版的 HF 和 DCP，以及基座 | `dexmanip/shichaojian/models/cosmos3-nano-policy-droid/`、`cosmos3-nano-policy-droid-dcp/`、`cosmos3-nano/` | 换 16B 时使用 |
+| 4B 基座（未经 DROID 训练） | `dexmanip/shichaojian/models/cosmos3-edge/` | 备用 |
+
+下载示例：
+
+```bash
+rclone copy xlc-HDD2:dexmanip/shichaojian/wam_datasets_20261029 <本地目录>/wam_datasets --transfers 16
+rclone copy xlc-HDD2:dexmanip/shichaojian/models/cosmos3-edge-droid <本地目录>/models/cosmos3-edge-droid --transfers 16
+rclone copy xlc-HDD2:dexmanip/shichaojian/models/cosmos3-edge-droid-dcp <本地目录>/models/cosmos3-edge-droid-dcp --transfers 16
+```
+
+下载完先运行数据目录里的 `verify_wam_loaders.py`，用训练代码的加载器读几个样本，确认数据能用。注意先把脚本里写死的 A800 模型路径改成本地路径。然后把下文启动脚本里的 A800 绝对路径换成本地路径。
+
 #### 1. 一条命令启动
 
 我们在 A800 集群上每个任务占 1 节点 8 卡，任务命令栏只写一行。
