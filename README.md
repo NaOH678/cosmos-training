@@ -84,7 +84,7 @@ launch_sim_normalized.sh <task> wam        # 选数据 bundle，设 SIM_POINTFK_
 
 启动脚本里写死了三类 A800 上的绝对路径，换机器时要改：
 
-- venv：`/mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv`，Python 3.13，PyTorch 2.10.0+cu128。
+- venv：`/mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv`，Python 3.13.15，torch 2.10.0+cu130，flash_attn 2.7.4.post1，triton 3.6.0（完整包列表见桶里的 `wam_datasets_20261029/env/pip_freeze_a800.txt`）。
 - 模型：`/data/shichaojian/models/cosmos3-edge-droid`（HF）及其 DCP 版本 `cosmos3-edge-droid-dcp`；VAE 是 `vae/Wan2.2_VAE.pth`。
 - 数据：`/data/shichaojian/sim_data/...`、`/data/shichaojian/raw_data/...`、`/data/shichaojian/datasets/...`。
 
