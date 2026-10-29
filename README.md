@@ -166,6 +166,19 @@ launch_sim_normalized.sh <task> wam        # 选数据 bundle，设 SIM_POINTFK_
 3. 训 1–2k 步，对照上面的 loss 和速度参考值。
 4. 再跑完整训练。
 
+#### 6. 参考文档（建议阅读顺序）
+
+| 文档 | 内容 |
+|---|---|
+| [`docs/cosmos_wam_mode.md`](./docs/cosmos_wam_mode.md) | WAM 原理：时间网格、条件/生成位置、加噪公式、loss，以及为什么要编码全部 33 帧 |
+| [`docs/sim_pointfk_data_format.md`](./docs/sim_pointfk_data_format.md) | 仿真数据目录规范：训练前数据和训练缓存（latent、窗口索引、划分、归一化）的格式，以及准备命令 |
+| [`docs/SIM_DATA_PIPELINE.md`](./docs/SIM_DATA_PIPELINE.md) | 仿真数据从原始 HDF5 到训练输入的完整处理流程（第 3、4、8、9 节和 WAM 相关） |
+| [`docs/action_policy_singlerighthand_edge_posttrain.md`](./docs/action_policy_singlerighthand_edge_posttrain.md) | 真机单右手数据合同（帧率、窗口、27 维动作）、视频帧缓存、DCP 转换、dry run 与冒烟测试 |
+| [`docs/pointflow_data_pipeline.md`](./docs/pointflow_data_pipeline.md) | 真机视频帧 / VAE 窗口 latent 缓存的生成方法 |
+| [`docs/pointflow_multinode_training.md`](./docs/pointflow_multinode_training.md) | 多机训练：torchrun 拓扑、HSDP（shard × replicate）、集群注入的环境变量与排障 |
+| [`docs/training.md`](./docs/training.md)、[`docs/sft_config.md`](./docs/sft_config.md) | 上游 cosmos-framework 的训练指南和 TOML 配置字段说明 |
+| [`docs/setup.md`](./docs/setup.md) | 环境安装、CUDA 版本选择 |
+
 ## Cosmos 3
 
 **Cosmos 3** is our newest model family [[Report]](https://research.nvidia.com/labs/cosmos-lab/cosmos3/technical-report.pdf) [[Website]](https://research.nvidia.com/labs/cosmos-lab/cosmos3/). It is a suite of omnimodal world models designed to jointly process and generate language, images, video, audio, and action sequences within a unified Mixture-of-Transformers architecture. By supporting highly flexible input-output configurations, it seamlessly unifies critical modalities for Physical AI — effectively subsuming vision-language models, video generators, world simulators, and world-action models into a single framework. For a guided experience to test out Cosmos3, please visit [[Cosmos]](https://github.com/nvidia/cosmos).
