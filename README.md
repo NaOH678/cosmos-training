@@ -18,6 +18,25 @@
 - **Training** — distributed FSDP / TP / CP / PP trainer, native DCP checkpoints with HuggingFace `safetensors` import/export, JSONL / WebDataset / LeRobot dataset adapters. Entry point: `cosmos_framework.scripts.train`. See [`docs/training.md`](./docs/training.md).
 - **Inference** — Diffusers / Transformers / vLLM backends with offline batch generation and online serving (Ray + Gradio). Entry point: `cosmos_framework.scripts.inference`. Ecosystem-facing shim libraries (lightweight standalone wrappers for downstream projects) live under [`packages/`](./packages).
 
+## WorldAct 训练主线（本分支）
+
+基于 NVIDIA cosmos-framework，加入单右手真机（sandwich / dropper）与 Bench2Dex 仿真的 WAM 后训练，以及可选的 PointFlow/FK 几何分支。
+
+原生 WAM 训练入口（第二个参数选 `wam`；`nonlocal` / `local` 是 PointFlow/FK 变体，默认不需要）：
+
+| 用途 | 入口 |
+|---|---|
+| 真机，action 归一化 | `examples/launch_real_normalized.sh sandwich\|dropper_mix wam` |
+| 仿真，action 归一化 | `OUTPUT_ROOT=... examples/launch_sim_normalized.sh <task> wam` |
+| 实验配置 | `cosmos_framework/configs/base/experiment/action/posttrain_config/action_policy_singlerighthand_edge.py`、`action_policy_sim_pointfk_edge.py` |
+| 归一化统计 | `tools/compute_real_action_stats.py` → `action_stats.json`（q01/q99，sha256 写入训练配置），实现见 `cosmos_framework/data/generator/action/real_normalization.py` |
+| 视频帧 / VAE latent 缓存 | `docs/pointflow_data_pipeline.md`，`examples/cache_singlerighthand_window_latents.sh`（按训练窗口编码，与在线路径逐位一致） |
+| 数据集 | `cosmos_framework/data/generator/action/datasets/singlerighthand_raw_dataset.py`、`sim_pointfk_dataset.py` |
+
+- 主干网络、loss、采样器与官方一致；PointFlow/FK 相关开关（`sync_plain_param_grads`、`joint_attn_mask`、FK 一致性 loss 等）默认关闭，关闭时计算路径与原版相同。
+- 启动脚本里的数据、模型和 venv 路径是训练机上的绝对路径，迁移时需要改。
+- 推理与部署见 `docs/inference.md`、`docs/cosmos_protocol_v2_server.md`。
+
 ## Cosmos 3
 
 **Cosmos 3** is our newest model family [[Report]](https://research.nvidia.com/labs/cosmos-lab/cosmos3/technical-report.pdf) [[Website]](https://research.nvidia.com/labs/cosmos-lab/cosmos3/). It is a suite of omnimodal world models designed to jointly process and generate language, images, video, audio, and action sequences within a unified Mixture-of-Transformers architecture. By supporting highly flexible input-output configurations, it seamlessly unifies critical modalities for Physical AI — effectively subsuming vision-language models, video generators, world simulators, and world-action models into a single framework. For a guided experience to test out Cosmos3, please visit [[Cosmos]](https://github.com/nvidia/cosmos).
