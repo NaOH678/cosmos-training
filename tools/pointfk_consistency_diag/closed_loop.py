@@ -32,7 +32,7 @@ def init(stats, urdf, fkjson):
     from cosmos_framework.model.generator.robot_fk_torch import TorchRobotFK
     names, offset, scale = pc.load_action_stats(stats)
     norm = json.load(open(stats))["action"]; rng = np.maximum(np.array(norm["q99"]) - np.array(norm["q01"]), 1e-3)
-    G.update(pc=pc, names=names, J=len(names), rng=rng, radius=pc.pf_fk_radius(),
+    G.update(pc=pc, names=names, J=len(names), rng=rng, radius=float(os.environ.get("POINTFK_PF_FK_RADIUS", "0.05")),  # same local radius as analyze.py (main lacks pf_fk_radius)
              fk=TorchRobotFK.from_json(urdf, fkjson, names),
              fingers={h: [i for i, n in enumerate(names) if f"{h}_finger" in n] for h in ("left", "right")})
 
