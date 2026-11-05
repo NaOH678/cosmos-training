@@ -1,0 +1,16 @@
+{
+  "description": "Shared automatic prompts for preprocessing and deployment; no saved boxes or masks.",
+  "mode": "framewise_dino_sam2",
+  "box_threshold": 0.25,
+  "text_threshold": 0.25,
+  "nms_iou": 0.4,
+  "objects": [
+    {"id": 1, "name": "robot_hand", "label": 2, "texts": ["black robotic hand."], "max_instances": 1},
+    {"id": 10, "name": "lettuce", "label": 3, "texts": ["lettuce leaf.", "green lettuce."], "max_instances": 1},
+    {"id": 20, "name": "bread", "label": 4, "texts": ["slice of bread.", "toast."], "max_instances": 4},
+    {"id": 30, "name": "egg", "label": 4, "texts": ["fried egg."], "max_instances": 2},
+    {"id": 40, "name": "cheese", "label": 4, "texts": ["slice of cheese."], "max_instances": 2},
+    {"id": 50, "name": "plate", "label": 4, "texts": ["black plate."], "max_instances": 1},
+    {"id": 60, "name": "tray", "label": 4, "texts": ["food tray.", "food container."], "max_instances": 3}
+  ]
+}

@@ -55,6 +55,11 @@ def _episode_metadata(episode: Path):
     report = episode / "report.json"
     if report.is_file():
         metadata = json.loads(report.read_text())
+        if metadata.get("schema_version") == "rgbd_pointflow_v1":
+            if metadata.get("coordinate") != "fixed_optical_camera" or not metadata.get("metric_scale"):
+                raise ValueError("Expected metric optical-camera PointFlow observations")
+            width, height = metadata["image_size_wh"]
+            return metadata["video"], int(width), int(height)
         width, height = 640, 448
         queries = metadata.get("native_pixel_queries")
         if queries is None:

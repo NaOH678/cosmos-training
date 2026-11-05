@@ -1,0 +1,7 @@
+{
+  "task": "sandwich",
+  "workspace_xyxy": [220, 180, 640, 480],
+  "dynamic_objects": ["robot_hand", "bread_slice_1", "bread_slice_2", "cheese", "egg", "lettuce"],
+  "static_rgb_change_max": 80,
+  "description": "Apply after first-frame separate-bread initialization. Plate and tray reuse their first-frame masks with current-frame visibility filtering."
+}

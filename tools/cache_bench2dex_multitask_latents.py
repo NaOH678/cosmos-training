@@ -22,7 +22,32 @@ TASKS = {
     "07": ("task07_citrus", "07_citrus_plate_loading"),
     "06": ("task06_fruit", "06_fruit_bowl_loading"),
     "27": ("task27_ball", "27_ball_box_loading"),
+    # 10-29 (user: 26 任务混训): remaining replay-generalization tasks, short names as in tools/pull_raw_a800.sh
+    "03": ("task03_wine", "03_wine_glass_plate_balance"),
+    "08": ("task08_frypan", "08_frypan_stand_pour"),
+    "09": ("task09_cleaner", "09_cleaner_moisturizer_box_loading"),
+    "12": ("task12_screwdriver", "12_screwdriver_box_and_hammer"),
+    "21": ("task21_condiment", "21_condiment_box_loading"),
+    "22": ("task22_tool", "22_tool_box_loading"),
+    "24": ("task24_stationery", "24_stationery_category_sorting"),
+    "26": ("task26_canned", "26_canned_food_tray_line_arrangement"),
+    "32": ("task32_baking", "32_baking_tray_prep_with_tools"),
+    "34": ("task34_fridge", "34_fridge_wine_interhand_pour"),
+    "42": ("task42_trash", "42_trash_disposal"),
+    "43": ("task43_fridge", "43_fridge_fruit_shelf_sorting"),
+    "44": ("task44_microwave", "44_microwave_bowl_loading"),
+    "51": ("task51_toilet", "51_toilet_lid_cleaner_pour"),
+    "60": ("task60_breadbasket", "60_breadbasket_fast_food_loading"),
+    "61": ("task61_medicine", "61_medicine_shoebox_pack"),
+    "62": ("task62_shoebox", "62_shoebox_accessory_pack"),
+    "64": ("task64_sports", "64_sports_ball_cup_sort"),
+    "67": ("task67_faucet", "67_faucet_cup_water_fill"),
+    "73": ("task73_jigsaw", "73_jigsaw_puzzle_assembly"),
+    "76": ("task76_soup", "76_soup_serving"),
+    "79": ("task79_bimanual", "79_bimanual_piano_melody"),
 }
+# 10-30: recorded meta/scene_name differs from the dataset directory name for these tasks.
+SCENE_NAMES = {"62_shoebox_accessory_pack": "62_pet_shoebox_accessory_pack"}
 
 
 def digest(path):
@@ -109,7 +134,7 @@ def prepare_episode(job):
         raise ValueError(f"HDF5 SHA256 mismatch: {source}")
     with h5py.File(source) as f:
         meta = {k: plain(v[()]) for k, v in f["meta"].items() if isinstance(v, h5py.Dataset)}
-        if meta["scene_name"] != contract["task"] or float(meta["effective_fps"]) != 20:
+        if meta["scene_name"] != contract.get("scene_name", contract["task"]) or float(meta["effective_fps"]) != 20:
             raise ValueError(f"Wrong task or effective FPS: {source}")
         if plain(f["action/control_mode"][()]) != "joint_position" or plain(f["action/action_type"][()]) != "absolute":
             raise ValueError(f"Unexpected action semantics: {source}")
@@ -346,6 +371,19 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     with (output / ".pipeline.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # 10-30: flock does not exclude other hosts on the shared /data volume (the dev box and an A100 job both
+        # encoded task61/64); an atomic mkdir claim does.  A finished task may be re-verified by anyone.
+        claim = output / ".claim"
+        try:
+            claim.mkdir()
+            (claim / "owner").write_text(f"{os.uname().nodename} pid {os.getpid()} {time.strftime('%m-%d %H:%M')}\n")
+            import atexit
+            atexit.register(shutil.rmtree, claim, True)
+        except FileExistsError:
+            done = output / "progress.json"
+            if not (done.exists() and json.loads(done.read_text()).get("phase") == "complete"):
+                owner = (claim / "owner").read_text().strip() if (claim / "owner").exists() else "?"
+                raise SystemExit(f"CLAIMED {task} by {owner}; skipping")
         records = json.loads((REPO / "pointflow_outputs/bench2dex_task_lengths" / f"{task}.files.json").read_text())
         records = sorted(records, key=lambda r: r["path"])
         if args.limit_episodes:
@@ -381,6 +419,8 @@ def main():
             action_order="recorded robot/joint_names; action reordered by name",
             code_sha256=code_hashes,
         )
+        if task in SCENE_NAMES:
+            prep_contract["scene_name"] = SCENE_NAMES[task]
         for p in source_files:
             dst = output / "provenance/source" / code_hashes[str(p.relative_to(REPO))] / p.relative_to(REPO)
             dst.parent.mkdir(parents=True, exist_ok=True)

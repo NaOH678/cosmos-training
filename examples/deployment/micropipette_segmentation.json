@@ -1,0 +1,185 @@
+{
+  "task": "micropipette",
+  "dynamic_objects": ["left_hand", "right_hand", "micropipette", "clear_test_tube"],
+  "static_rgb_change_max": 80,
+  "workspace_xyxy": [
+    0,
+    40,
+    640,
+    480
+  ],
+  "hand_sides": [
+    "left",
+    "right"
+  ],
+  "arm_sides": [
+    "left",
+    "right"
+  ],
+  "hand_distance_px": 12,
+  "objects": [
+    {
+      "id": 1,
+      "name": "left_hand",
+      "label": 2,
+      "hand_side": "left",
+      "texts": [
+        "black robotic hand."
+      ],
+      "color_bgr": [
+        255,
+        145,
+        35
+      ],
+      "threshold": 0.18
+    },
+    {
+      "id": 2,
+      "name": "right_hand",
+      "label": 2,
+      "hand_side": "right",
+      "texts": [
+        "black robotic hand."
+      ],
+      "color_bgr": [
+        80,
+        170,
+        250
+      ],
+      "threshold": 0.18
+    },
+    {
+      "id": 10,
+      "name": "micropipette",
+      "label": 3,
+      "search_xyxy": [
+        35,
+        190,
+        130,
+        325
+      ],
+      "texts": [
+        "blue and white pipette.",
+        "white and blue micropipette.",
+        "laboratory pipette."
+      ],
+      "color_bgr": [
+        200,
+        60,
+        210
+      ],
+      "threshold": 0.12,
+      "max_initial_hand_overlap": 0.5,
+      "appearance": "blue_white"
+    },
+    {
+      "id": 20,
+      "name": "clear_test_tube",
+      "label": 3,
+      "search_xyxy": [
+        205,
+        405,
+        270,
+        480
+      ],
+      "texts": [
+        "transparent test tube.",
+        "clear plastic centrifuge tube.",
+        "open test tube."
+      ],
+      "color_bgr": [
+        70,
+        225,
+        230
+      ],
+      "threshold": 0.12
+    },
+    {
+      "id": 30,
+      "name": "red_tube_rack",
+      "label": 4,
+      "search_xyxy": [
+        200,
+        350,
+        365,
+        480
+      ],
+      "texts": [
+        "red test tube rack.",
+        "red plastic rack."
+      ],
+      "color_bgr": [
+        30,
+        210,
+        70
+      ],
+      "threshold": 0.18,
+      "appearance": "red_material"
+    },
+    {
+      "id": 40,
+      "name": "red_liquid_beaker",
+      "label": 4,
+      "search_xyxy": [
+        365,
+        340,
+        450,
+        455
+      ],
+      "texts": [
+        "glass beaker containing red liquid.",
+        "glass cup."
+      ],
+      "color_bgr": [
+        220,
+        180,
+        70
+      ],
+      "threshold": 0.15
+    },
+    {
+      "id": 50,
+      "name": "yellow_liquid_beaker",
+      "label": 4,
+      "search_xyxy": [
+        440,
+        330,
+        525,
+        425
+      ],
+      "texts": [
+        "glass beaker containing yellow liquid.",
+        "small glass cup."
+      ],
+      "color_bgr": [
+        180,
+        180,
+        180
+      ],
+      "threshold": 0.12
+    },
+    {
+      "id": 60,
+      "name": "pipette_stand",
+      "label": 4,
+      "search_xyxy": [
+        0,
+        220,
+        220,
+        420
+      ],
+      "texts": [
+        "white pipette stand.",
+        "pipette holder."
+      ],
+      "color_bgr": [
+        240,
+        140,
+        160
+      ],
+      "threshold": 0.12,
+      "appearance": "white_material"
+    }
+  ],
+  "group_definitions": {}
+}
