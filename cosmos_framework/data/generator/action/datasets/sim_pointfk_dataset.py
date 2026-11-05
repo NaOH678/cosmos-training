@@ -7,13 +7,49 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, get_worker_info
 
 from cosmos_framework.data.generator.action.action_processing import ActionAffineNormalization
 from cosmos_framework.data.generator.action.datasets.action_sft_dataset import ActionIterableShuffleDataset
 from cosmos_framework.data.generator.action.transforms import ActionTransformPipeline
 from cosmos_framework.data import frame_transform
 from cosmos_framework.data.pointflow_window import read_frame
+
+
+_MODES = ("wam", "forward_dynamics", "inverse_dynamics")
+
+
+def parse_mode_probs(spec):
+    """Parse ``SIM_MODE_PROBS`` ("wam:0.75,forward_dynamics:0.25") into normalised (modes, probs).
+
+    Empty / unset / pure ``wam`` returns None, i.e. the legacy wam-only path with no RNG use.
+    """
+    spec = (spec or "").strip()
+    if not spec:
+        return None
+    weights = {}
+    for item in spec.split(","):
+        name, _, value = item.strip().partition(":")
+        if name not in _MODES or not value:
+            raise ValueError(f"Bad SIM_MODE_PROBS entry {item!r}; expected <{'|'.join(_MODES)}>:<prob>")
+        if name in weights:
+            raise ValueError(f"Duplicate mode in SIM_MODE_PROBS: {name}")
+        weights[name] = float(value)
+    if any(w < 0 for w in weights.values()) or sum(weights.values()) <= 0:
+        raise ValueError(f"SIM_MODE_PROBS weights must be non-negative with positive sum: {spec!r}")
+    modes = [m for m in _MODES if weights.get(m, 0) > 0]
+    if modes == ["wam"]:
+        return None
+    total = sum(weights[m] for m in modes)
+    return modes, [weights[m] / total for m in modes]
+
+
+def draw_mode(modes_probs, seed, index, rank, worker, visit):
+    """Stateless per-sample mode draw keyed on (seed, window index, rank, worker, visit count)."""
+    modes, probs = modes_probs
+    u = np.random.default_rng([int(seed), int(index), int(rank), int(worker), int(visit)]).random()
+    cum = np.cumsum(probs)
+    return modes[min(int(np.searchsorted(cum, u, side="right")), len(modes) - 1)]
 
 
 class SimPointFKSFTDataset(Dataset):
@@ -30,7 +66,13 @@ class SimPointFKSFTDataset(Dataset):
         include_geometry=True,
         action_stats_path=None,
         action_stats_sha256=None,
+        mode_probs=None,
+        mode_seed=42,
     ):
+        self.mode_probs = mode_probs
+        self.mode_seed = mode_seed
+        self._visits = {}
+        self.mode_counts = {}
         self.cached_video_only = cached_video_only
         self.include_geometry = include_geometry
         self.root = Path(bundle)
@@ -104,6 +146,20 @@ class SimPointFKSFTDataset(Dataset):
                 result[-1][1] += 1
         return [tuple(r) for r in result]
 
+    def _sample_mode(self, index):
+        if self.mode_probs is None:
+            return "wam"
+        wi = get_worker_info()
+        visit = self._visits.get(index, 0)
+        self._visits[index] = visit + 1
+        mode = draw_mode(
+            self.mode_probs, self.mode_seed, index, int(os.environ.get("RANK", 0)), wi.id if wi else 0, visit
+        )
+        self.mode_counts[mode] = self.mode_counts.get(mode, 0) + 1
+        if sum(self.mode_counts.values()) % 32 == 0:  # per-worker progress, for smoke / sanity checks
+            print(f"[modemix] rank={os.environ.get('RANK', 0)} worker={wi.id if wi else 0} counts={self.mode_counts}", flush=True)
+        return mode
+
     def __getitem__(self, index):
         row = self.rows[index]
         saved = torch.load(self.selected / row["path"], map_location="cpu", weights_only=False)
@@ -132,7 +188,7 @@ class SimPointFKSFTDataset(Dataset):
             action=saved["action"],
             ai_caption=saved["ai_caption"],
             conditioning_fps=torch.tensor(20),
-            mode="wam",
+            mode=self._sample_mode(index),
             domain_id=torch.tensor(28),
             viewpoint="concat_view",
             additional_view_description="Head on top; left wrist bottom-left; right wrist bottom-right.",
@@ -165,9 +221,13 @@ def get_sim_pointfk_sft_dataset(
     include_geometry=True,
     action_stats_path=None,
     action_stats_sha256=None,
+    mode_probs=None,
 ):
     if use_image_augmentation:
         raise ValueError("Image augmentation is incompatible with fixed VAE latents")
+    # Opt-in mode mixing (SIM_MODE_PROBS env or mode_probs arg): training stream only; eval stays wam.
+    train_stream = split == "train" and iterable_shuffle
+    probs = parse_mode_probs(mode_probs if mode_probs is not None else os.environ.get("SIM_MODE_PROBS", ""))
     ds = SimPointFKSFTDataset(
         bundle,
         selection_root,
@@ -180,5 +240,6 @@ def get_sim_pointfk_sft_dataset(
         include_geometry=include_geometry,
         action_stats_path=action_stats_path,
         action_stats_sha256=action_stats_sha256,
+        mode_probs=probs if train_stream else None,
     )
     return ActionIterableShuffleDataset(ds, seed=42, max_block_size=4) if iterable_shuffle else ds
