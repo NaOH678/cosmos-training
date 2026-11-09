@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "validated_source_files": 750,
+  "unchanged_files": 747,
+  "changed_delivery_files": [
+    "MANIFEST.json",
+    "README.md",
+    "config/cluster.env.example"
+  ],
+  "runtime_and_training_config_unchanged": true,
+  "basis": "sha256 of every file in the completed 5000-step source snapshot",
+  "historical_manifest": "provenance/original-migration-manifest.json"
+}

@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "new_config": "/mnt/lvminrui/workspace/cosmos-training-litegen-910b/outputs/delivery-validation/config-preview/cosmos3_action/action_sft/sim_task27_wam_910b_align5k/config.yaml",
+  "matches_completed_npu_config": true,
+  "matches_a100_except_compile_enabled": true,
+  "config_sha256": "decfb63db0d721edd9db2aa3afdc4e748b889ccd76481926ef2c7d590daa5fd1",
+  "unchanged_thresholds": {
+    "mean_rtol": 0.05,
+    "window_rtol": 0.1
+  }
+}

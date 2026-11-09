@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "before": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T094018Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/config.yaml",
+  "after": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/config.yaml",
+  "all_numerical_configuration_equal": true,
+  "excluded": "Existing numerical_config projection excludes job/output metadata, serialized trainer/checkpoint type markers, normalization copy path and callback output paths. Raw differences are retained below.",
+  "raw_config_differences": [
+    {
+      "key": "dataloader_train.dataloader.datasets.sim_pointfk.dataset.action_stats_path",
+      "before": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T094018Z/action_stats.json",
+      "after": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/action_stats.json"
+    },
+    {
+      "key": "dataloader_val.dataloader.datasets.sim_pointfk.dataset.action_stats_path",
+      "before": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T094018Z/action_stats.json",
+      "after": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/action_stats.json"
+    },
+    {
+      "key": "trainer.callbacks.baseline_monitor.log_dir",
+      "before": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T094018Z/tensorboard",
+      "after": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/tensorboard"
+    },
+    {
+      "key": "trainer.callbacks.sampled_media.output_uri",
+      "before": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T094018Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/sampled_media.lance",
+      "after": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/sampled_media.lance"
+    }
+  ]
+}

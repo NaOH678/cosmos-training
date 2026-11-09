@@ -1,311 +1,278 @@
-<p align="center">
-    <img src="https://github.com/user-attachments/assets/28f2d612-bbd6-44a3-8795-833d05e9f05f" width="274" alt="NVIDIA Cosmos"/>
-</p>
+# Cosmos 4B WAM × LiteGen × Ascend 910B
 
-<p align="center">
-    <a href="https://github.com/NVIDIA/Cosmos">NVIDIA Cosmos</a> |
-    🤗 <a href="https://huggingface.co/collections/nvidia/cosmos3">Cosmos 3 </a>
-</p>
+将 Cosmos 的 task27 纯 WAM 4B 训练任务接入 LiteGen，在 **Linux aarch64 / Python 3.12 / 单机 8 × Ascend910B2 64 GiB** 上运行。数据、模型、loss、训练循环、scheduler 和检查点由 Cosmos 管理；LiteGen 提供设备与分布式接入、FSDP2 包装和 NPU 优化器支持。
 
-<p align="center">
-    Part of the <a href="https://github.com/NVIDIA/Cosmos">NVIDIA Cosmos</a> project family — the training and serving framework repository.
-</p>
+**已完成真实八卡两步功能验收和完整 5000 步训练。** 相对原生 8 × A100 基线，5000 步的 20 项对齐检查全部通过；三类 loss 全程均值相对差为 0.073%、0.037%、0.318%。这是本任务的 loss 曲线工程对齐，不是逐位一致、所有 Cosmos 分支兼容或相同训练速度。
 
-# Cosmos-Framework
+- [国产卡适配实验说明](docs/experiment_910b.md)：配置、接入职责、改动、完整 loss/性能对比及验证边界。
+- [5000 步完整报告](evidence/5000-step/full_comparison.json)、[loss 对比图](evidence/5000-step/loss_comparison.png)。
+- [交付目录复测记录](docs/delivery_validation.md)：独立环境、新路径验收与可追溯来源。
+- [跨仓库衔接与版本升级](docs/litegen_integration.md)：LiteGen 分支链接、固定提交、克隆、安装及升级流程。
+- [LiteGen 实际改动](docs/litegen_changes.md)：与原 LiteGen 目录逐文件比较。
 
-**Cosmos-Framework** is an end-to-end framework for training and serving world models, including the **Cosmos3** model family. Everything lives in a single top-level [`cosmos_framework/`](./cosmos_framework) Python package:
+本目录包含独立可安装源码、哈希锁定依赖、A100 基线、验收脚本和实验小型证据；**模型权重、约 200 GiB 以上的数据缓存、35 GiB 级训练检查点、CANN/驱动和 Python 环境须另外准备**。LiteGen 作为独立仓库维护，不随本项目或压缩包分发；运行时通过 `LITEGEN_ROOT` 引用外部 checkout。随附报告中的历史绝对路径用于追溯，不是运行依赖。
 
-- **Training** — distributed FSDP / TP / CP / PP trainer, native DCP checkpoints with HuggingFace `safetensors` import/export, JSONL / WebDataset / LeRobot dataset adapters. Entry point: `cosmos_framework.scripts.train`. See [`docs/training.md`](./docs/training.md).
-- **Inference** — Diffusers / Transformers / vLLM backends with offline batch generation and online serving (Ray + Gradio). Entry point: `cosmos_framework.scripts.inference`. Ecosystem-facing shim libraries (lightweight standalone wrappers for downstream projects) live under [`packages/`](./packages).
+## 1. 先准备目标节点
 
-## WorldAct 训练主线（本分支）
+平台任务使用以下基础镜像（由当前集群使用者指定）：
 
-基于 NVIDIA cosmos-framework，加入单右手真机（sandwich / dropper）与 Bench2Dex 仿真的 WAM 后训练，以及可选的 PointFlow/FK 几何分支。
+```text
+registry2.d.pjlab.org.cn/ccr-lepton-official-images/a3-cann:9.2.0-a3-ubuntu22.04-py3.12
+```
 
-原生 WAM 训练入口（第二个参数选 `wam`；`nonlocal` / `local` 是 PointFlow/FK 变体，默认不需要）：
+**镜像标签与容器内实际软件栈分别记录。** 当前容器内查询到的 CANN runtime 和 `Ascend-cann-910b-ops` 均为 **9.1.0**；已有两步与5000步结果基于这一实际安装组合。`9.2.0-a3` 标签本身不能证明镜像原装 ops 适用于910B，也不能作为“已验证原装CANN 9.2.0”的依据。新容器必须检查实际版本及芯片包；如仍是A3/910_93 ops，应由平台准备匹配910B的 CANN/ops 后再运行验收。Python bootstrap 不负责替换这些系统组件。
 
-| 用途 | 入口 |
+以下是已经实测的组合，不是对所有同系列版本的兼容承诺。
+
+| 项目 | 实测环境 / 要求 |
 |---|---|
-| 真机，action 归一化 | `examples/launch_real_normalized.sh sandwich\|dropper_mix wam` |
-| 仿真，action 归一化 | `OUTPUT_ROOT=... examples/launch_sim_normalized.sh <task> wam` |
-| 实验配置 | `cosmos_framework/configs/base/experiment/action/posttrain_config/action_policy_singlerighthand_edge.py`、`action_policy_sim_pointfk_edge.py` |
-| 归一化统计 | `tools/compute_real_action_stats.py` → `action_stats.json`（q01/q99，sha256 写入训练配置），实现见 `cosmos_framework/data/generator/action/real_normalization.py` |
-| 视频帧 / VAE latent 缓存 | `docs/pointflow_data_pipeline.md`，`examples/cache_singlerighthand_window_latents.sh`（按训练窗口编码，与在线路径逐位一致） |
-| 数据集 | `cosmos_framework/data/generator/action/datasets/singlerighthand_raw_dataset.py`、`sim_pointfk_dataset.py` |
+| CPU / 系统 | Kunpeng-920，aarch64，Ubuntu 22.04.5 LTS，glibc 2.35 |
+| 设备 | 8 × Ascend910B2，65536 MiB HBM/卡，驱动设备映射完整 |
+| CANN / ops | 9.1.0，**910B 对应的 ops** |
+| 驱动 / 固件 | 25.5.6 / 7.8.0.10.220 |
+| 原生 Python | 3.12.13；本机 `/usr/local/python3.12.13/bin/python3.12` |
+| PyTorch / TorchNPU | `2.10.0+cpu` ARM wheel / `2.10.0.post6` |
+| 环境创建 | 镜像原生 ARM Python 3.12 + venv；146 个哈希锁定 Python 分发包 |
+| 容器资源参考 | CPU quota 144 核，内存上限 1920 GiB，共享内存 128 GiB；这是本机配置，非最小资源结论 |
+| 存储 | venv 安装预留至少 5 GiB；单个完整 DCP 至少 40 GiB 可用，正式输出建议预留 80 GiB 以上 |
+| 其他 | bash、venv/pip、flock、可用的 Python 包源、HCCL 通信条件；共享卷用于保存输出 |
 
-- 主干网络、loss、采样器与官方一致；PointFlow/FK 相关开关（`sync_plain_param_grads`、`joint_attn_mask`、FK 一致性 loss 等）默认关闭，关闭时计算路径与原版相同。
-- 启动脚本里的数据、模型和 venv 路径是训练机上的绝对路径，迁移时需要改。
-- 推理与部署见 `docs/inference.md`、`docs/cosmos_protocol_v2_server.md`。
+`torch` 版本中的 `+cpu` 是本次 ARM 分发包标识，TorchNPU 注册后训练运行在 NPU；不能仅凭版本后缀判断执行设备。验收会实际执行 NPU BF16 算子。
 
-### 原生 WAM 训练上手（给新硬件适配的同事）
-
-本节说明我们实际怎么提交原生 WAM 训练，以及一条训练从启动到写出 checkpoint 经过了哪些代码。适配新显卡前，建议先把下面的数据加载和训练逻辑看一遍。目前只需要适配 `wam` 变体，`nonlocal` / `local`（PointFlow/FK 分支）不在范围内。
-
-#### 0. 数据和权重在哪里下载
-
-训练需要的数据和权重都放在 S3 兼容存储上：
-
-- endpoint：`http://d-ceph-ssd2-inside.pjlab.org.cn`（内网）
-- bucket：`dexmanip`
-- A800 上的 rclone 远端名是 `xlc-HDD2`，所以下面的路径都写成 `xlc-HDD2:dexmanip/...`。访问密钥找管理员要，不写在仓库里。
-
-| 内容 | 桶内路径 | 下载后设置 |
-|---|---|---|
-| 仿真 WAM 数据（Bench2Dex task27） | `dexmanip/shichaojian/wam_datasets_20261029/sim_task27_ball_wam/` | `SIM_POINTFK_BUNDLE` |
-| 真机 WAM 数据（单右手 sandwich） | `dexmanip/shichaojian/wam_datasets_20261029/real_sandwich_wam/` | `SINGLERIGHTHAND_RAW_ROOT=.../raw`、`SINGLERIGHTHAND_CACHE_ROOT=.../cache`，以及白名单和统计文件（见该目录的 README） |
-| 数据说明、加载验证脚本、A800 环境包列表 | `dexmanip/shichaojian/wam_datasets_20261029/README.md`、`verify_wam_loaders.py`、`env/pip_freeze_a800.txt` | — |
-| 4B 初始化权重（DCP 格式，训练直接加载） | `dexmanip/shichaojian/models/cosmos3-edge-droid-dcp/` | `BASE_CHECKPOINT_PATH` |
-| 4B 的 HF 目录（tokenizer、processor、配置、VAE） | `dexmanip/shichaojian/models/cosmos3-edge-droid/` | `EDGE_DROID_MODEL_PATH`；`WAN_VAE_PATH=<该目录>/vae/Wan2.2_VAE.pth` |
-| 16B（Nano）：policy-droid 版的 HF 和 DCP，以及基座 | `dexmanip/shichaojian/models/cosmos3-nano-policy-droid/`、`cosmos3-nano-policy-droid-dcp/`、`cosmos3-nano/` | 换 16B 时使用 |
-| 4B 基座（未经 DROID 训练） | `dexmanip/shichaojian/models/cosmos3-edge/` | 备用 |
-
-下载示例：
+平台应分配一台含八张卡的任务容器，**只启动一次根目录的脚本**，由脚本创建训练 rank。不要让平台再启动八份同一脚本。检查 `npu-smi info`、`/dev/davinci0` 至 `/dev/davinci7`、`/dev/davinci_manager`，以及平台要求的辅助设备和驱动挂载。
 
 ```bash
-rclone copy xlc-HDD2:dexmanip/shichaojian/wam_datasets_20261029 <本地目录>/wam_datasets --transfers 16
-rclone copy xlc-HDD2:dexmanip/shichaojian/models/cosmos3-edge-droid <本地目录>/models/cosmos3-edge-droid --transfers 16
-rclone copy xlc-HDD2:dexmanip/shichaojian/models/cosmos3-edge-droid-dcp <本地目录>/models/cosmos3-edge-droid-dcp --transfers 16
+uname -m
+cat /etc/os-release
+ldd --version
+npu-smi info
+df -h . /tmp /dev/shm
 ```
 
-下载完先运行数据目录里的 `verify_wam_loaders.py`，用训练代码的加载器读几个样本，确认数据能用。注意先把脚本里写死的 A800 模型路径改成本地路径。然后把下文启动脚本里的 A800 绝对路径换成本地路径。
+宿主驱动、固件和匹配的 CANN/ops 由集群管理员或镜像提供。项目脚本不会自动升级这些系统组件，也不会把 910_93/A3 ops 当成 910B ops。
 
-#### 1. 一条命令启动
+## 2. 迁移源码和外部输入
 
-我们在 A800 集群上每个任务占 1 节点 8 卡，任务命令栏只写一行。
-
-仿真（Bench2Dex，例如 task27）：
+从两个独立分支克隆，保持并列目录。以下 Git 命令只在其子进程中清理动态库路径，训练仍保留 CANN 环境：
 
 ```bash
-OUTPUT_ROOT=/data/shichaojian/runs/<run_name> \
-EXTRA_TAIL_OVERRIDES='job.name=sim_task27_wam trainer.max_iter=40000 scheduler.cycle_lengths=[40000] trainer.validation_iter=2000' \
-bash examples/launch_sim_normalized.sh 27_ball wam
+cd /目标卷
+env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git clone --branch lmr-cosmos \
+  https://github.com/NaOH678/cosmos-training.git cosmos-training-litegen-910b
+env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git clone --branch lmr-cosmos \
+  https://github.com/DeepLink-org/LiteGen.dev.git LiteGen.dev
+cd cosmos-training-litegen-910b
+LITEGEN_COMMIT=$(/usr/local/python3.12.13/bin/python3.12 -c 'import json; print(json.load(open("config/litegen.lock.json"))["commit"])')
+env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git -C ../LiteGen.dev checkout --detach "$LITEGEN_COMMIT"
 ```
 
-真机（单右手 sandwich / dropper_mix）：
+Python路径按镜像实际位置调整。固定提交用于重现已验收状态；开发时可切回 LiteGen 的 `lmr-cosmos` 分支。具体链接与升级流程见[衔接说明](docs/litegen_integration.md)。如果使用源码压缩包，仍需单独克隆 LiteGen。压缩包不含本机 `config/cluster.env`；源码目录中的该文件只适用于当前集群。
 
 ```bash
-OUTPUT_ROOT=/data/shichaojian/runs/real_normalized/<run_name> \
-bash examples/launch_real_normalized.sh sandwich wam
+cd /目标卷/cosmos-training-litegen-910b
+cp config/cluster.env.example config/cluster.env
 ```
 
-- 第一个参数选数据：仿真可以是 `21_v3`、`27_ball`、`06_fruit`、`07_citrus`，对应 `/data/shichaojian/sim_data/bench2dex_task<TASK>_training`；真机可以是 `sandwich` 或 `dropper_mix`。第二个参数固定写 `wam`。
-- `EXTRA_TAIL_OVERRIDES` 是追加在最后的 Hydra 覆盖项，后写的生效。
-  - 我们的仿真实验统一用 40k 的学习率周期，训到 30k 手动停止，在 20k / 25k / 30k 测评。
-  - `trainer.max_iter`、batch、保存间隔等都可以在这里改。
-- 同一个 `OUTPUT_ROOT` 重新提交时，会从 `checkpoints/latest_checkpoint.txt` 自动续训。`tools/prepare_normalized_run.py` 会检查归一化统计和变体有没有变；变了就报错，要求换新的 `OUTPUT_ROOT`。
-- 多机训练只需要把 `NNODES` / `NODE_RANK` / `MASTER_ADDR` 交给 `_sft_launcher_common.sh`，见 `docs/pointflow_multinode_training.md`。
+编辑 `config/cluster.env`，至少设置下面四项为实际挂载路径：
 
-#### 2. 启动链路
-
-```
-launch_sim_normalized.sh <task> wam        # 选数据 bundle，设 SIM_POINTFK_VARIANT=wam
- └─ launch_sim_pointfk_v2.sh               # 模型/VAE/venv 路径，注意力与编译开关，归一化统计
-     └─ tools/prepare_normalized_run.py    # 把 action 统计固定到 OUTPUT_ROOT，并做续训检查
-     └─ _sft_launcher_common.sh            # 组装 torchrun 参数（单机/多机），日志写到 OUTPUT_ROOT/logs
-         └─ torchrun -m cosmos_framework.scripts.train --sft-toml=<toml> -- <Hydra 覆盖项>
-             ├─ examples/toml/sft_config/action_policy_sim_pointfk_edge.toml           # lr、batch、调度、保存
-             └─ configs/base/experiment/action/posttrain_config/action_policy_sim_pointfk_edge.py
-                  # 继承 action_policy_singlerighthand_edge.py（模型、loss、回调），只换数据集
-```
-
-真机这条链路更短：`launch_real_normalized.sh` 直接调用 `prepare_normalized_run.py` 和 `_sft_launcher_common.sh`。用的 TOML 是 `action_policy_fk_point_singlerighthand_edge.toml`，实验配置是 `action_policy_singlerighthand_edge.py`。
-
-启动脚本里写死了三类 A800 上的绝对路径，换机器时要改：
-
-- venv：`/mnt/afs/WorldAct-cosmos3-edge-droid-sft/.venv`，Python 3.13.15，torch 2.10.0+cu130，flash_attn 2.7.4.post1，triton 3.6.0（完整包列表见桶里的 `wam_datasets_20261029/env/pip_freeze_a800.txt`）。
-- 模型：`/data/shichaojian/models/cosmos3-edge-droid`（HF）及其 DCP 版本 `cosmos3-edge-droid-dcp`；VAE 是 `vae/Wan2.2_VAE.pth`。
-- 数据：`/data/shichaojian/sim_data/...`、`/data/shichaojian/raw_data/...`、`/data/shichaojian/datasets/...`。
-
-#### 3. 数据加载逻辑
-
-**仿真**：`cosmos_framework/data/generator/action/datasets/sim_pointfk_dataset.py`。数据目录规范见 `docs/sim_pointfk_data_format.md`，生成流程见 `docs/SIM_DATA_PIPELINE.md`。
-
-- 一个任务一个 bundle：`bench2dex_task<TASK>_training/`。
-  - `normalization_train_only.json`：动作统计，只用训练集计算。
-  - `datasets/cosmos-cache/video_frames/<episode>.npy`：三视角拼好的 RGB，`uint8 [T,3,720,640]`，以 memmap 方式读取。
-  - `datasets/cosmos-cache/vae_window_latents/`：每个训练窗口预先编码好的 VAE latent，形状 `[48,9,40,40]`，以 uint16 存储的 bfloat16。
-  - `datasets/cosmos-cache/window_index.json`：所有有效窗口的索引。
-  - `pointflow_fk_handguided1024/manifest.json`：窗口清单和训练/验证划分，94/6，按轨迹组划分。WAM 也从这里读清单和划分，只是不读 PointFlow/FK 内容（`include_geometry=False`）。
-- 读取时会核对三份清单的 SHA256 是否一致：选点清单、latent 清单、窗口索引。不一致直接报错，避免视频、动作和窗口错位。
-- 每个样本是一个 33 帧窗口，20 Hz，跨度 1.6 s。
-  - `vae_latent_cache`：训练时直接用缓存的 latent，不在线跑 VAE 编码；训练集也只读第 0 帧 RGB（`cached_video_only`）。
-  - `action`：`[33, D]`。第 0 行是当前关节状态，后 32 行是绝对关节目标。按 q01/q99 仿射归一化：`offset=(q01+q99)/2`，`scale=max((q99-q01)/2, 0.05)`，不截断。最后补零到 64 维，补的维度不参与 loss。D 随机器人不同：Wuji 手 52 维，06 为 36 维，07 为 48 维。
-  - `ai_caption`：任务描述文本，训练时有 10% 概率丢弃，用于 CFG。
-  - 其余固定字段：`domain_id=28`，`conditioning_fps=20`，`viewpoint=concat_view`。
-- dataloader 每卡 4 个 worker，按 episode 成块打乱，`in_order=True`。
-
-**真机**：`singlerighthand_raw_dataset.py`（入口在 `action_sft_dataset.py`），合同见 `docs/action_policy_singlerighthand_edge_posttrain.md`。
-
-- 原始数据：30 fps 的 `head.mp4`、`right_wrist.mp4` 和 LMDB。训练按 15 fps 取 33 帧观测、32 步动作，窗口跨度 2.13 s，起点每次滑动 1 个源帧。
-- 动作是 27 维：右手末端 xyz、四元数 xyzw、20 个手指关节（弧度）。第 0 行是当前状态。
-- 训练读两层缓存：`video_frames`（解码、拼图、缩放后的帧）和 `vae_window_latents`（每个窗口的 latent）。缓存生成方法见 `docs/pointflow_data_pipeline.md` 和 `examples/cache_singlerighthand_window_latents.sh`。验证集按 episode 留 5%。
-
-#### 4. 训练逻辑（WAM）
-
-原理详见 `docs/cosmos_wam_mode.md`。
-
-- 视频 latent 和动作 token 拼在同一条序列上，同一个噪声水平 σ，一次前向同时去噪。
-  - 条件部分不加噪、不进 loss：视频 latent 0（当前帧）和动作 token 0（当前状态）。
-  - 预测部分：视频 latent 1–8 和动作 token 1–32。
-- loss = 10 × 视频 MSE + 动作 MSE（`loss_scale=10.0`），用的是 rectified flow。代码里 `x_0` 是噪声，`x_1` 是干净数据，不要看反。
-- 初始化：从 Cosmos3-Edge-DROID 的 DCP checkpoint 加载（`checkpoint.load_path=$BASE_CHECKPOINT_PATH`）。
-- 优化：lr 2e-5，warmup 50 步后在 `cycle_lengths` 内衰减到 0。bf16，FSDP 分片数等于每节点卡数（`data_parallel_shard_degree=$NPROC_PER_NODE`）。
-- batch：每卡 16，8 卡全局 128，不做梯度累积。
-- 每 500 步存一次 checkpoint，到 `OUTPUT_ROOT/cosmos3_action/action_sft/<job.name>/checkpoints/iter_XXXXXXXXX/`。每个约 30 GB，不会自动删除旧的，磁盘要预留够。
-- 验证：每 `validation_iter` 步在验证集上算一次。
-
-**A800 参考值**（`sim_task06_wam_8gpu_40k_20261012`，8×A800 80GB）：
-
-| 指标 | 数值 |
+| 变量 | 需要的内容 |
 |---|---|
-| 速度 | 约 3.55 s/步 |
-| loss（每 1000 步的均值）：0–1k | 2.50 |
-| 1k–2k | 1.06 |
-| 5k–6k | 0.78 |
-| 10k–11k | 0.67 |
-| 20k–21k | 0.55 |
-| 29k–30k | 0.49 |
+| `EDGE_DROID_MODEL_PATH` | 模型 `config.json`、tokenizer、processor/preprocessor、special tokens、chat template 等配置 |
+| `BASE_CHECKPOINT_PATH` | 原始预训练 DCP；包含 `model/.metadata` 和两份 `model/*.distcp`，约 6.28 GiB |
+| `WAN_VAE_PATH` | `Wan2.2_VAE.pth` 文件，约 2.63 GiB |
+| `SIM_POINTFK_BUNDLE` | task27 原始训练归一化统计、窗口索引、动作记录、VAE latent 和视频帧缓存 |
 
-新硬件上前几千步的 loss 应该和这条曲线基本重合，可以作为数值正确性的判断依据。
+```text
+<SIM_POINTFK_BUNDLE>/
+  normalization_train_only.json
+  datasets/cosmos-cache/
+    window_index.json
+    pointflow_fk_handguided1024/manifest.json
+    pointflow_fk_handguided1024/*.pt
+    vae_window_latents/window_manifest.json
+    vae_window_latents/*.npy
+    video_frames/*.npy
+```
 
-#### 5. 新显卡上要看的开关
+虽然目录名含 PointFlow，纯 WAM 也从这里读取动作与窗口记录。必须迁移全部被清单引用的文件，包含 75,640 份动作记录；latent 约 97.38 GiB、video frames 约 101.63 GiB。不要换成随机数据或重新生成的不同窗口来做 loss 对齐。复制 DCP 时必须保留隐藏的 `.metadata`。
 
-这些都和硬件有关，适配时逐项确认：
+[external_inputs.json](external_inputs.json) 记录原始路径、必要文件大小、配置/清单 SHA256 及缓存规模。初始权重和多 GiB payload 没有逐文件内容哈希，输入检查不等于这些 payload 的全量内容校验。
 
-| 开关 | 位置 | 作用 / 适配要点 |
-|---|---|---|
-| `I4_ATTN_BACKENDS=flash2`、`COSMOS_FLASH2_VARLEN=1` | 启动脚本 | 注意力后端。目前强制用 FlashAttention-2 的 varlen 接口；新卡不支持时，要换成可用的后端（选择逻辑在 `cosmos_framework/model/attention/`） |
-| `model.config.compile.enabled=true`、`compile_dynamic=true` | TOML / 覆盖项 | torch.compile（Inductor/Triton）。`TORCHINDUCTOR_MIX_ORDER_REDUCTION=0` 是为了绕过 A800 上反向时 Triton 共享内存溢出。新卡出现编译问题时，可以先关掉 compile 跑通 |
-| `activation_checkpointing.mode=selective`、`save_ops_regex=[_flash_attn.*forward]`、`save_mm_shapes` | TOML | 选择性重计算，按 flash-attn 算子名和矩阵乘形状决定保存哪些激活。换了注意力后端，正则就匹配不到了，要一起改 |
-| `dataloader_train.max_samples_per_batch` / `batch_size` | TOML / 覆盖项 | 每卡 batch 16 是按 80 GB 显存定的。显存小时调小，同时记下全局 batch 变化 |
-| `NPROC_PER_NODE`、`data_parallel_shard_degree` | 环境变量 / 覆盖项 | 必须满足 `shard × replicate × CP = 总卡数` |
-| `precision=bfloat16` | TOML | 需要 bf16 支持 |
-| `trainer.callbacks.compile_tokenizer.enabled=false` | TOML | A800 环境没有 nvcc，所以关闭 |
-| `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`、`COSMOS_CPU_AFFINITY_MODE=partition` | 启动脚本 | 显存分配器和 CPU 绑核，按新机器的拓扑调整 |
+当前集群配置示例；迁移到其他机器时修改右侧路径：
 
-建议的适配顺序：
+```bash
+export NPU_BOOTSTRAP_PYTHON=/usr/local/python3.12.13/bin/python3.12
+export COSMOS_NPU_ENV=/tmp/cosmos-training-litegen-910b-env
+export LITEGEN_ROOT=/目标卷/LiteGen.dev
+export CANN_ENV=/usr/local/Ascend/cann/set_env.sh
+export EDGE_DROID_MODEL_PATH=/oss/shichaojian/models/cosmos3-edge-droid
+export BASE_CHECKPOINT_PATH=/oss/shichaojian/models/cosmos3-edge-droid-dcp
+export WAN_VAE_PATH=/oss/shichaojian/models/cosmos3-edge-droid/vae/Wan2.2_VAE.pth
+export SIM_POINTFK_BUNDLE=/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam
+```
 
-1. `DRY_RUN=1 bash examples/launch_sim_normalized.sh 27_ball wam`：只解析配置，不占 GPU。
-2. 两步冒烟测试：
-   ```bash
-   EXTRA_TAIL_OVERRIDES='trainer.max_iter=2 checkpoint.save_iter=2' \
-   OUTPUT_ROOT=<tmp> bash examples/launch_sim_normalized.sh 27_ball wam
-   ```
-3. 训 1–2k 步，对照上面的 loss 和速度参考值。
-4. 再跑完整训练。
+`NPU_BOOTSTRAP_PYTHON` 必须指向**镜像自身可用的 ARM Python 3.12**；本机裸命令 `python3.12` 不在 PATH，不能照搬默认命令。不要移动旧 venv 或从 x86 导出二进制环境。`COSMOS_NPU_ENV` 建议使用支持可靠文件锁的本地盘；本集群 DTFS 的 `flock` 曾阻塞，所以实测使用 `/tmp`。容器重建后需要重建这个环境；模型和正式输出仍放共享卷。
 
-#### 6. 参考文档（建议阅读顺序）
+## 3. 安装环境并检查输入
 
-| 文档 | 内容 |
+```bash
+cd /目标卷/cosmos-training-litegen-910b
+mkdir -p outputs/setup
+set -o pipefail
+bash run.sh --verify 2>&1 | tee outputs/setup/verify.log
+bash run.sh --check-inputs --all-payloads 2>&1 | tee outputs/setup/inputs.log
+bash run.sh --bootstrap-only 2>&1 | tee outputs/setup/bootstrap.log
+```
+
+- `--verify` 校验本交付的 `MANIFEST.json`。原迁移包的历史清单另存于 `provenance/original-migration-manifest.json`，不要拿旧清单校验修复后的源码。
+- `--check-inputs` 检查模型/数据清单哈希、权重大小、所有 frame/latent 文件及确定性抽样的动作文件；`--all-payloads` 额外检查全部动作文件是否存在。结果在 `outputs/input_check.json`。
+- `--bootstrap-only` 使用原生 Python 创建独立 venv，从 [environment/requirements.lock](environment/requirements.lock) 安装依赖，先核对外部 LiteGen 的提交和运行时修改状态，再以 `--no-deps` 安装外部 LiteGen 与本项目 Cosmos 的 editable 源码，执行 `pip check` 和所有锁定版本检查。版本报告及 LiteGen 提交/路径写入 `outputs/environment/installed.json`。
+- 安装不改系统 Python、CANN 或驱动。首次安装需能访问 Python 包源；使用集群镜像源时保留锁文件的版本和哈希。
+- 重复 bootstrap 可复用同一位置的环境；移动源码目录时应使用新的 venv 并重新 bootstrap，避免 editable 注册仍指向旧目录。
+
+安装后激活并确认 Cosmos 来自本项目、LiteGen 来自外部 checkout：
+
+```bash
+source config/cluster.env
+source scripts/activate.sh
+"$TRAIN_PYTHON" -c 'import torch, torch_npu, litegen, cosmos_framework; print(torch.__version__, torch_npu.__version__); print(litegen.__file__); print(cosmos_framework.__file__); print(torch.npu.device_count())'
+```
+
+激活脚本会设置 `LITEGEN_DEVICE=npu`、`COSMOS_DEVICE=npu`、`COMPILE=false`、Cosmos 与外部 LiteGen 的 `PYTHONPATH` 和 CANN 库路径。训练进程必须保留 CANN 的 `LD_LIBRARY_PATH`。
+
+## 4. 先做真实八卡两步功能验收
+
+```bash
+bash run.sh
+```
+
+默认按顺序完成安装/输入检查、八卡真实设备预检、五项 attention、两卡 FSDP2 恢复测试、八卡 4B WAM 两步训练和完整 DCP 检查。也可以指定一个尚不存在的报告目录：
+
+```bash
+bash run.sh --report-root "$PWD/outputs/acceptance-$(date -u +%Y%m%dT%H%M%SZ)"
+```
+
+| 阶段 | 必须满足 |
 |---|---|
-| [`docs/cosmos_wam_mode.md`](./docs/cosmos_wam_mode.md) | WAM 原理：时间网格、条件/生成位置、加噪公式、loss，以及为什么要编码全部 33 帧 |
-| [`docs/sim_pointfk_data_format.md`](./docs/sim_pointfk_data_format.md) | 仿真数据目录规范：训练前数据和训练缓存（latent、窗口索引、划分、归一化）的格式，以及准备命令 |
-| [`docs/SIM_DATA_PIPELINE.md`](./docs/SIM_DATA_PIPELINE.md) | 仿真数据从原始 HDF5 到训练输入的完整处理流程（第 3、4、8、9 节和 WAM 相关） |
-| [`docs/action_policy_singlerighthand_edge_posttrain.md`](./docs/action_policy_singlerighthand_edge_posttrain.md) | 真机单右手数据合同（帧率、窗口、27 维动作）、视频帧缓存、DCP 转换、dry run 与冒烟测试 |
-| [`docs/pointflow_data_pipeline.md`](./docs/pointflow_data_pipeline.md) | 真机视频帧 / VAE 窗口 latent 缓存的生成方法 |
-| [`docs/pointflow_multinode_training.md`](./docs/pointflow_multinode_training.md) | 多机训练：torchrun 拓扑、HSDP（shard × replicate）、集群注入的环境变量与排障 |
-| [`docs/training.md`](./docs/training.md)、[`docs/sft_config.md`](./docs/sft_config.md) | 上游 cosmos-framework 的训练指南和 TOML 配置字段说明 |
-| [`docs/setup.md`](./docs/setup.md) | 环境安装、CUDA 版本选择 |
+| 设备预检 | 八张真实 910B、软件版本、逐卡 BF16 运算与同步通过 |
+| attention | 五项真实 NPU 测试执行通过，**skip 不计通过** |
+| 两卡 LiteGen | FSDP2、FP32 master AdamW、RNG/DCP 精确恢复及恢复后更新 |
+| 八卡 WAM | 八个 NPU rank，最终 step=2，三类 loss 有限 |
+| 完整检查点 | model、optim、scheduler、trainer 元数据/分片完整；小状态及 RNG 实际回读 |
+| 最终状态 | `status.json` 中 `status=passed` 且 `wam_executed=true` |
 
-## Cosmos 3
+报告位于 `outputs/wam-910b-job-*` 或指定的 `--report-root`。包括 `preflight.json`、`attention.xml`、`fsdp-dcp/result.json`、`wam_result.json`、`checkpoint_schema.json` 及各阶段日志。任一阶段失败会停止并返回非零。
 
-**Cosmos 3** is our newest model family [[Report]](https://research.nvidia.com/labs/cosmos-lab/cosmos3/technical-report.pdf) [[Website]](https://research.nvidia.com/labs/cosmos-lab/cosmos3/). It is a suite of omnimodal world models designed to jointly process and generate language, images, video, audio, and action sequences within a unified Mixture-of-Transformers architecture. By supporting highly flexible input-output configurations, it seamlessly unifies critical modalities for Physical AI — effectively subsuming vision-language models, video generators, world simulators, and world-action models into a single framework. For a guided experience to test out Cosmos3, please visit [[Cosmos]](https://github.com/nvidia/cosmos).
+两步验收使用 batch 1/卡、关闭 validation，不能代替 5000 步数值对齐。默认完整 smoke 检查点写 `/tmp`，检查完删除大分片、保留诊断报告。要保留权重，可在 `cluster.env` 中设置**尚不存在**的 `NPU_WAM_OUTPUT_ROOT=/持久卷/全新目录`，该文件系统至少有 40 GiB 空闲。`--checks-only` 只覆盖算子和两卡小模型，不执行真实 WAM。
 
-## Framework Documentation
+## 5. 原配置 5000 步训练
 
-- [Quickstart](#setup)
-- [Setup](./docs/setup.md)
-- [Training (Supervised Fine-Tuning)](./docs/training.md)
-  - [JSONL Dataset](./docs/dataset_jsonl.md)
-- [Inference](./docs/inference.md)
-- [Policy Server](./docs/action_policy_droid_server.md)
-- [Agent Skills](#agent-skills)
-- Reference
-  - [Code Structure](./docs/code_structure.md)
-  - [Environment Variables](./docs/environment_variables.md)
-  - [FAQ](./docs/faq.md)
-  - [AGENTS.md — repo map for coding agents](./AGENTS.md)
+先完成上面的八卡验收。正式实验从原始 `BASE_CHECKPOINT_PATH` 开始，使用全新输出目录。下面覆盖的是已验证的实验参数：batch 16/卡、global batch 128、梯度累积 1、seed 42、BF16、学习率周期 40000、warmup 50；5000 步结束不意味着把调度周期改成 5000。
 
-## Setup
-
-For more details and alternative installation methods, see [Setup](./docs/setup.md#installation). Before installing, make sure your machine meets the [System Requirements](./docs/setup.md#system-requirements). If you want a curated PyTorch + CUDA environment, start from the [recommended NVIDIA NGC base image](./docs/setup.md#recommended-base-image).
-
-Install system dependencies:
-
-```shell
-sudo apt-get install -y --no-install-recommends curl ffmpeg git-lfs libx11-dev tree wget
+```bash
+cd /目标卷/cosmos-training-litegen-910b
+source config/cluster.env
+source scripts/activate.sh
+export SENSECORE_ACCELERATE_DEVICE_COUNT=8
+export SENSECORE_PYTORCH_NNODES=1 SENSECORE_PYTORCH_NODE_RANK=0
+export MAX_ITER=5000 SAVE_ITER=5000 BATCH_SIZE=16 GRAD_ACCUM_ITER=1
+export CYCLE_LENGTH=40000 TRAIN_SEED=42 TRAIN_WORKERS=4
+export COMPILE=false RUN_VALIDATION=true VALIDATION_ITER=2000 LOGGING_ITER=10
+export BASELINE_MONITOR=1 BENCH_WARMUP_STEPS=50 ALLOW_RESUME=0
+export JOB_NAME=sim_task27_wam_910b_align5k
+export OUTPUT_ROOT="$PWD/outputs/wam-5000-$(date -u +%Y%m%dT%H%M%SZ)/output"
+bash cosmos-training/mrlv/launch_wam_litegen.sh
 ```
 
-Install the package with `uv` (pick the dependency group that matches your CUDA toolkit — see [CUDA Variants](./docs/setup.md#cuda-variants)):
+已有的 `launch_wam_litegen.sh` 复用原始 WAM launcher 与训练配置，不另写一套训练循环。`--dry-run` 只解析配置；正式训练需要去掉该选项。不会静默回退 CPU。`ALLOW_RESUME=1` 才允许从同一输出目录的已有检查点续训；有意续训前应确认检查点正确且配置一致。
 
-```shell
-# CUDA 13.0 (recommended)
-uv sync --all-extras --group=cu130-train
-# Or, for CUDA 12.8:
-# uv sync --all-extras --group=cu128-train
-source .venv/bin/activate && export LD_LIBRARY_PATH=
+### 后台运行，关闭终端不影响任务
+
+执行上一段的 `source` 和 `export`，**将最后一行训练命令替换为以下段落**。`OUTPUT_ROOT` 仍须为新路径：
+
+```bash
+export RUN_DIR="$(dirname "$OUTPUT_ROOT")"
+mkdir -p "$RUN_DIR"
+nohup setsid bash -c '
+  date -u +%FT%TZ > "$RUN_DIR/started_at.txt"
+  printf "running\n" > "$RUN_DIR/status.txt"
+  bash cosmos-training/mrlv/launch_wam_litegen.sh
+  rc=$?
+  printf "%s\n" "$rc" > "$RUN_DIR/exit_code.txt"
+  date -u +%FT%TZ > "$RUN_DIR/finished_at.txt"
+  if [ "$rc" -eq 0 ]; then
+    printf "training_completed\n" > "$RUN_DIR/status.txt"
+  else
+    printf "failed\n" > "$RUN_DIR/status.txt"
+  fi
+  exit "$rc"
+' > "$RUN_DIR/console.log" 2>&1 < /dev/null &
+printf '%s\n' "$!" > "$RUN_DIR/launcher.pid"
+printf 'Run directory: %s\n' "$RUN_DIR"
 ```
 
-If you are starting from the recommended NGC image (`nvcr.io/nvidia/pytorch:26.06-py3`), see the [one-shot quickstart](./docs/setup.md#quickstart-from-the-recommended-base-image).
+`nohup + setsid` 脱离当前终端，但不能抵御容器回收、节点重启或平台任务超时；长期任务应保留平台作业。`training_completed` 只表示启动器正常退出，必须继续核对 step=5000、检查点与下节对齐结果。强制杀进程可能来不及写退出状态，不能只看 PID 或进程消失判断成功。
 
-## Training
-
-For the full guide (data preparation, base-checkpoint conversion, parallelism strategies, mixed precision, resuming), see [Training](./docs/training.md). The number of GPUs required depends on the recipe; the shipped recipes under [`examples/`](./examples/README.md) are 8-GPU configurations (tested on 8× H100 80 GB) launched via their paired launch shells, e.g.:
-
-```shell
-bash examples/launch_sft_vision_nano.sh
+```bash
+tail -n 50 "$RUN_DIR/console.log"
+cat "$RUN_DIR/status.txt"
+tail -n 3 "$OUTPUT_ROOT/metrics.csv"
+"$COSMOS_NPU_ENV/bin/tensorboard" --logdir "$OUTPUT_ROOT/tensorboard" --host 127.0.0.1 --port 6006
 ```
 
-Users may adjust the GPU count to match their model and underlying hardware architecture — tune `NPROC_PER_NODE` and the parallelism degrees (DP/CP/FSDP shard) in the recipe accordingly.
+正式输出包括 metrics、TensorBoard、性能报告、最终有效配置及 `cosmos3_action/action_sft/<job>/checkpoints/iter_000005000`。本实验 `SAVE_ITER=5000`，因此常规中间保存不发生；同一任务的保留策略会清理较早检查点，跨不同输出目录不会互相清理。多个检查点同时存在时空间需求会超过 40 GiB。
 
-## Inference
+## 6. 与 A100 做完整对齐
 
-See [Inference](./docs/inference.md) for the full guide — launch commands, supported modes, parallelism presets, and troubleshooting.
-
-Quick single-GPU launch:
-
-```shell
-python -m cosmos_framework.scripts.inference \
-    --parallelism-preset=latency \
-    -i "inputs/omni/t2v.json" \
-    -o outputs/omni_nano \
-    --checkpoint-path Cosmos3-Nano \
-    --seed=0
+```bash
+"$TRAIN_PYTHON" cosmos-training/mrlv/compare_wam_cross_device.py \
+  --baseline reference/wam-task27-align5k-01 \
+  --candidate "$OUTPUT_ROOT" \
+  --report "$RUN_DIR/alignment.json"
 ```
 
-## Policy Server
+保持原门槛：三类 loss 全程均值相对差 ≤5%，每 500 步窗口均值相对差 ≤10%；比较完整 5000 步、有效配置、动作归一化及运行元数据。只允许 `compile.enabled` 不同。性能单独报告，不把 910B 吞吐强行套用 A100 速度门槛。
 
-See [Policy Server](./docs/action_policy_droid_server.md) for the full guide.
+**该严格工具还比较模型/数据路径。** 保持原挂载路径时可直接使用上述命令；迁移后路径不同，即使内容相同也会被判为配置不同。此时先核对输入内容，再对副本中的具体路径建立可审计映射，保留原始和映射后配置；不能关闭全部配置比较、改原基线或放宽 loss 门槛。两步输出不应送入该 5000 步对齐入口。
 
-## Agent Skills
+已有完整结果在 `evidence/5000-step/`，包含 PNG/PDF/SVG、逐点 CSV、十个窗口统计、NPU TensorBoard 快照、原始配置和性能数据。`plot_loss_comparison.py`、`build_overview.py` 可在安装好的环境中依据同目录快照重新绘图；`verify_full_run.py` 是历史完整检查点复核脚本，需要历史源路径，不能拿无权重的交付包假装再次验证全部分片。
 
-Coding agents (Claude Code, Codex CLI, Cursor, and other AGENTS.md-aware
-tools) can load task-specific instructions for this repo from the bundled
-AgentSkills. Each skill is a self-contained `SKILL.md` that the agent
-invokes automatically when the user's request matches its description.
+## 7. 实际装配遇到的坑
 
-Skills live in [`.agents/skills/`](./.agents/skills) (canonical) and are
-mirrored under [`.claude/skills/`](./.claude/skills) for Claude Code:
+| 问题 | 原因与本项目处理 |
+|---|---|
+| 910B 机器上的算子包不匹配 | 原镜像有 910_93 ops；换为同版本官方 910B ops，驱动未改。不能只凭镜像标签认定支持当前芯片。 |
+| Git 报 glibc/库版本错误 | 仅 Git 子进程用 `env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git ...`；不对训练全局清空库路径。 |
+| 共享盘创建 venv 卡住 | DTFS 上 `flock` 阻塞；改用本地 `/tmp` 环境。不要删除正在使用的锁或同时安装同一 venv。 |
+| Python 版本/架构错误 | 显式指定镜像原生 ARM Python 3.12，bootstrap 验证架构和版本。环境不能跨架构或直接搬路径。 |
+| CANN 的 Python 路径污染安装检查 | bootstrap 的安装子进程清理 `PYTHONPATH`；训练激活重新加载 CANN，保留其动态库路径。 |
+| 全 wheel 安装失败 | `antlr4-python3-runtime==4.9.3`、`iopath==0.1.10` 使用锁定 sdist；仅这两项允许源码构建，安装固定构建工具并关闭隔离构建，保留哈希检查。 |
+| 上游 extras 拉取 Apex/FlashAttention 等 CUDA 包 | 使用包内 NPU 安装元数据及统一锁文件；不要额外安装完整 CUDA extras。 |
+| 无关 LeRobot 导入阻塞 WAM | 数据集按需导入；同时适配 wandb 的 runid 导入路径，补齐 iopath/portalocker/pytz。 |
+| DCP 元数据含 `pathlib._local` | 加入 Python 3.12 的元数据兼容读取。检查点来源必须可信，DCP 元数据不是不可信输入解析接口。 |
+| 初始 loss 与预训练起点不符 | 发现 FP32 master 在 DCP 加载前复制随机权重；修复为首次有梯度更新时创建 master，完整恢复保留已有 FP32 状态。详见实验说明。 |
+| scheduler 七个空分片被误判丢失 | DCP 对复制状态去重，rank 0 保存实际内容；依据 metadata 引用、字节边界和回读结果判断，不能要求每个分片非空。 |
+| 意外续训破坏起点 | 使用全新输出目录；launcher 默认拒绝已有可恢复检查点，显式 `ALLOW_RESUME=1` 才允许恢复。 |
+| 更换源码目录却加载旧代码 | editable 安装与路径绑定；新位置重新创建环境并检查两份包的 `__file__`。 |
 
-| Skill                                                                            | When it activates                                                                    |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`cosmos3-setup`](./.agents/skills/cosmos3-setup/SKILL.md)                       | Installation, environment setup, checkpoint downloads, Docker.                       |
-| [`cosmos3-codebase-nav`](./.agents/skills/cosmos3-codebase-nav/SKILL.md)         | "Where is X" / "where do I change parameter Y" questions across `cosmos_framework/`. |
-| [`cosmos3-inference`](./.agents/skills/cosmos3-inference/SKILL.md)               | Running offline or online inference, parallelism, sampling parameters.               |
-| [`cosmos3-post-training`](./.agents/skills/cosmos3-post-training/SKILL.md)       | SFT post-training end-to-end: data prep, DCP conversion, launch, export.             |
-| [`cosmos3-env-troubleshoot`](./.agents/skills/cosmos3-env-troubleshoot/SKILL.md) | Diagnosing install/runtime errors (ImportError, CUDA, Docker, checkpoint failures).  |
+不要从旧的 `wam-checkpoint-20261105T092827Z` 或 `...T094018Z` 两步检查点继续正式训练：它们早于 master 初始化修复，仅是故障排查证据。本交付使用修复后完成 5000 步的源码。
 
-See [`AGENTS.md`](./AGENTS.md) for the canonical repo map that agents load
-first; the skills above are referenced from there.
+## 8. 文件组织与可追溯性
 
-## Reference
+```text
+run.sh                    两步验收 / 输入检查 / 环境安装统一入口
+scripts/                  bootstrap、activate、输入和源码校验
+config/cluster.env.example 目标集群配置模板
+external_inputs.json      外部权重和缓存清单
+MANIFEST.json             本交付文件 SHA256
+cosmos-training/          Cosmos 运行时、原配置、桥接、NPU 验收与训练脚本
+config/litegen.lock.json   外部 LiteGen 仓库、分支和验收提交；不含平台源码
+environment/              固定依赖和环境资料
+reference/                原生 A100 5000 步基线，无历史权重
+docs/                     实验、LiteGen 改动、新目录复测说明
+evidence/                 已归档的报告、日志、曲线及小型原始数据
+provenance/               来源提交、补丁、原清单和源码快照哈希
+outputs/                  本地新运行输出；不进入迁移压缩包
+```
 
-| Topic                                                        | What it covers                                                                                                                            |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| [Setup](./docs/setup.md)                                     | Hardware/software prerequisites, `uv` install paths, CUDA variants, Docker base image, and base-checkpoint downloading.                   |
-| [Code Structure](./docs/code_structure.md)                   | Repository layout and a per-subpackage tour of `cosmos_framework/` — where each concern lives and where to add new code.                  |
-| [Training](./docs/training.md)                               | Launching multi-GPU and multi-node runs; parallelism strategies; mixed precision; resuming.                                               |
-| [Inference (from a trained checkpoint)](./docs/inference.md) | Loading a trained checkpoint into one of the inference backends.                                                                          |
-| [Policy Server](./docs/action_policy_droid_server.md)        | Running the server-client pipeline for Cosmos3-Policy-DROID.                                                                              |
-| [FAQ](./docs/faq.md)                                         | Troubleshooting (OOM, NCCL hangs, slow training), environment variables, and common pitfalls.                                             |
-| [AGENTS.md](./AGENTS.md) + [Agent Skills](#agent-skills)     | Repo map and task-specific `SKILL.md` files loaded automatically by AGENTS.md-aware coding agents (Claude Code, Codex CLI, Cursor, etc.). |
+本次拆分保持 Cosmos 训练运行时、数值配置和测试阈值不变；安装与激活入口改为校验并引用外部 LiteGen。原迁移仓库 HEAD 为 `60655e9c7bb8581bab95c2470816cf150e5bc57d`，其中包含未提交修复；真实来源以 `provenance/validated-source.patch` 和 `validated-source-sha256.json` 为准。复制时 750 个交付文件全部匹配 5000 步实验快照；这些是拆分前的历史快照证据；当前文件以本分支 MANIFEST 为准。Cosmos/附属运行时许可证保留在项目内，LiteGen 的许可证保留在独立平台仓库。

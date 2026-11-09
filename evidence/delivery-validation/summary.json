@@ -1,0 +1,72 @@
+{
+  "status": "passed",
+  "checked_at_utc": "2026-11-08T12:18:22.851869+00:00",
+  "project": "/mnt/lvminrui/workspace/cosmos-training-litegen-910b",
+  "python_environment": "/tmp/cosmos-training-litegen-910b-env",
+  "locked_distributions": 146,
+  "regression": {
+    "tests": "55",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0"
+  },
+  "inputs": {
+    "status": "passed",
+    "checked_files": [
+      "/oss/shichaojian/models/cosmos3-edge-droid/config.json",
+      "/oss/shichaojian/models/cosmos3-edge-droid/tokenizer.json",
+      "/oss/shichaojian/models/cosmos3-edge-droid/tokenizer_config.json",
+      "/oss/shichaojian/models/cosmos3-edge-droid/chat_template.jinja",
+      "/oss/shichaojian/models/cosmos3-edge-droid/preprocessor_config.json",
+      "/oss/shichaojian/models/cosmos3-edge-droid/processor_config.json",
+      "/oss/shichaojian/models/cosmos3-edge-droid/special_tokens_map.json",
+      "/oss/shichaojian/models/cosmos3-edge-droid/video_preprocessor_config.json",
+      "/oss/shichaojian/models/cosmos3-edge-droid-dcp/model/.metadata",
+      "/oss/shichaojian/models/cosmos3-edge-droid-dcp/model/__0_0.distcp",
+      "/oss/shichaojian/models/cosmos3-edge-droid-dcp/model/__0_1.distcp",
+      "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam/normalization_train_only.json",
+      "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam/datasets/cosmos-cache/window_index.json",
+      "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam/datasets/cosmos-cache/pointflow_fk_handguided1024/manifest.json",
+      "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam/datasets/cosmos-cache/vae_window_latents/window_manifest.json",
+      "/oss/shichaojian/models/cosmos3-edge-droid/vae/Wan2.2_VAE.pth"
+    ],
+    "checked_payload_files": 75840,
+    "errors": [],
+    "scope": "manifest/config SHA256; weights, all frames/latents and selected action payload existence; no full payload hashes",
+    "all_action_payloads_checked": true
+  },
+  "formal_config_matches_completed_npu_run": true,
+  "formal_config_matches_a100_except_compile": true,
+  "hardware_acceptance": {
+    "status": "passed",
+    "wam_executed": true,
+    "stages": {
+      "activation": "passed",
+      "preflight": "passed",
+      "attention": "passed",
+      "fsdp_dcp": "passed",
+      "wam_smoke": "passed"
+    },
+    "wam_iterations": 2,
+    "attention_executed": 5,
+    "attention_skipped": 0,
+    "checkpoint_schema": "passed"
+  },
+  "two_step_metrics": [
+    {
+      "iteration": "1",
+      "train/loss": "13.729534149169922",
+      "train/video_loss": "0.17178936302661896",
+      "train/action_loss": "1.2011641263961792"
+    },
+    {
+      "iteration": "2",
+      "train/loss": "13.860824584960938",
+      "train/video_loss": "0.1785968840122223",
+      "train/action_loss": "1.2074856758117676"
+    }
+  ],
+  "full_5000_rerun_in_delivery_directory": false,
+  "full_5000_evidence": "evidence/5000-step/full_comparison.json",
+  "runtime_changes_this_delivery": []
+}

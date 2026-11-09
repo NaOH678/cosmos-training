@@ -1,0 +1,58 @@
+{
+  "status": "passed",
+  "device": "Ascend910B2",
+  "cases": [
+    {
+      "dtype": "torch.bfloat16",
+      "lr": 0.0,
+      "actual": [
+        2.0,
+        -3.0
+      ],
+      "oracle": [
+        2.0,
+        -3.0
+      ],
+      "status": "passed"
+    },
+    {
+      "dtype": "torch.bfloat16",
+      "lr": 0.02,
+      "actual": [
+        1.9765625,
+        -2.984375
+      ],
+      "oracle": [
+        1.9765625,
+        -2.984375
+      ],
+      "status": "passed"
+    },
+    {
+      "dtype": "torch.float32",
+      "lr": 0.0,
+      "actual": [
+        2.0,
+        -3.0
+      ],
+      "oracle": [
+        2.0,
+        -3.0
+      ],
+      "status": "passed"
+    },
+    {
+      "dtype": "torch.float32",
+      "lr": 0.02,
+      "actual": [
+        1.9780000448226929,
+        -2.9769999980926514
+      ],
+      "oracle": [
+        1.9780000448226929,
+        -2.9769999980926514
+      ],
+      "status": "passed"
+    }
+  ]
+}

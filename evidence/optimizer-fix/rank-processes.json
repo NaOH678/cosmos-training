@@ -1,0 +1,141 @@
+{
+  "at_utc": "2026-11-05T12:44:24.507905+00:00",
+  "workers": [
+    {
+      "pid": 294742,
+      "launcher_pid": 294688,
+      "env": {
+        "RANK": "0",
+        "LOCAL_RANK": "0",
+        "WORLD_SIZE": "8",
+        "LITEGEN_DEVICE": "npu",
+        "COSMOS_DEVICE": "npu",
+        "SIM_MODE_PROBS": null,
+        "FOURTOWER_NOISE_MIX": null,
+        "FOURTOWER_CONS_W_JM": null,
+        "FOURTOWER_CONS_W_MF": null,
+        "FOURTOWER_CONS_W_FV": null
+      },
+      "cann_ld_library_path_preserved": true
+    },
+    {
+      "pid": 294743,
+      "launcher_pid": 294688,
+      "env": {
+        "RANK": "1",
+        "LOCAL_RANK": "1",
+        "WORLD_SIZE": "8",
+        "LITEGEN_DEVICE": "npu",
+        "COSMOS_DEVICE": "npu",
+        "SIM_MODE_PROBS": null,
+        "FOURTOWER_NOISE_MIX": null,
+        "FOURTOWER_CONS_W_JM": null,
+        "FOURTOWER_CONS_W_MF": null,
+        "FOURTOWER_CONS_W_FV": null
+      },
+      "cann_ld_library_path_preserved": true
+    },
+    {
+      "pid": 294744,
+      "launcher_pid": 294688,
+      "env": {
+        "RANK": "2",
+        "LOCAL_RANK": "2",
+        "WORLD_SIZE": "8",
+        "LITEGEN_DEVICE": "npu",
+        "COSMOS_DEVICE": "npu",
+        "SIM_MODE_PROBS": null,
+        "FOURTOWER_NOISE_MIX": null,
+        "FOURTOWER_CONS_W_JM": null,
+        "FOURTOWER_CONS_W_MF": null,
+        "FOURTOWER_CONS_W_FV": null
+      },
+      "cann_ld_library_path_preserved": true
+    },
+    {
+      "pid": 294745,
+      "launcher_pid": 294688,
+      "env": {
+        "RANK": "3",
+        "LOCAL_RANK": "3",
+        "WORLD_SIZE": "8",
+        "LITEGEN_DEVICE": "npu",
+        "COSMOS_DEVICE": "npu",
+        "SIM_MODE_PROBS": null,
+        "FOURTOWER_NOISE_MIX": null,
+        "FOURTOWER_CONS_W_JM": null,
+        "FOURTOWER_CONS_W_MF": null,
+        "FOURTOWER_CONS_W_FV": null
+      },
+      "cann_ld_library_path_preserved": true
+    },
+    {
+      "pid": 294746,
+      "launcher_pid": 294688,
+      "env": {
+        "RANK": "4",
+        "LOCAL_RANK": "4",
+        "WORLD_SIZE": "8",
+        "LITEGEN_DEVICE": "npu",
+        "COSMOS_DEVICE": "npu",
+        "SIM_MODE_PROBS": null,
+        "FOURTOWER_NOISE_MIX": null,
+        "FOURTOWER_CONS_W_JM": null,
+        "FOURTOWER_CONS_W_MF": null,
+        "FOURTOWER_CONS_W_FV": null
+      },
+      "cann_ld_library_path_preserved": true
+    },
+    {
+      "pid": 294747,
+      "launcher_pid": 294688,
+      "env": {
+        "RANK": "5",
+        "LOCAL_RANK": "5",
+        "WORLD_SIZE": "8",
+        "LITEGEN_DEVICE": "npu",
+        "COSMOS_DEVICE": "npu",
+        "SIM_MODE_PROBS": null,
+        "FOURTOWER_NOISE_MIX": null,
+        "FOURTOWER_CONS_W_JM": null,
+        "FOURTOWER_CONS_W_MF": null,
+        "FOURTOWER_CONS_W_FV": null
+      },
+      "cann_ld_library_path_preserved": true
+    },
+    {
+      "pid": 294748,
+      "launcher_pid": 294688,
+      "env": {
+        "RANK": "6",
+        "LOCAL_RANK": "6",
+        "WORLD_SIZE": "8",
+        "LITEGEN_DEVICE": "npu",
+        "COSMOS_DEVICE": "npu",
+        "SIM_MODE_PROBS": null,
+        "FOURTOWER_NOISE_MIX": null,
+        "FOURTOWER_CONS_W_JM": null,
+        "FOURTOWER_CONS_W_MF": null,
+        "FOURTOWER_CONS_W_FV": null
+      },
+      "cann_ld_library_path_preserved": true
+    },
+    {
+      "pid": 294749,
+      "launcher_pid": 294688,
+      "env": {
+        "RANK": "7",
+        "LOCAL_RANK": "7",
+        "WORLD_SIZE": "8",
+        "LITEGEN_DEVICE": "npu",
+        "COSMOS_DEVICE": "npu",
+        "SIM_MODE_PROBS": null,
+        "FOURTOWER_NOISE_MIX": null,
+        "FOURTOWER_CONS_W_JM": null,
+        "FOURTOWER_CONS_W_MF": null,
+        "FOURTOWER_CONS_W_FV": null
+      },
+      "cann_ld_library_path_preserved": true
+    }
+  ]
+}

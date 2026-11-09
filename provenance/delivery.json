@@ -1,0 +1,8 @@
+{
+  "created_at_utc": "2026-11-08T11:59:18.692161+00:00",
+  "source": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration",
+  "validated_run": "/mnt/lvminrui/workspace/mrlv/wam-910b-8x-5000-20261105T131003Z",
+  "validated_source_files_checked": 750,
+  "validated_source_differences": [],
+  "purpose": "Portable Cosmos 4B task27 WAM on 8 x Ascend910B; runtime copied byte-for-byte from the 5000-step validated source."
+}

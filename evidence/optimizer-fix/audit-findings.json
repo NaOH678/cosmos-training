@@ -1,0 +1,33 @@
+{
+  "at_utc": "2026-11-05T12:31:25.989527+00:00",
+  "verdict": "not_fully_equivalent",
+  "production_code_changed_this_turn": false,
+  "source_config_files_identical": 60,
+  "smoke_vs_5000step_effective_config_differences": 11,
+  "critical_finding": {
+    "file": "LiteGen.dev/litegen/optim/master_shadow.py",
+    "line": 19,
+    "trigger": "Trainer constructs optimizer before model-only pretrained DCP load; first optimizer update copies stale master into loaded model parameters.",
+    "reproduction_cpu": "master-warmstart-probe.json",
+    "reproduction_npu": "master-warmstart-npu-probe.json",
+    "native_behavior": "FusedAdam creates param_groups_master at first step, after pretrained model loading."
+  },
+  "scope_differences": [
+    "Current original repository includes optional SIM_MODE_PROBS and FOURTOWER noise/consistency branches absent from migration snapshot. Their defaults do not activate in the reviewed pure WAM recipe.",
+    "NPU replaces CUDA attention kernels, optimizer implementation, collective backend and RNG backend; bitwise cross-device equivalence is not established."
+  ],
+  "safe_simplification_candidates": [
+    {
+      "file": "cosmos-training/cosmos_framework/model/generator/mot/parallelize_vfm_network.py",
+      "change": "Use the existing single parallelize_unified_mot and VFM compile path for native and LiteGen, preserving ordering and leaving only final sharding dispatch separate."
+    },
+    {
+      "file": "cosmos-training/cosmos_framework/data/generator/action/datasets/__init__.py",
+      "change": "Use relative module names and derive __all__ from the lazy export mapping while preserving existing public export order."
+    }
+  ],
+  "not_executed": [
+    "No production simplification or optimizer repair pending user scope choice.",
+    "No 5000-step cross-device numerical alignment."
+  ]
+}

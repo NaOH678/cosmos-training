@@ -1,0 +1,86 @@
+{
+  "hardware": {
+    "recorded_at_utc": "2026-11-05T09:31:47.161624+00:00",
+    "architecture": "aarch64",
+    "os": {
+      "NAME": "Ubuntu",
+      "ID": "ubuntu",
+      "PRETTY_NAME": "Ubuntu 22.04.5 LTS",
+      "VERSION_ID": "22.04",
+      "VERSION": "22.04.5 LTS (Jammy Jellyfish)",
+      "VERSION_CODENAME": "jammy",
+      "ID_LIKE": "debian",
+      "HOME_URL": "https://www.ubuntu.com/",
+      "SUPPORT_URL": "https://help.ubuntu.com/",
+      "BUG_REPORT_URL": "https://bugs.launchpad.net/ubuntu/",
+      "PRIVACY_POLICY_URL": "https://www.ubuntu.com/legal/terms-and-policies/privacy-policy",
+      "UBUNTU_CODENAME": "jammy"
+    },
+    "glibc": [
+      "glibc",
+      "2.35"
+    ],
+    "native_python": {
+      "version": "3.12.13",
+      "executable": "/usr/local/python3.12.13/bin/python3.12"
+    },
+    "cpu_model": "Kunpeng 920",
+    "host_logical_cpus": 192,
+    "available_affinity_cpus": 191,
+    "container_cpu_quota_cores": 144,
+    "container_memory_limit_bytes": 2061584302080,
+    "shared_memory_bytes": 137438953472,
+    "npu": {
+      "count": 8,
+      "chip": "Ascend910B2",
+      "hbm_mib_each": 65536,
+      "driver": "25.5.6",
+      "firmware": "7.8.0.10.220",
+      "visible_device_mapping": "7,5,1,4,2,0,3,6",
+      "device_files": [
+        "/dev/davinci0",
+        "/dev/davinci1",
+        "/dev/davinci2",
+        "/dev/davinci3",
+        "/dev/davinci4",
+        "/dev/davinci5",
+        "/dev/davinci6",
+        "/dev/davinci7"
+      ]
+    },
+    "cann": "9.1.0",
+    "ops": "9.1.0 Ascend910B (repaired from initially mismatched Ascend910_93 ops)",
+    "evidence": [
+      "resources.log",
+      "cann-after-repair.log",
+      "ops-chip-before.txt",
+      "ops-install-attempt2.log"
+    ],
+    "filesystems": {
+      "/mnt/lvminrui": {
+        "total": 1099511627776,
+        "used": 41582592,
+        "free": 1099470045184
+      },
+      "/tmp": {
+        "total": 7679093243904,
+        "used": 344350191616,
+        "free": 7334743052288
+      },
+      "/dev/shm": {
+        "total": 137438953472,
+        "used": 917504,
+        "free": 137438035968
+      }
+    }
+  },
+  "environment": {
+    "status": "passed",
+    "python": "3.12.13 (main, Aug  3 2026, 02:40:28) [GCC 11.4.0]",
+    "prefix": "/tmp/cosmos-npu-env-20261105",
+    "locked_distributions": 146,
+    "mismatches": {},
+    "torch_import_version": "2.10.0+cpu",
+    "torch_npu_version": "2.10.0.post6"
+  }
+}

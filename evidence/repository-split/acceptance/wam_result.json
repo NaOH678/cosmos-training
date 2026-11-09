@@ -1,0 +1,39 @@
+{
+  "iterations": 2,
+  "metrics": [
+    {
+      "iteration": "1",
+      "train/loss": "13.729534149169922",
+      "train/video_loss": "0.17178936302661896",
+      "train/action_loss": "1.2011641263961792"
+    },
+    {
+      "iteration": "2",
+      "train/loss": "13.860824584960938",
+      "train/video_loss": "0.17859689891338348",
+      "train/action_loss": "1.2074856758117676"
+    }
+  ],
+  "checkpoint_components": {
+    "model": {
+      "shards": 8,
+      "nonempty_shards": 8,
+      "bytes": 20231772368
+    },
+    "optim": {
+      "shards": 8,
+      "nonempty_shards": 8,
+      "bytes": 17098206586
+    },
+    "scheduler": {
+      "shards": 8,
+      "nonempty_shards": 1,
+      "bytes": 7758
+    },
+    "trainer": {
+      "shards": 8,
+      "nonempty_shards": 8,
+      "bytes": 182941
+    }
+  }
+}

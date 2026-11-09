@@ -1,0 +1,107 @@
+{
+  "cosmos_framework/trainer/__init__.py": {
+    "file_identical": false,
+    "identical_functions": [
+      "training_step",
+      "_optimizer_step",
+      "_zero_grad",
+      "_fetch_and_broadcast_data"
+    ],
+    "changed_functions": [
+      "validate",
+      "train",
+      "__init__"
+    ]
+  },
+  "cosmos_framework/utils/generator/optimizer.py": {
+    "file_identical": false,
+    "identical_functions": [
+      "_lr_scheduler_cls",
+      "__len__",
+      "get_last_lr",
+      "get_lr",
+      "state_dict",
+      "build_lr_scheduler",
+      "step",
+      "build_optimizer",
+      "_convert_omegaconf_to_python",
+      "load_state_dict",
+      "_build_optimizer_internal",
+      "__iter__",
+      "zero_grad",
+      "__init__",
+      "_build_params_with_metadata"
+    ],
+    "changed_functions": [
+      "_optimizer_cls"
+    ]
+  },
+  "cosmos_framework/model/generator/algorithm/loss/flow_matching.py": {
+    "file_identical": true,
+    "identical_functions": [
+      "compute_flow_matching_loss"
+    ],
+    "changed_functions": []
+  },
+  "cosmos_framework/model/generator/diffusion/rectified_flow.py": {
+    "file_identical": true,
+    "identical_functions": [
+      "get_sigmas",
+      "get_discrete_timestamp",
+      "__call__",
+      "sample_train_time",
+      "get_interpolation",
+      "__init__"
+    ],
+    "changed_functions": []
+  },
+  "cosmos_framework/data/generator/action/action_processing.py": {
+    "file_identical": true,
+    "identical_functions": [
+      "denormalize_action",
+      "postprocess_action",
+      "normalize_action",
+      "load_action_stats",
+      "preprocess_action",
+      "get_action_processing_records",
+      "resolve_action_normalization",
+      "_beta_tensor",
+      "pad_action_to_max_dim",
+      "make_batched_action_processing_fields",
+      "__init__",
+      "make_pose_action_scale_normalizer",
+      "_unpad_action"
+    ],
+    "changed_functions": []
+  },
+  "cosmos_framework/data/generator/action/datasets/action_sft_dataset.py": {
+    "file_identical": false,
+    "identical_functions": [
+      "__len__",
+      "get_shuffle_blocks",
+      "__getitem__",
+      "__iter__",
+      "_get_shuffle_blocks",
+      "__init__"
+    ],
+    "changed_functions": [
+      "get_action_dualhand_joint_cache_sft_dataset",
+      "get_action_singlerighthand_raw_sft_dataset",
+      "get_action_libero_sft_dataset",
+      "get_action_droid_sft_dataset",
+      "get_action_droid_merged_lerobot_sft_dataset"
+    ]
+  },
+  "cosmos_framework/utils/generator/dtensor_helper.py": {
+    "file_identical": false,
+    "identical_functions": [
+      "update_average",
+      "__init__",
+      "restore",
+      "copy_to"
+    ],
+    "changed_functions": [
+      "cache"
+    ]
+  }
+}

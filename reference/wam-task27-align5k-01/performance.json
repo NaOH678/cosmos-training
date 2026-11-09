@@ -1,0 +1,23 @@
+{
+  "segment_start_iteration": 0,
+  "warmup_steps": 50,
+  "window_steps": 10,
+  "world_size": 8,
+  "precision": "bfloat16",
+  "compile": true,
+  "batch_per_gpu": 16,
+  "global_batch": 128,
+  "grad_accum_iter": 1,
+  "seed": 42,
+  "base_checkpoint": "/oss/shichaojian/models/cosmos3-edge-droid-dcp",
+  "dataset_bundle": "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam",
+  "measurement": "max rank wall time; includes I/O, communication and logging; excludes warmup/checkpoint/validation windows",
+  "steady_windows": 492,
+  "measured_steps": 4920,
+  "mean_step_seconds": 3.611516938050205,
+  "median_window_step_seconds": 3.611175984950387,
+  "samples_per_second": 35.44217075418313,
+  "peak_allocated_gib": 40.9632134437561,
+  "peak_reserved_gib": 44.23828125,
+  "status": "measured"
+}

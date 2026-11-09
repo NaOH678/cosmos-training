@@ -1,0 +1,40 @@
+{
+  "verified_at": "2026-11-05T14:52:29.094941+08:00",
+  "scope": "Portable source export and CPU/config validation; not Ascend hardware acceptance",
+  "status": "passed_for_packaging_and_cpu",
+  "runtime_cpu_tests": {
+    "passed": 48,
+    "junit": "migration_cpu_tests.xml",
+    "threads": 1
+  },
+  "exporter_unit_tests": {
+    "passed": 4
+  },
+  "relocation": {
+    "verified_from": "/tmp/cosmos-migration-final-build",
+    "both_framework_imports_resolve_inside_export": true
+  },
+  "training_configuration": {
+    "status": "passed",
+    "mode": "LiteGen CUDA smoke --dry-run; no GPU workers",
+    "config": "migration_dryrun_config.yaml"
+  },
+  "external_input_check": {
+    "status": "passed",
+    "report": "migration_input_check.json",
+    "payloads_checked": 234
+  },
+  "package_metadata": {
+    "litegen": "passed editable metadata build",
+    "cosmos-framework": "passed editable metadata build"
+  },
+  "arm_environment_dependency_metadata": {
+    "distributions": 147,
+    "base_dependency_errors": 0,
+    "native_arm_execution": false
+  },
+  "bash_syntax": "passed",
+  "lint": "passed",
+  "real_npu_tests": "not_run; execute run.sh on destination aarch64 / 8 x 910B / CANN 9.1.x task",
+  "test_note": "An initial import test exceeded 120s while concurrent imports used default CPU thread counts; isolated and final complete runs with OMP/MKL/OPENBLAS threads=1 passed. Training launchers already set these limits."
+}

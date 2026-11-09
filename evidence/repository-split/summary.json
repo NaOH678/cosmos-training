@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "scope": "external LiteGen integration and real eight-rank two-step acceptance",
+  "litegen": {
+    "repository": "https://github.com/DeepLink-org/LiteGen.dev.git",
+    "branch": "lmr-cosmos",
+    "commit": "84a251bacc38fd50f14f96a428ce06786ec12c37",
+    "base_branch": "develop",
+    "base_commit": "ceff826ad729151fb385b1f4df787ebc4b5bd888"
+  },
+  "tests": {
+    "litegen-unit": 459,
+    "source-lock": 6,
+    "cosmos-regression": 68
+  },
+  "wam_executed": true,
+  "training_steps": 2,
+  "cosmos_runtime_files_unchanged": 665,
+  "litegen_runtime_python_files_unchanged": 55,
+  "dependency_lock_unchanged": true,
+  "training_5000_steps_rerun": false,
+  "cosmos_base_commit": "6b9705f202beb513cdefcbdcb0a9395987c5c22f",
+  "cosmos_remote_publication": "blocked: SSH user mrlv0048 lacks write permission; GitHub connector is read-only"
+}

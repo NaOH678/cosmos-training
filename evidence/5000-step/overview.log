@@ -1,0 +1,66 @@
+{
+  "losses": [
+    {
+      "metric": "train/loss",
+      "a100_mean": 1.3773676903247833,
+      "910b_mean": 1.3763632822036742,
+      "signed_mean_difference_percent": -0.07292229432739891,
+      "absolute_mean_error_percent": 0.07292229432739891,
+      "worst_500_step_window_error_percent": 0.3359677818317695,
+      "a100_step_5000": 0.7735334634780884,
+      "910b_step_5000": 0.7736555933952332,
+      "a100_last_500_mean": 0.8741539776325226,
+      "910b_last_500_mean": 0.8746748399734497
+    },
+    {
+      "metric": "train/video_loss",
+      "a100_mean": 0.09515704046189785,
+      "910b_mean": 0.0951917921602726,
+      "signed_mean_difference_percent": 0.036520364868494935,
+      "absolute_mean_error_percent": 0.036520364868494935,
+      "worst_500_step_window_error_percent": 0.12636663282533578,
+      "a100_step_5000": 0.07485976070165634,
+      "910b_step_5000": 0.07493221014738083,
+      "a100_last_500_mean": 0.08331519722938538,
+      "910b_last_500_mean": 0.08334933042526245
+    },
+    {
+      "metric": "train/action_loss",
+      "a100_mean": 0.04257972989277914,
+      "910b_mean": 0.04244453443749808,
+      "signed_mean_difference_percent": -0.31751130319872595,
+      "absolute_mean_error_percent": 0.317511303198726,
+      "worst_500_step_window_error_percent": 1.463846376443354,
+      "a100_step_5000": 0.002493585692718625,
+      "910b_step_5000": 0.0024333493784070015,
+      "a100_last_500_mean": 0.004100199928507209,
+      "910b_last_500_mean": 0.004118151951115578
+    }
+  ],
+  "performance": [
+    {
+      "metric": "mean_step_seconds",
+      "a100": 3.611516938050205,
+      "910b": 11.240654202593051,
+      "910b_divided_by_a100": 3.1124467627892902
+    },
+    {
+      "metric": "samples_per_second",
+      "a100": 35.44217075418313,
+      "910b": 11.38723758359832,
+      "910b_divided_by_a100": 0.32129063602161895
+    },
+    {
+      "metric": "peak_allocated_gib",
+      "a100": 40.9632134437561,
+      "910b": 24.29583168029785,
+      "910b_divided_by_a100": 0.5931134214764879
+    },
+    {
+      "metric": "peak_reserved_gib",
+      "a100": 44.23828125,
+      "910b": 31.69921875,
+      "910b_divided_by_a100": 0.7165562913907285
+    }
+  ]
+}

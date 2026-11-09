@@ -1,0 +1,150 @@
+{
+  "original_source": "/mnt/lvminrui/workspace/cosmos-training",
+  "baseline_config": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/reference/wam-task27-align5k-01/cosmos3_action/action_sft/sim_task27_wam_task_baseline/config.yaml",
+  "npu_smoke_config": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T094018Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/config.yaml",
+  "source_config_files": 60,
+  "source_config_differences": [],
+  "effective_numerical_config_differences": [
+    {
+      "key": "checkpoint.save_iter",
+      "baseline": 5000,
+      "npu_smoke": 2
+    },
+    {
+      "key": "dataloader_train.dataloader.batch_size",
+      "baseline": 16,
+      "npu_smoke": 1
+    },
+    {
+      "key": "dataloader_train.max_samples_per_batch",
+      "baseline": 16,
+      "npu_smoke": 1
+    },
+    {
+      "key": "model.config.compile.enabled",
+      "baseline": true,
+      "npu_smoke": false
+    },
+    {
+      "key": "trainer.callbacks.mfu.every_n",
+      "baseline": 10,
+      "npu_smoke": 1
+    },
+    {
+      "key": "trainer.callbacks.ofu.every_n",
+      "baseline": 10,
+      "npu_smoke": 1
+    },
+    {
+      "key": "trainer.callbacks.sequence_packing_padding.every_n",
+      "baseline": 10,
+      "npu_smoke": 1
+    },
+    {
+      "key": "trainer.logging_iter",
+      "baseline": 10,
+      "npu_smoke": 1
+    },
+    {
+      "key": "trainer.max_iter",
+      "baseline": 5000,
+      "npu_smoke": 2
+    },
+    {
+      "key": "trainer.run_validation",
+      "baseline": true,
+      "npu_smoke": false
+    },
+    {
+      "key": "trainer.run_validation_on_start",
+      "baseline": true,
+      "npu_smoke": false
+    }
+  ],
+  "optimizer": {
+    "_target_": "cosmos_framework.utils.generator.optimizer.build_optimizer",
+    "betas": [
+      0.9,
+      0.99
+    ],
+    "disable_weight_decay_for_1d_params": false,
+    "eps": 1e-08,
+    "fused": true,
+    "keys_to_select": [
+      "moe_gen",
+      "time_embedder",
+      "vae2llm",
+      "llm2vae",
+      "action2llm",
+      "llm2action",
+      "action_modality_embed",
+      "k_norm_und_for_gen",
+      "pointflow_branch",
+      "fk_branch"
+    ],
+    "lr": 2e-05,
+    "lr_multipliers": {
+      "action2llm": 5.0,
+      "action_modality_embed": 5.0,
+      "fk_branch": 25.0,
+      "llm2action": 5.0,
+      "pointflow_branch.codec": 25.0
+    },
+    "model": null,
+    "optimizer_type": "FusedAdam",
+    "weight_decay": 0.05
+  },
+  "scheduler": {
+    "_target_": "cosmos_framework.utils.generator.optimizer.build_lr_scheduler",
+    "cycle_lengths": [
+      40000
+    ],
+    "f_max": [
+      1.0
+    ],
+    "f_min": [
+      0.0
+    ],
+    "f_start": [
+      0.0
+    ],
+    "lr_scheduler_type": "LambdaLinear",
+    "optimizer": null,
+    "verbosity_interval": 0,
+    "warm_up_steps": [
+      50
+    ]
+  },
+  "rf_training": {
+    "action_loss_weight": 10.0,
+    "fk_charbonnier_eps": 0.01,
+    "fk_displacement_scale": 0.06544707570831351,
+    "fk_loss_objective": "mse",
+    "fk_loss_weight": 1.0,
+    "image_loss_scale": null,
+    "independent_action_schedule": false,
+    "independent_fk_schedule": false,
+    "independent_pointflow_schedule": false,
+    "independent_sound_schedule": false,
+    "loss_scale": 10.0,
+    "normalize_loss_by_active": false,
+    "pointflow_displacement_scale": 0.035316898637019166,
+    "pointflow_loss_weight": 1.0,
+    "shift": {
+      "256": 3,
+      "480": 5,
+      "720": 10
+    },
+    "shift_action": null,
+    "shift_sound": null,
+    "sound_loss_scale": 2.0,
+    "sync_plain_param_grads": false,
+    "train_time_action_distribution": "logitnormal",
+    "train_time_image_distribution": "logitnormal",
+    "train_time_sound_distribution": "logitnormal",
+    "train_time_video_distribution": "waver",
+    "train_time_weight": "uniform",
+    "use_discrete_rf": false,
+    "use_dynamic_shift": false
+  }
+}

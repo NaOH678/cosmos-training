@@ -1,0 +1,9 @@
+{
+  "snapshot_utc": "2026-11-08T11:35:38.313317+00:00",
+  "npu_tensorboard_source": "/mnt/lvminrui/workspace/mrlv/wam-910b-8x-5000-20261105T131003Z/output/tensorboard",
+  "npu_csv_source": "/mnt/lvminrui/workspace/mrlv/wam-910b-8x-5000-20261105T131003Z/output/metrics.csv",
+  "a100_csv_source": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/reference/wam-task27-align5k-01/metrics.csv",
+  "a100_events_available": false,
+  "baseline_run": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/reference/wam-task27-align5k-01",
+  "npu_run": "/mnt/lvminrui/workspace/mrlv/wam-910b-8x-5000-20261105T131003Z"
+}

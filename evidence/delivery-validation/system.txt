@@ -1,0 +1,155 @@
+Checked at 2026-11-08T12:03:42.306401+00:00
+$ uname -a
+Linux dev-mrlv-d-sys1-0 5.15.0-25-generic #25-Ubuntu SMP Wed Mar 30 15:57:31 UTC 2022 aarch64 aarch64 aarch64 GNU/Linux
+
+exit_code=0
+$ ldd --version
+ldd (Ubuntu GLIBC 2.35-0ubuntu3.13) 2.35
+Copyright (C) 2022 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Written by Roland McGrath and Ulrich Drepper.
+
+exit_code=0
+$ lscpu
+Architecture:                    aarch64
+CPU op-mode(s):                  64-bit
+Byte Order:                      Little Endian
+CPU(s):                          192
+On-line CPU(s) list:             0-191
+Vendor ID:                       HiSilicon
+Model name:                      Kunpeng-920
+Model:                           0
+Thread(s) per core:              1
+Core(s) per cluster:             48
+Socket(s):                       -
+Cluster(s):                      4
+Stepping:                        0x1
+BogoMIPS:                        200.00
+Flags:                           fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm jscvt fcma dcpop asimddp asimdfhm ssbs
+L1d cache:                       12 MiB (192 instances)
+L1i cache:                       12 MiB (192 instances)
+L2 cache:                        96 MiB (192 instances)
+L3 cache:                        192 MiB (8 instances)
+NUMA node(s):                    8
+NUMA node0 CPU(s):               0-23
+NUMA node1 CPU(s):               24-47
+NUMA node2 CPU(s):               48-71
+NUMA node3 CPU(s):               72-95
+NUMA node4 CPU(s):               96-119
+NUMA node5 CPU(s):               120-143
+NUMA node6 CPU(s):               144-167
+NUMA node7 CPU(s):               168-191
+Vulnerability Itlb multihit:     Not affected
+Vulnerability L1tf:              Not affected
+Vulnerability Mds:               Not affected
+Vulnerability Meltdown:          Not affected
+Vulnerability Spec store bypass: Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:        Mitigation; __user pointer sanitization
+Vulnerability Spectre v2:        Not affected
+Vulnerability Srbds:             Not affected
+Vulnerability Tsx async abort:   Not affected
+
+exit_code=0
+$ nproc
+191
+
+exit_code=0
+$ free -h
+               total        used        free      shared  buff/cache   available
+Mem:           2.0Ti        41Gi       1.8Ti       139Mi       101Gi       1.9Ti
+Swap:             0B          0B          0B
+
+exit_code=0
+$ df -h /mnt/lvminrui/workspace/cosmos-training-litegen-910b /tmp /dev/shm
+Filesystem                                 Size  Used Avail Use% Mounted on
+/pvc-8b09f79f-3e25-491d-8c56-339ce25fc0fd  1.0T  140G  885G  14% /mnt/lvminrui
+overlay                                    7.0T  325G  6.7T   5% /
+tmpfs                                      128G     0  128G   0% /dev/shm
+
+exit_code=0
+$ npu-smi info
++------------------------------------------------------------------------------------------------+
+| npu-smi 25.5.6                   Version: 25.5.6                                               |
++---------------------------+---------------+----------------------------------------------------+
+| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|
+| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |
++===========================+===============+====================================================+
+| 0     910B2               | OK            | 95.0        33                0    / 0             |
+| 0                         | 0000:C1:00.0  | 0           0    / 0          3438 / 65536         |
++===========================+===============+====================================================+
+| 1     910B2               | OK            | 89.8        33                0    / 0             |
+| 0                         | 0000:C2:00.0  | 0           0    / 0          3429 / 65536         |
++===========================+===============+====================================================+
+| 2     910B2               | OK            | 89.2        32                0    / 0             |
+| 0                         | 0000:81:00.0  | 0           0    / 0          3429 / 65536         |
++===========================+===============+====================================================+
+| 3     910B2               | OK            | 93.6        33                0    / 0             |
+| 0                         | 0000:82:00.0  | 0           0    / 0          3429 / 65536         |
++===========================+===============+====================================================+
+| 4     910B2               | OK            | 91.4        37                0    / 0             |
+| 0                         | 0000:01:00.0  | 0           0    / 0          3430 / 65536         |
++===========================+===============+====================================================+
+| 5     910B2               | OK            | 91.1        38                0    / 0             |
+| 0                         | 0000:02:00.0  | 0           0    / 0          3430 / 65536         |
++===========================+===============+====================================================+
+| 6     910B2               | OK            | 92.8        37                0    / 0             |
+| 0                         | 0000:41:00.0  | 0           0    / 0          3430 / 65536         |
++===========================+===============+====================================================+
+| 7     910B2               | OK            | 86.9        37                0    / 0             |
+| 0                         | 0000:42:00.0  | 0           0    / 0          3430 / 65536         |
++===========================+===============+====================================================+
++---------------------------+---------------+----------------------------------------------------+
+| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |
++===========================+===============+====================================================+
+| No running processes found in NPU 0                                                            |
++===========================+===============+====================================================+
+| No running processes found in NPU 1                                                            |
++===========================+===============+====================================================+
+| No running processes found in NPU 2                                                            |
++===========================+===============+====================================================+
+| No running processes found in NPU 3                                                            |
++===========================+===============+====================================================+
+| No running processes found in NPU 4                                                            |
++===========================+===============+====================================================+
+| No running processes found in NPU 5                                                            |
++===========================+===============+====================================================+
+| No running processes found in NPU 6                                                            |
++===========================+===============+====================================================+
+| No running processes found in NPU 7                                                            |
++===========================+===============+====================================================+
+
+exit_code=0
+/etc/os-release
+PRETTY_NAME="Ubuntu 22.04.5 LTS"
+NAME="Ubuntu"
+VERSION_ID="22.04"
+VERSION="22.04.5 LTS (Jammy Jellyfish)"
+VERSION_CODENAME=jammy
+ID=ubuntu
+ID_LIKE=debian
+HOME_URL="https://www.ubuntu.com/"
+SUPPORT_URL="https://help.ubuntu.com/"
+BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
+PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
+UBUNTU_CODENAME=jammy
+
+/sys/fs/cgroup/cpu.max
+14400000 100000
+
+/sys/fs/cgroup/memory.max
+2061584302080
+
+/sys/fs/cgroup/cpuset.cpus.effective
+0-3,5-191
+
+device nodes
+/dev/davinci_manager
+/dev/davinci6
+/dev/davinci3
+/dev/davinci0
+/dev/davinci2
+/dev/davinci4
+/dev/davinci1
+/dev/davinci5
+/dev/davinci7

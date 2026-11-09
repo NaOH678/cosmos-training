@@ -1,0 +1,42 @@
+[ops_910b] [20261105-08:48:21] [INFO] LogFile:/var/log/ascend_seclog/ascend_ops_910b_install.log
+[ops_910b] [20261105-08:48:21] [INFO] install start
+[ops_910b] [20261105-08:48:22] [INFO] The installation path is /usr/local/Ascend.
+[ops_910b] [20261105-08:48:22] [WARNING] driver package is not installed. If you install in docker, you should map driver install path and /etc/ascend_install.info to the docker container, you can see the installation guide for details.
+[ops_910b] [20261105-08:48:22] [INFO] install package cann-910b-ops-legacy_9.1.0_linux-aarch64.run start
+[ops_910b] [20261105-08:50:18] [INFO] cann-910b-ops-legacy_9.1.0_linux-aarch64.run --full --quiet --nox11 --install-for-all install success
+[ops_910b] [20261105-08:50:18] [INFO] install package cann-opbase_9.1.0_linux-aarch64.run start
+[ops_910b] [20261105-08:50:23] [INFO] cann-opbase_9.1.0_linux-aarch64.run --full --quiet --nox11 --install-for-all install success
+[ops_910b] [20261105-08:50:23] [INFO] install package cann-hixl_9.1.0_linux-aarch64.run start
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+[ops_910b] [20261105-08:50:34] [INFO] cann-hixl_9.1.0_linux-aarch64.run --full --pylocal --quiet --nox11 --install-for-all install success
+[ops_910b] [20261105-08:50:34] [INFO] install package cann-hccl_9.1.0_linux-aarch64.run start
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+[ops_910b] [20261105-08:50:49] [INFO] cann-hccl_9.1.0_linux-aarch64.run --full --pylocal --quiet --nox11 --install-for-all install success
+[ops_910b] [20261105-08:50:49] [INFO] install package cann-dvpp_9.1.0_linux-aarch64.run start
+[ops_910b] [20261105-08:50:56] [INFO] cann-dvpp_9.1.0_linux-aarch64.run --full --quiet --nox11 --install-for-all install success
+[ops_910b] [20261105-08:50:56] [INFO] install package cann-910b-ops-math_9.1.0_linux-aarch64.run start
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+[ops_910b] [20261105-08:51:53] [INFO] cann-910b-ops-math_9.1.0_linux-aarch64.run --full --quiet --nox11 --install-for-all install success
+[ops_910b] [20261105-08:51:53] [INFO] install package cann-910b-ops-nn_9.1.0_linux-aarch64.run start
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+[ops_910b] [20261105-08:52:44] [INFO] cann-910b-ops-nn_9.1.0_linux-aarch64.run --full --quiet --nox11 --install-for-all install success
+[ops_910b] [20261105-08:52:44] [INFO] install package cann-910b-ops-cv_9.1.0_linux-aarch64.run start
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+[ops_910b] [20261105-08:53:07] [INFO] cann-910b-ops-cv_9.1.0_linux-aarch64.run --full --quiet --nox11 --install-for-all install success
+[ops_910b] [20261105-08:53:07] [INFO] install package cann-910b-ops-transformer_9.1.0_linux-aarch64.run start
+WARNING: Running pip as the 'root' user can result in broken permissions and conflicting behaviour with the system package manager, possibly rendering your system unusable. It is recommended to use a virtual environment instead: https://pip.pypa.io/warnings/venv. Use the --root-user-action option if you know what you are doing and want to suppress this warning.
+[ops_910b] [20261105-08:54:46] [INFO] cann-910b-ops-transformer_9.1.0_linux-aarch64.run --full --quiet --nox11 --install-for-all install success
+[ops_910b] [20261105-08:54:46] [INFO] install package cann-910b-ops-ras_9.1.0_linux-aarch64.run start
+[ops_910b] [20261105-08:54:51] [INFO] cann-910b-ops-ras_9.1.0_linux-aarch64.run --full --quiet --nox11 --install-for-all install success
+
+
+===========
+= Summary =
+===========
+
+Driver:    Not installed.
+ops_910b:  Ascend-cann-910b-ops_9.1.0_linux-aarch64 install success, installed in /usr/local/Ascend.
+
+Please make sure that the environment variables have been configured.
+-  To take effect for current user, you can exec command below: source /usr/local/Ascend/cann/set_env.sh or add "source /usr/local/Ascend/cann/set_env.sh" to ~/.bashrc.
+

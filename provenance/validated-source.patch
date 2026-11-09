@@ -1,0 +1,666 @@
+diff --git a/LiteGen.dev/litegen/optim/master_shadow.py b/LiteGen.dev/litegen/optim/master_shadow.py
+index d12340e..cc1bb9e 100644
+--- a/LiteGen.dev/litegen/optim/master_shadow.py
++++ b/LiteGen.dev/litegen/optim/master_shadow.py
+@@ -16,10 +16,6 @@ class MasterShadowAdamW(torch.optim.AdamW):
+     def __init__(self, params: Any, **kwargs):
+         super().__init__(list(params), **kwargs)
+         self._validate_groups(self.param_groups)
+-        with torch.no_grad():
+-            for group in self.param_groups:
+-                for param in group["params"]:
+-                    self.state[param] = self._restore_parameter_state(param, {})
+ 
+     @staticmethod
+     def _validate_groups(groups):
+@@ -91,7 +87,9 @@ class MasterShadowAdamW(torch.optim.AdamW):
+         assigned = set()
+         for saved, current in zip(saved_groups, self.param_groups):
+             for key, parameter in zip(saved["params"], current["params"]):
+-                state[parameter] = self._restore_parameter_state(parameter, state_dict["state"].get(key, {}))
++                saved_state = state_dict["state"].get(key)
++                if saved_state:
++                    state[parameter] = self._restore_parameter_state(parameter, saved_state)
+                 assigned.add(key)
+             saved["params"] = current["params"]
+             if "param_names" in current and "param_names" not in saved:
+@@ -115,6 +113,9 @@ class MasterShadowAdamW(torch.optim.AdamW):
+                 raise RuntimeError("AdamW does not support sparse gradients")
+             for parameter in active:
+                 state = self.state[parameter]
++                if not state:
++                    # Native FusedAdam initializes masters after model-only checkpoint loading.
++                    state.update(self._restore_parameter_state(parameter, {}))
+                 # Cast one parameter at a time to avoid a second complete
+                 # FP32 gradient shard at the optimizer memory peak.
+                 functional.adamw(
+diff --git a/LiteGen.dev/litegen/optim/prepare.py b/LiteGen.dev/litegen/optim/prepare.py
+index 8ec1828..2ffff54 100644
+--- a/LiteGen.dev/litegen/optim/prepare.py
++++ b/LiteGen.dev/litegen/optim/prepare.py
+@@ -192,7 +192,7 @@ def prepare_fsdp2_optimizer(template, optimization, master, prepared_objects, tr
+                 raise ValueError("optimizer state parameter groups do not match the prepared model")
+             for source_id, prepared_parameter in zip(source_group["params"], mapped_group["params"]):
+                 source_state = state_dict["state"].get(source_id)
+-                if source_state is None:
++                if not source_state:
+                     continue
+                 converted_state = {}
+                 for key, value in source_state.items():
+diff --git a/README.md b/README.md
+index 1350147..7162875 100644
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,33 @@
+ 
+ 本目录是可以直接提交到一个 Git 分支的独立源码快照。包含当前工作区尚未提交的 Cosmos/LiteGen 设备抽象和 NPU 适配，训练配置、检查脚本、依赖锁，以及原生 A100 5000 步对照指标。不依赖原工作区、原 Git 仓库、原 Conda 安装或原用户名；两个源码目录不含嵌套 `.git`。
+ 
+-支持的目标是 **Linux aarch64、Python 3.12、单机八张 910B-64GB**。当前已经完成 A100 训练回归和 CPU/启动控制测试；**910B 训练尚未实测**，需要在目标 CANN 任务实际执行下述验收。
++支持的目标是 **Linux aarch64、Python 3.12、单机八张 910B-64GB**。2026-11-05 已在真实 **8 × Ascend910B2-64GB** 上完成两步 WAM 功能验收：`status=passed`、`wam_executed=true`。这不构成 5000 步数值对齐结论。
++
++## 2026-11-05 训练语义复核与最小精简
++
++本次复核发现并修复了一个此前两步功能验收未覆盖的问题：NPU `MasterShadowAdamW` 在模型加载预训练 DCP 之前复制 master 权重，首次更新即使学习率为零也会把模型覆盖回旧初始化值。现在与原生 FusedAdam 的时序一致，在首次实际更新时初始化 master；恢复已有状态时保留 FP32 master/moments，尚未更新的参数保持延迟初始化。**旧的两步检查点（`wam-checkpoint-20261105T092827Z`、`wam-checkpoint-20261105T094018Z`）仅留作排查证据，不应继续用于正式训练。**
++
++与当前 `/mnt/lvminrui/workspace/cosmos-training` 比较，60 个配置源码文件完全相同；但整个仓库并非完全等价：原仓库新增了可选的模式混合及四塔分支，迁移版未包含这些分支；attention、优化器、通信和 RNG 使用 NPU 实现。当前验收范围为这些可选分支关闭的 task27 纯 WAM。两步 smoke 与原生 A100 5000 步记录还存在步数、batch、compile、验证及日志频率的预期配置差异。
++
++本轮只合并了原生/LiteGen 重复的 activation checkpointing/compile 准备路径，并精简数据集延迟导出的重复模块前缀和名称列表；没有新增依赖或开关。修复前后有效数值配置比较通过，学习率、损失配方、参数筛选、调度器、batch、精度与 EMA 等均未修改。
++
++验证结果：9 个新增回归用例先在旧实现上失败；修复后 50 项针对性测试通过，真实 910B 上 BF16/FP32 与零/非零学习率的四组更新逐位符合 FP32 AdamW 对照。随后重新完成五项 NPU attention、两卡恢复及八卡两步 WAM/DCP 验收；两步总 loss 为 13.729534、13.860826。这仍不等同于 5000 步跨设备数值对齐。
++
++- 本次审查与补丁：[review_summary.json](outputs/ponytail-review-20261105/review_summary.json)、[this-turn.patch](outputs/ponytail-review-20261105/this-turn.patch)。
++- 修复后的完整验收：[status.json](outputs/wam-910b-job-20261105-204124-bjelmaif/status.json)，`passed`、`wam_executed=true`。
++- 新完整检查点：`outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002`。
++
++## 2026-11-05 首次实机功能验收记录
++
++- Ubuntu 22.04.5 / aarch64 / glibc 2.35，原生 Python 3.12.13；Torch 2.10.0+cpu ARM 分发通过 TorchNPU 2.10.0.post6 在 NPU 上执行；CANN 和 910B ops 9.1.0，驱动 25.5.6。
++- 八卡逐卡 BF16 运算及同步通过；五项 NPU attention 测试全部执行、零跳过；两卡 LiteGen FSDP2、FP32 master AdamW、RNG/DCP 精确恢复及恢复后更新通过。
++- 八个真实训练 rank 完成第 1、2 步，三类 loss 均有限；model、optim、scheduler、trainer 完整保存。DCP 会将复制的 scheduler 状态去重至 rank 0，其余七个 rank 文件为空；验收检查全部元数据引用和文件边界，并实际回读 scheduler/trainer 第 2 步及八份 NPU RNG 状态。
++- 最终阶段报告：[status.json](outputs/wam-910b-job-20261105-174040-n6pc27ut/status.json)；完整证据汇总：[acceptance_summary.json](outputs/acceptance-20261105/acceptance_summary.json)；修复过程及失败复测均保存在同一 evidence 目录和各历史 job 目录中。
++- 完整检查点保留于 `outputs/wam-checkpoint-20261105T094018Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002`，没有清理权重或优化器分片。
++
++本容器最初装有不匹配的 Ascend910_93 ops，已单独安装官方同版本 910B ops，驱动未改。`config/cluster.env` 指向镜像原生 `/usr/local/python3.12.13/bin/python3.12`，独立环境放在 `/tmp/cosmos-npu-env-20261105`，因为共享 DTFS 上的 `flock` 曾阻塞；替换容器后应重新 bootstrap。CANN 的 `LD_LIBRARY_PATH` 保留给训练，Git 单独使用 `env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git`。
++
++初始提交 `60655e9c7bb8581bab95c2470816cf150e5bc57d` 的 747 个交付文件已通过 `--verify`。修复后的工作区差异见 `outputs/acceptance-20261105/source-changes.patch`；`MANIFEST.json` 保留原始交付快照，不因修复而重写。训练数值配置、loss 门槛和 attention 阈值未更改。上述报告、完整权重和本地配置由 Git 忽略，保存在本次集群共享卷中。
+ 
+ ## 1. 推送这个目录
+ 
+@@ -103,7 +129,7 @@ cp config/cluster.env.example config/cluster.env
+ bash /目标卷/cosmos-litegen-npu/run.sh
+ ```
+ 
+-该入口先用镜像自身的 ARM Python 3.12 建立独立环境，按 `environment/requirements.lock` 的版本和哈希安装依赖（143 个锁定分发包），然后以 NPU 专用元数据安装两份 editable 本地源码。重复启动会复用已准备的环境，并再次核对锁定版本。CANN 不由安装脚本更换。
++该入口先用镜像自身的 ARM Python 3.12 建立独立环境，按 `environment/requirements.lock` 的版本和哈希安装依赖（146 个锁定分发包；保留原有 143 个版本，补齐 iopath、portalocker、pytz），然后以 NPU 专用元数据安装两份 editable 本地源码。重复启动会复用已准备的环境，并再次核对锁定版本。CANN 不由安装脚本更换。
+ 
+ 后续按顺序执行：
+ 
+diff --git a/cosmos-training/cosmos_framework/checkpoint/dcp.py b/cosmos-training/cosmos_framework/checkpoint/dcp.py
+index 32c8284..754ee94 100644
+--- a/cosmos-training/cosmos_framework/checkpoint/dcp.py
++++ b/cosmos-training/cosmos_framework/checkpoint/dcp.py
+@@ -43,6 +43,7 @@ import dataclasses
+ import enum
+ import multiprocessing
+ import os
++import pickle
+ import re
+ import time
+ from multiprocessing import get_context
+@@ -79,6 +80,28 @@ from cosmos_framework.utils.easy_io import easy_io
+ from cosmos_framework.utils.generator.rand_state import get_rand_state_dict, set_rand_state_dict
+ 
+ 
++class _PortableMetadataUnpickler(pickle.Unpickler):
++    def find_class(self, module, name):
++        # Python 3.13+ moved concrete pathlib classes into pathlib._local.
++        # Older trusted DCP exports must remain readable on the pinned 3.12 image.
++        if module == "pathlib._local" and name in {"Path", "PosixPath", "WindowsPath"}:
++            module = "pathlib"
++        return super().find_class(module, name)
++
++
++class PortableFileSystemReader(FileSystemReader):
++    """Read DCP metadata across Python pathlib layout changes without rewriting it."""
++
++    def read_metadata(self, *args, **kwargs):
++        path = self._get_metadata_path(kwargs.get("rank"))
++        with self.fs.create_stream(path, "rb") as stream:
++            metadata = _PortableMetadataUnpickler(stream).load()
++        if getattr(metadata, "storage_meta", None) is None:
++            metadata.storage_meta = StorageMeta()
++        metadata.storage_meta.load_id = self.load_id
++        return metadata
++
++
+ class ModelWrapper(Stateful):
+     """
+     Wrapper for model state dict handling. Strips away the _orig_mod. prefix
+@@ -1044,7 +1067,7 @@ class DistributedCheckpointer(AbstractCheckpointer):
+                 path=checkpoint_path,
+                 enable_gcs_patch_in_boto3=self.config_checkpoint.enable_gcs_patch_in_boto3,
+             )
+-        return FileSystemReader(checkpoint_path)
++        return PortableFileSystemReader(checkpoint_path)
+ 
+     def _save_as_pkl(self, obj: Any, output_dir: str) -> None:
+         """Save per-rank Python checkpoint state such as no-replace dataloader progress."""
+diff --git a/cosmos-training/cosmos_framework/data/generator/action/datasets/__init__.py b/cosmos-training/cosmos_framework/data/generator/action/datasets/__init__.py
+index 140904c..cdb91b0 100644
+--- a/cosmos-training/cosmos_framework/data/generator/action/datasets/__init__.py
++++ b/cosmos-training/cosmos_framework/data/generator/action/datasets/__init__.py
+@@ -8,30 +8,30 @@ All concrete datasets inherit from :class:`ActionBaseDataset` and expose a
+ statistics without instantiating the dataset.
+ """
+ 
+-from cosmos_framework.data.generator.action.datasets.agibotworld_beta_lerobot_dataset import (
+-    AgiBotWorldBetaLeRobotDataset,
+-)
++from importlib import import_module
++
+ from cosmos_framework.data.generator.action.datasets.base_dataset import ActionBaseDataset
+-from cosmos_framework.data.generator.action.datasets.bridge_orig_lerobot_dataset import BridgeOrigLeRobotDataset
+-from cosmos_framework.data.generator.action.datasets.droid_merged_lerobot_dataset import DROIDMergedLeRobotDataset
+-from cosmos_framework.data.generator.action.datasets.droid_lerobot_dataset import DROIDLeRobotDataset
+-from cosmos_framework.data.generator.action.datasets.fractal_lerobot_dataset import FractalLeRobotDataset
+-from cosmos_framework.data.generator.action.datasets.human_hand_pose_lerobot_dataset import HumanHandPoseLeRobotDataset
+-from cosmos_framework.data.generator.action.datasets.libero_lerobot_dataset import LIBEROLeRobotDataset
+-from cosmos_framework.data.generator.action.datasets.robomind_franka_dataset import RoboMINDFrankaDataset
+-from cosmos_framework.data.generator.action.datasets.robomind_ur_dataset import RoboMINDURDataset
+-from cosmos_framework.data.generator.action.datasets.umi_lerobot_dataset import UMILeRobotDataset
+-
+-__all__ = [
+-    "ActionBaseDataset",
+-    "AgiBotWorldBetaLeRobotDataset",
+-    "BridgeOrigLeRobotDataset",
+-    "DROIDLeRobotDataset",
+-    "DROIDMergedLeRobotDataset",
+-    "FractalLeRobotDataset",
+-    "HumanHandPoseLeRobotDataset",
+-    "LIBEROLeRobotDataset",
+-    "RoboMINDFrankaDataset",
+-    "RoboMINDURDataset",
+-    "UMILeRobotDataset",
+-]
++
++# Optional dataset backends are loaded only when requested.
++_DATASETS = {
++    "AgiBotWorldBetaLeRobotDataset": "agibotworld_beta_lerobot_dataset",
++    "BridgeOrigLeRobotDataset": "bridge_orig_lerobot_dataset",
++    "DROIDLeRobotDataset": "droid_lerobot_dataset",
++    "DROIDMergedLeRobotDataset": "droid_merged_lerobot_dataset",
++    "FractalLeRobotDataset": "fractal_lerobot_dataset",
++    "HumanHandPoseLeRobotDataset": "human_hand_pose_lerobot_dataset",
++    "LIBEROLeRobotDataset": "libero_lerobot_dataset",
++    "RoboMINDFrankaDataset": "robomind_franka_dataset",
++    "RoboMINDURDataset": "robomind_ur_dataset",
++    "UMILeRobotDataset": "umi_lerobot_dataset",
++}
++
++__all__ = ["ActionBaseDataset", *_DATASETS]
++
++
++def __getattr__(name):
++    if name not in _DATASETS:
++        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
++    value = getattr(import_module(f".{_DATASETS[name]}", __name__), name)
++    globals()[name] = value
++    return value
+diff --git a/cosmos-training/cosmos_framework/data/generator/action/datasets/action_sft_dataset.py b/cosmos-training/cosmos_framework/data/generator/action/datasets/action_sft_dataset.py
+index 6a67ca9..81e2e49 100644
+--- a/cosmos-training/cosmos_framework/data/generator/action/datasets/action_sft_dataset.py
++++ b/cosmos-training/cosmos_framework/data/generator/action/datasets/action_sft_dataset.py
+@@ -19,11 +19,6 @@ from typing import Any
+ 
+ from torch.utils.data import Dataset, IterableDataset, get_worker_info
+ 
+-from cosmos_framework.data.generator.action.datasets.droid_lerobot_dataset import DROIDLeRobotDataset
+-from cosmos_framework.data.generator.action.datasets.droid_merged_lerobot_dataset import DROIDMergedLeRobotDataset
+-from cosmos_framework.data.generator.action.datasets.dualhand_joint_cache_dataset import DualHandJointCacheDataset
+-from cosmos_framework.data.generator.action.datasets.libero_lerobot_dataset import LIBEROLeRobotDataset
+-from cosmos_framework.data.generator.action.datasets.singlerighthand_raw_dataset import SingleRightHandRawDataset
+ from cosmos_framework.data.generator.action.transforms import ActionTransformPipeline
+ 
+ 
+@@ -133,6 +128,8 @@ def get_action_droid_sft_dataset(
+ 
+     Reads ``root`` (a merged/versioned DROID LeRobot root) as a single flat
+     dataset; ``use_success_only=True`` filters to the ``success/`` split."""
++    from cosmos_framework.data.generator.action.datasets.droid_lerobot_dataset import DROIDLeRobotDataset
++
+     shard_kwargs = dict(
+         fps=fps,
+         chunk_length=chunk_length,
+@@ -215,6 +212,8 @@ def get_action_singlerighthand_raw_sft_dataset(
+     fk_camera_profile: str = "legacy",
+ ) -> Dataset:
+     """Build single-right-hand WAM SFT from raw MP4s and extracted NPZ arrays."""
++    from cosmos_framework.data.generator.action.datasets.singlerighthand_raw_dataset import SingleRightHandRawDataset
++
+     dataset = SingleRightHandRawDataset(
+         video_decoder=video_decoder,
+         episode_allowlist=episode_allowlist,
+@@ -302,6 +301,8 @@ def get_action_dualhand_joint_cache_sft_dataset(
+     shuffle_block_size: int | None = 256,
+ ) -> Dataset:
+     """Build dual-hand 54D joint WAM SFT entirely from precomputed caches."""
++    from cosmos_framework.data.generator.action.datasets.dualhand_joint_cache_dataset import DualHandJointCacheDataset
++
+     dataset = DualHandJointCacheDataset(
+         cache_root=cache_root,
+         fps=fps,
+@@ -365,6 +366,8 @@ def get_action_droid_merged_lerobot_sft_dataset(
+     episode_shuffle_seed: int = 42,
+ ) -> Dataset:
+     """Build the DROID-Merged LeRobot SFT dataset for action FD recipes."""
++    from cosmos_framework.data.generator.action.datasets.droid_merged_lerobot_dataset import DROIDMergedLeRobotDataset
++
+     dataset = DROIDMergedLeRobotDataset(
+         root=root,
+         fps=fps,
+@@ -436,6 +439,8 @@ def get_action_libero_sft_dataset(
+     dataset is FPS-agnostic (decodes at real frame timestamps); ``fps`` is metadata
+     for ``conditioning_fps`` / prompt duration.
+     """
++    from cosmos_framework.data.generator.action.datasets.libero_lerobot_dataset import LIBEROLeRobotDataset
++
+     dataset = LIBEROLeRobotDataset(
+         root=root,
+         image_size=image_size,
+diff --git a/cosmos-training/cosmos_framework/model/generator/mot/parallelize_vfm_network.py b/cosmos-training/cosmos_framework/model/generator/mot/parallelize_vfm_network.py
+index 7b72bbc..3fd56d4 100644
+--- a/cosmos-training/cosmos_framework/model/generator/mot/parallelize_vfm_network.py
++++ b/cosmos-training/cosmos_framework/model/generator/mot/parallelize_vfm_network.py
+@@ -71,25 +71,14 @@ def parallelize_vfm_network(
+ 
+     from cosmos_framework.integrations.litegen import active_runtime, prepare_network
+ 
+-    if active_runtime() is not None:
+-        if parallel_dims is None or parallel_dims.cp_enabled:
+-            raise ValueError("LiteGen WAM requires parallel dimensions with CP disabled")
+-        # Retain native SAC and per-block compilation before LiteGen shards.
+-        # Passing None prevents the native FSDP path from wrapping a second time.
+-        model.language_model = parallelize_unified_mot(
+-            model.language_model,
+-            parallel_dims=None,
+-            compile_config=compile_config,
+-            ac_config=ac_config,
+-            attention_io_layout=attention_io_layout,
+-        )
+-        if compile_config.enabled and compile_config.compiled_region == "all":
+-            model = apply_compile(model, compile_config)
+-        return prepare_network(model)
++    use_litegen = active_runtime() is not None
++    if use_litegen and (parallel_dims is None or parallel_dims.cp_enabled):
++        raise ValueError("LiteGen WAM requires parallel dimensions with CP disabled")
+ 
+     model.language_model = parallelize_unified_mot(
+         model.language_model,
+-        parallel_dims=parallel_dims,
++        # LiteGen owns sharding; native activation checkpointing and compile run first.
++        parallel_dims=None if use_litegen else parallel_dims,
+         compile_config=compile_config,
+         ac_config=ac_config,
+         attention_io_layout=attention_io_layout,
+@@ -98,6 +87,9 @@ def parallelize_vfm_network(
+     if compile_config.enabled and compile_config.compiled_region == "all":
+         model = apply_compile(model, compile_config)
+ 
++    if use_litegen:
++        return prepare_network(model)
++
+     if parallel_dims is not None and parallel_dims.dp_enabled:
+         # Collect parameters to ignore during FSDP wrapping
+         ignored_params = set()
+diff --git a/cosmos-training/cosmos_framework/utils/config.py b/cosmos-training/cosmos_framework/utils/config.py
+index d886b92..f83f40f 100644
+--- a/cosmos-training/cosmos_framework/utils/config.py
++++ b/cosmos-training/cosmos_framework/utils/config.py
+@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional, Type, TypeVar, Union
+ 
+ import attrs
+ import torch
++from litegen import device as accelerator
+ from loguru import logger as logging
+ 
+ from cosmos_framework.utils.flags import TRAINING
+@@ -527,7 +528,7 @@ class Config:
+ 
+         # broadcast job.name across all ranks to make sure it is consistent
+         # otherwise, unaligned job names leads unaligned path to save checkpoints
+-        job_name_tensor = torch.ByteTensor(bytearray(self.job.name, "utf-8")).cuda()
++        job_name_tensor = torch.ByteTensor(bytearray(self.job.name, "utf-8")).to(accelerator.get_device())
+         distributed.broadcast(job_name_tensor, 0)
+         self.job.name = job_name_tensor.cpu().numpy().tobytes().decode("utf-8")
+ 
+diff --git a/cosmos-training/cosmos_framework/utils/wandb_util.py b/cosmos-training/cosmos_framework/utils/wandb_util.py
+index 582748b..670766f 100644
+--- a/cosmos-training/cosmos_framework/utils/wandb_util.py
++++ b/cosmos-training/cosmos_framework/utils/wandb_util.py
+@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
+ 
+ import attrs
+ import wandb
+-import wandb.util
++from wandb.sdk.lib.runid import generate_id
+ from omegaconf import DictConfig
+ 
+ from cosmos_framework.utils.lazy_config.lazy import LazyConfig
+@@ -50,7 +50,7 @@ def init_wandb(config: Config, model: ImaginaireModel) -> None:
+     wandb_id = _read_wandb_id(config_job, config_checkpoint)
+     if wandb_id is None:
+         # Generate a new W&B job ID.
+-        wandb_id = wandb.util.generate_id()
++        wandb_id = generate_id()
+         _write_wandb_id(config_job, config_checkpoint, wandb_id=wandb_id)
+         log.info(f"Generating new wandb ID: {wandb_id}")
+     else:
+@@ -87,7 +87,7 @@ def init_wandb(config: Config, model: ImaginaireModel) -> None:
+         ):
+             log.warning("W&B run exists but current user lacks update permission; starting a new run instead.")
+             # Generate and persist a new wandb id, then create a fresh run.
+-            wandb_id = wandb.util.generate_id()
++            wandb_id = generate_id()
+             _write_wandb_id(config_job, config_checkpoint, wandb_id=wandb_id)
+             wandb.init(
+                 force=True,
+diff --git a/cosmos-training/mrlv/litegen_bridge_test.py b/cosmos-training/mrlv/litegen_bridge_test.py
+index af6a09b..f2d10bd 100644
+--- a/cosmos-training/mrlv/litegen_bridge_test.py
++++ b/cosmos-training/mrlv/litegen_bridge_test.py
+@@ -15,7 +15,7 @@ from cosmos_framework.integrations import litegen as bridge
+ from mrlv.compare_wam_litegen import compare, load_recorded_metrics, load_run, numerical_config
+ 
+ ROOT = Path(__file__).resolve().parents[2]
+-BASELINE = ROOT / "outputs/wam-task27-align5k-01"
++BASELINE = ROOT / "reference/wam-task27-align5k-01"
+ CONFIG = next(BASELINE.glob("cosmos3_action/action_sft/*/config.yaml"))
+ 
+ 
+@@ -143,3 +143,36 @@ def test_removed_baseline_checkpoint_is_not_reported_complete():
+     else:
+         with pytest.raises(OSError):
+             load_run(BASELINE, 5000)
++
++
++@pytest.mark.parametrize("use_litegen", [False, True])
++@pytest.mark.parametrize("compile_all", [False, True])
++def test_parallelize_preserves_native_transform_order(monkeypatch, use_litegen, compile_all):
++    from cosmos_framework.model.generator.mot import parallelize_vfm_network as module
++
++    model = SimpleNamespace(language_model=object())
++    parallel = SimpleNamespace(cp_enabled=False, dp_enabled=True, dp_mesh=object())
++    compile_config = SimpleNamespace(enabled=compile_all, compiled_region="all")
++    ac_config = object()
++    events = []
++    language = model.language_model
++    transform = Mock(side_effect=lambda value, **kwargs: events.append("language") or value)
++    monkeypatch.setattr(module, "parallelize_unified_mot", transform)
++    monkeypatch.setattr(module, "apply_compile", lambda value, config: events.append("compile") or value)
++    monkeypatch.setattr(bridge, "active_runtime", lambda: object() if use_litegen else None)
++    monkeypatch.setattr(bridge, "prepare_network", lambda value: events.append("litegen_shard") or value)
++    shard = Mock(side_effect=lambda **kwargs: events.append("native_shard") or kwargs["module"])
++    monkeypatch.setattr(module, "fully_shard", shard)
++    monkeypatch.setattr(module, "register_fsdp_forward_method", lambda *args: events.append("register"))
++    assert module.parallelize_vfm_network(model, parallel, compile_config, ac_config) is model
++    transform.assert_called_once_with(
++        language, parallel_dims=None if use_litegen else parallel,
++        compile_config=compile_config, ac_config=ac_config, attention_io_layout="sequence_sharded",
++    )
++    assert events == ["language"] + (["compile"] if compile_all else []) + (
++        ["litegen_shard"] if use_litegen else ["native_shard", "register"]
++    )
++    if use_litegen:
++        shard.assert_not_called()
++    else:
++        shard.assert_called_once_with(module=model, mesh=parallel.dp_mesh, ignored_params=set())
+diff --git a/cosmos-training/mrlv/npu/device_optimizer_test.py b/cosmos-training/mrlv/npu/device_optimizer_test.py
+index 1f3e10e..a78f432 100644
+--- a/cosmos-training/mrlv/npu/device_optimizer_test.py
++++ b/cosmos-training/mrlv/npu/device_optimizer_test.py
+@@ -34,6 +34,8 @@ def test_npu_optimizer_selection_uses_litegen_master_weights(monkeypatch):
+     p = torch.nn.Parameter(torch.ones(3, dtype=torch.bfloat16))
+     opt = _optimizer_cls([p], "FusedAdam", lr=0.01, fused=True, weight_decay=0.05)
+     assert isinstance(opt, MasterShadowAdamW)
++    p.grad = torch.zeros_like(p)
++    opt.step()
+     assert opt.state[p]["master"].dtype == torch.float32
+     assert opt.state[p]["exp_avg"].dtype == torch.float32
+     assert opt.state[p]["exp_avg_sq"].dtype == torch.float32
+@@ -71,3 +73,44 @@ def test_fp32_sampler_coefficients_match_fp64_near_zero(monkeypatch):
+         torch.testing.assert_close(function(t), oracle, atol=3e-6, rtol=3e-6)
+     assert runge_kutta.phi1(torch.tensor(0.0)).item() == 1
+     assert runge_kutta.phi2(torch.tensor(0.0)).item() == 0.5
++
++
++@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float32])
++@pytest.mark.parametrize("lr", [0.0, 0.02])
++@pytest.mark.parametrize("restore_unstarted", [False, True])
++def test_pretrained_load_before_first_update_matches_fp32_oracle(dtype, lr, restore_unstarted):
++    model = torch.nn.Parameter(torch.tensor([0.25, -0.5], dtype=dtype))
++    config = dict(lr=lr, betas=(0.9, 0.99), eps=1e-8, weight_decay=0.05, foreach=False, fused=False)
++    optimizer = MasterShadowAdamW([model], **config)
++    if restore_unstarted:
++        optimizer.load_state_dict(copy.deepcopy(optimizer.state_dict()))
++    # Cosmos loads pretrained model weights after constructing its optimizer.
++    with torch.no_grad():
++        model.copy_(torch.tensor([2.0, -3.0], dtype=dtype))
++    oracle = torch.nn.Parameter(model.detach().float().clone())
++    reference = torch.optim.AdamW([oracle], **config)
++    model.grad = torch.tensor([0.125, -0.25], dtype=dtype)
++    oracle.grad = model.grad.float()
++    optimizer.step()
++    reference.step()
++    torch.testing.assert_close(optimizer.state[model]["master"], oracle, rtol=0, atol=0)
++    torch.testing.assert_close(model, oracle.to(dtype), rtol=0, atol=0)
++
++
++def test_prepare_keeps_unused_optimizer_state_lazy():
++    from types import SimpleNamespace
++    from litegen.optim.prepare import capture_optimizer, prepare_fsdp2_optimizer
++
++    model = torch.nn.Parameter(torch.tensor([0.25], dtype=torch.bfloat16))
++    template = torch.optim.AdamW([model], lr=0.0, foreach=False, fused=False)
++    template.state[model]  # Accessing an unused state must not fix its master weight.
++    optimization = SimpleNamespace(
++        optimizer=SimpleNamespace(backend="single_tensor"), parallel=SimpleNamespace(strategy="fsdp2")
++    )
++    with pytest.warns(UserWarning, match="returned a new optimizer"):
++        optimizer = prepare_fsdp2_optimizer(capture_optimizer(template), optimization, True, {}, {id(model)})
++    with torch.no_grad():
++        model.fill_(2.0)
++    model.grad = torch.zeros_like(model)
++    optimizer.step()
++    assert model.item() == 2.0
+diff --git a/cosmos-training/mrlv/npu/import_test.py b/cosmos-training/mrlv/npu/import_test.py
+index 1cc095b..8d85384 100644
+--- a/cosmos-training/mrlv/npu/import_test.py
++++ b/cosmos-training/mrlv/npu/import_test.py
+@@ -28,3 +28,28 @@ print('WAM model/config import passed')
+     env = dict(os.environ, LITEGEN_DEVICE="cpu", COSMOS_DEVICE="cpu")
+     result = subprocess.run([sys.executable, "-c", script], env=env, capture_output=True, text=True, timeout=120)
+     assert result.returncode == 0, result.stdout + result.stderr
++
++
++def test_dataset_exports_are_lazy_and_cached(monkeypatch):
++    from types import SimpleNamespace
++    from unittest.mock import Mock
++    import pytest
++    from cosmos_framework.data.generator.action import datasets
++
++    expected = [
++        "ActionBaseDataset", "AgiBotWorldBetaLeRobotDataset", "BridgeOrigLeRobotDataset",
++        "DROIDLeRobotDataset", "DROIDMergedLeRobotDataset", "FractalLeRobotDataset",
++        "HumanHandPoseLeRobotDataset", "LIBEROLeRobotDataset", "RoboMINDFrankaDataset",
++        "RoboMINDURDataset", "UMILeRobotDataset",
++    ]
++    assert datasets.__all__ == expected
++    target = object()
++    loader = Mock(return_value=SimpleNamespace(DROIDLeRobotDataset=target))
++    monkeypatch.setattr(datasets, "import_module", loader)
++    monkeypatch.setitem(datasets.__dict__, "DROIDLeRobotDataset", None)
++    del datasets.__dict__["DROIDLeRobotDataset"]
++    assert datasets.DROIDLeRobotDataset is target
++    assert datasets.DROIDLeRobotDataset is target
++    loader.assert_called_once_with(".droid_lerobot_dataset", datasets.__name__)
++    with pytest.raises(AttributeError, match="has no attribute"):
++        datasets.missing_dataset
+diff --git a/cosmos-training/mrlv/npu/job_runner.py b/cosmos-training/mrlv/npu/job_runner.py
+index 7d9cb55..4d84643 100644
+--- a/cosmos-training/mrlv/npu/job_runner.py
++++ b/cosmos-training/mrlv/npu/job_runner.py
+@@ -63,9 +63,15 @@ def verify_wam(root):
+     for name in ("model", "optim", "scheduler", "trainer"):
+         folder = checkpoint / "iter_000000002" / name
+         shards = list(folder.glob("*.distcp"))
+-        if not (folder / ".metadata").is_file() or len(shards) != 8 or any(p.stat().st_size == 0 for p in shards):
++        nonempty = sum(p.stat().st_size > 0 for p in shards)
++        # DCP deduplicates replicated scheduler state onto rank 0. Empty,
++        # unreferenced scheduler files are valid; the schema stage checks every
++        # metadata reference and reads scheduler/trainer state back from disk.
++        if (not (folder / ".metadata").is_file() or len(shards) != 8
++                or nonempty == 0 or (name != "scheduler" and nonempty != 8)):
+             raise ValueError(f"Incomplete WAM DCP component: {name}")
+-        components[name] = {"shards": len(shards), "bytes": sum(p.stat().st_size for p in shards)}
++        components[name] = {"shards": len(shards), "nonempty_shards": nonempty,
++                            "bytes": sum(p.stat().st_size for p in shards)}
+     return {"iterations": 2, "metrics": rows, "checkpoint_components": components}
+ 
+ 
+@@ -301,15 +307,12 @@ class Job:
+             env=env,
+         )
+         result = verify_wam(self.wam_root)
+-        # The DCP metadata reader also confirms these are readable Torch DCP
+-        # schemas, rather than merely files named '.metadata'.
+-        code = (
+-            "from pathlib import Path; from torch.distributed.checkpoint import FileSystemReader; "
+-            "import sys; root=next(Path(sys.argv[1]).glob('cosmos3_action/action_sft/*/checkpoints/iter_000000002')); "
+-            "print({name:len(FileSystemReader(root/name).read_metadata().state_dict_metadata) "
+-            "for name in ('model','optim','scheduler','trainer')})"
++        self.command(
++            "checkpoint_schema",
++            [self.python, "-m", "mrlv.npu.checkpoint_verify", self.wam_root,
++             "--report", self.report / "checkpoint_schema.json"],
++            timeout=120,
+         )
+-        self.command("checkpoint_schema", [self.python, "-c", code, self.wam_root], timeout=120)
+         write_json(self.report / "wam_result.json", result)
+         return result
+ 
+diff --git a/cosmos-training/mrlv/npu/preflight.py b/cosmos-training/mrlv/npu/preflight.py
+index bb9eac7..7da3eee 100644
+--- a/cosmos-training/mrlv/npu/preflight.py
++++ b/cosmos-training/mrlv/npu/preflight.py
+@@ -37,13 +37,25 @@ def main():
+         report["device_count"] = device.get_backend("npu").device_count()
+         if args.expected_devices is not None and report["device_count"] != args.expected_devices:
+             raise RuntimeError(f"Expected {args.expected_devices} visible NPUs; found {report['device_count']}")
+-        report["device_name"] = device.memory_module().get_device_name()
+-        report["bf16"] = device.get_backend("npu").supports_bf16()
+-        if not report["bf16"]:
+-            raise RuntimeError("WAM requires BF16")
+-        sample = torch.ones(4, device=device.get_device(), dtype=torch.bfloat16)
+-        assert sample.sum().item() == 4
+-        device.synchronize()
++        report["devices"] = []
++        for index in range(report["device_count"]):
++            device.set_device(index)
++            item = {"index": index, "name": device.memory_module().get_device_name(), "status": "running"}
++            report["devices"].append(item)
++            if "910b" not in item["name"].lower():
++                raise RuntimeError(f"Expected a real 910B at device {index}: {item['name']}")
++            item["bf16"] = device.get_backend("npu").supports_bf16()
++            if not item["bf16"]:
++                raise RuntimeError(f"WAM requires BF16 on device {index}")
++            sample = torch.ones(16, 16, device=device.get_device(), dtype=torch.bfloat16)
++            assert sample.sum().item() == 256
++            product = sample @ sample
++            assert torch.all(product == 16).item()
++            device.synchronize()
++            item.update(status="passed", bf16_sum=256, bf16_matmul=True, synchronized=True)
++        device.set_device(0)
++        report["device_name"] = report["devices"][0]["name"]
++        report["bf16"] = all(item["bf16"] for item in report["devices"])
+         for command in (["npu-smi", "info"], ["uname", "-a"]):
+             result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=30)
+             report[" ".join(command)] = result.stdout
+diff --git a/cosmos-training/pyproject.toml b/cosmos-training/pyproject.toml
+index 7a5922d..96a13e7 100644
+--- a/cosmos-training/pyproject.toml
++++ b/cosmos-training/pyproject.toml
+@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
+ name = "cosmos-framework"
+ version = "1.2.2"
+ requires-python = ">=3.12,<3.13"
+-dependencies = ["torch==2.10.0", "torch-npu==2.10.0.post6", "torchvision==0.25.0", "numpy>=1.26,<3", "transformers>=4.57.1,<5", "diffusers>=0.39.0", "accelerate", "av", "cattrs", "decorator", "einops", "hydra-core", "imageio", "imageio-ffmpeg", "kornia", "loguru", "msgpack", "obstore", "omegaconf", "pydantic>=2.7,<3", "pyyaml>=6,<7", "requests", "safetensors>=0.7", "scipy", "termcolor", "tyro", "websockets", "aioboto3", "aiofiles", "aiohttp", "boto3", "botocore", "blobfile", "datasets", "matplotlib", "multi-storage-client[boto3]==0.44.0", "opencv-python-headless", "packaging", "pandas", "pillow>=12.2.0", "psutil", "pytest>=8,<9", "qwen-vl-utils", "s3fs", "semver", "setuptools", "tensorboard", "tiktoken", "timm", "wandb", "webdataset"]
++dependencies = ["torch==2.10.0", "torch-npu==2.10.0.post6", "torchvision==0.25.0", "numpy>=1.26,<3", "transformers>=4.57.1,<5", "diffusers>=0.39.0", "accelerate", "av", "cattrs", "decorator", "einops", "hydra-core", "imageio", "imageio-ffmpeg", "kornia", "loguru", "msgpack", "obstore", "omegaconf", "pydantic>=2.7,<3", "pyyaml>=6,<7", "requests", "safetensors>=0.7", "scipy", "termcolor", "tyro", "websockets", "aioboto3", "aiofiles", "aiohttp", "boto3", "botocore", "blobfile", "datasets", "matplotlib", "multi-storage-client[boto3]==0.44.0", "opencv-python-headless", "packaging", "pandas", "pillow>=12.2.0", "psutil", "pytest>=8,<9", "qwen-vl-utils", "s3fs", "semver", "setuptools", "tensorboard", "tiktoken", "timm", "wandb", "webdataset", "iopath==0.1.10", "pytz==2025.2"]
+ 
+ [tool.setuptools.packages.find]
+ include = ["cosmos_framework*", "mrlv*"]
+diff --git a/environment/requirements.in b/environment/requirements.in
+index 9759331..4a05bc1 100644
+--- a/environment/requirements.in
++++ b/environment/requirements.in
+@@ -51,3 +51,8 @@ tiktoken
+ timm
+ wandb
+ webdataset
++
++# WAM lazy configuration file I/O.
++iopath==0.1.10
++portalocker==3.2.0
++pytz==2025.2
+diff --git a/environment/requirements.lock b/environment/requirements.lock
+index 5ddba45..5554fbe 100644
+--- a/environment/requirements.lock
++++ b/environment/requirements.lock
+@@ -4264,3 +4264,13 @@ zipp==4.1.2 \
+     --hash=sha256:b30cb6cd253122169c47de245ca24a86bac2a5d3802ba15bf7ba6414eb9e144d \
+     --hash=sha256:cf474b90b07ea932637e17c6b9479de2b2882900b0d311bdaf4f5c000a15a97f
+     # via importlib-metadata
++
++# Runtime imports omitted from the original migration lock.
++iopath==0.1.10 \
++    --hash=sha256:3311c16a4d9137223e20f141655759933e1eda24f8bff166af834af3c645ef01
++portalocker==3.2.0 \
++    --hash=sha256:3cdc5f565312224bc570c49337bd21428bba0ef363bbcf58b9ef4a9f11779968 \
++    --hash=sha256:1f3002956a54a8c3730586c5c77bf18fae4149e07eaf1c29fc3faf4d5a3f89ac
++pytz==2025.2 \
++    --hash=sha256:5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00 \
++    --hash=sha256:360b9e3dbb49a209c21ad61809c7fb453643e048b38924c765813546746e81c3
+diff --git a/scripts/bootstrap.sh b/scripts/bootstrap.sh
+index 98cde8d..9986faf 100644
+--- a/scripts/bootstrap.sh
++++ b/scripts/bootstrap.sh
+@@ -35,11 +35,30 @@ if Path(sys.prefix).resolve() != Path(sys.argv[1]).resolve():
+     raise SystemExit('Environment Python resolves to a different prefix; choose a new environment prefix.')
+ PY
+ export PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHONNOUSERSITE=1
++# Inspect/install only this venv. CANN adds unrelated profiler distributions
++# through PYTHONPATH; activation restores CANN's Python paths for training.
++# Keep LD_LIBRARY_PATH intact for the native interpreter and accelerator stack.
++unset PYTHONPATH
+ READY="$PREFIX/.cosmos-npu-lock"
+ LOCK_HASH="$(sha256sum "$BUNDLE/environment/requirements.lock")"
+ EXPECTED="${LOCK_HASH%% *}:$PREFIX"
+ if [[ ! -r "$READY" || "$(cat "$READY")" != "$EXPECTED" ]]; then
++    # antlr4 4.9.3 and iopath 0.1.10 are source-only. Build its hash-checked sdist with the
++    # locked setuptools, without fetching unpinned isolated build dependencies.
++    BUILD_LOCK="$BUNDLE/outputs/environment/build-requirements.lock"
++    "$PREFIX/bin/python" - "$BUNDLE/environment/requirements.lock" "$BUILD_LOCK" <<'PYBUILD'
++import re, sys
++from pathlib import Path
++blocks = re.split(r"(?=^[A-Za-z0-9_.-]+==)", Path(sys.argv[1]).read_text(), flags=re.MULTILINE)
++selected = [block for block in blocks if block.startswith(("setuptools==", "packaging=="))]
++if len(selected) != 2:
++    raise SystemExit("Expected setuptools and packaging in the delivered lock")
++Path(sys.argv[2]).write_text("".join(selected))
++PYBUILD
+     "$PREFIX/bin/python" -m pip install --no-cache-dir --only-binary=:all: --require-hashes \
++        --no-deps -r "$BUILD_LOCK"
++    "$PREFIX/bin/python" -m pip install --no-cache-dir --only-binary=:all: \
++        --no-binary=antlr4-python3-runtime,iopath --no-build-isolation --require-hashes \
+         -r "$BUNDLE/environment/requirements.lock"
+ fi
+ # NPU-specific package metadata contains no CUDA extras. Build tools are in the lock.

@@ -1,0 +1,5 @@
+{
+  "before": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T094018Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/config.yaml",
+  "after": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/config.yaml",
+  "at": "2026-11-05T12:47:45.209686+00:00"
+}

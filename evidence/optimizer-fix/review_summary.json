@@ -1,0 +1,392 @@
+{
+  "recorded_at_utc": "2026-11-05T12:50:51.275707+00:00",
+  "status": "completed",
+  "scope": "Pure WAM task27: compare source/config, repair FP32 master warm-start semantics, simplify redundant adaptation code, rerun real eight-NPU two-step acceptance",
+  "original_repository": "/mnt/lvminrui/workspace/cosmos-training",
+  "original_commit": "6b9705f202beb513cdefcbdcb0a9395987c5c22f",
+  "original_repository_unchanged": true,
+  "migration_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d",
+  "migration_snapshot_origin_commit": "4c965f9cf3620058197cf0218c59e06a6625784c",
+  "equivalence": {
+    "entire_current_repositories_identical": false,
+    "configuration_source_files_identical": 60,
+    "effective_numeric_configuration_unchanged_by_this_turn": true,
+    "config_report": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/ponytail-review-20261105/effective-config-invariance.json",
+    "scope_limits": [
+      "Current original optional mode-mixing/four-tower branches are absent from migration; reviewed pure WAM leaves them disabled.",
+      "NPU attention, optimizer, communication and RNG implementations differ from CUDA; no bitwise or 5000-step cross-device equivalence claim."
+    ]
+  },
+  "bug_fix": {
+    "status": "fixed",
+    "before": "FP32 masters copied before model-only DCP load could overwrite pretrained weights even with lr=0.",
+    "after": "Initialize masters on first update after model load; preserve loaded FP32 optimizer states and keep unused states lazy.",
+    "before_npu_reproduction": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/ponytail-review-20261105/master-warmstart-npu-probe.json",
+    "after_npu_verification": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/ponytail-review-20261105/master-warmstart-npu-after.json"
+  },
+  "simplifications": [
+    "Share native activation-checkpoint/compile preparation before final native/LiteGen sharding dispatch.",
+    "Use relative lazy dataset modules and derive public exports from one mapping, preserving export order."
+  ],
+  "tests": {
+    "new_regressions_failed_before_fix": 9,
+    "targeted_tests_passed_after_fix": 50,
+    "npu_optimizer_cases_exactly_match_fp32_adamw": 4,
+    "hardware_stages": {
+      "activation": "passed",
+      "preflight": "passed",
+      "attention": "passed",
+      "fsdp_dcp": "passed",
+      "wam_smoke": "passed"
+    },
+    "attention": {
+      "executed_tests": 5,
+      "skips": 0,
+      "failures": 0
+    },
+    "fsdp_dcp": {
+      "status": "passed",
+      "device": "npu",
+      "world_size": 2,
+      "restored_step": 2,
+      "step_after_restore": true
+    },
+    "git_diff_and_incremental_patch_checks": "passed"
+  },
+  "hardware_status_json": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-910b-job-20261105-204124-bjelmaif/status.json",
+  "hardware_log": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/ponytail-review-20261105/hardware-retest.log",
+  "wam_executed": true,
+  "wam_result": {
+    "iterations": 2,
+    "metrics": [
+      {
+        "iteration": "1",
+        "train/loss": "13.729534149169922",
+        "train/video_loss": "0.17178936302661896",
+        "train/action_loss": "1.2011641263961792"
+      },
+      {
+        "iteration": "2",
+        "train/loss": "13.860825538635254",
+        "train/video_loss": "0.17859689891338348",
+        "train/action_loss": "1.2074856758117676"
+      }
+    ],
+    "checkpoint_components": {
+      "model": {
+        "shards": 8,
+        "nonempty_shards": 8,
+        "bytes": 20231772368
+      },
+      "optim": {
+        "shards": 8,
+        "nonempty_shards": 8,
+        "bytes": 17098206586
+      },
+      "scheduler": {
+        "shards": 8,
+        "nonempty_shards": 1,
+        "bytes": 7758
+      },
+      "trainer": {
+        "shards": 8,
+        "nonempty_shards": 8,
+        "bytes": 182941
+      }
+    }
+  },
+  "checkpoint_schema": {
+    "status": "passed",
+    "checkpoint": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002",
+    "components": {
+      "model": {
+        "metadata_keys": 1098,
+        "referenced_chunks": 8784,
+        "rank_files": 8,
+        "nonempty_shards": 8,
+        "empty_unreferenced_shards": [],
+        "referenced_shards": [
+          "__0_0.distcp",
+          "__1_0.distcp",
+          "__2_0.distcp",
+          "__3_0.distcp",
+          "__4_0.distcp",
+          "__5_0.distcp",
+          "__6_0.distcp",
+          "__7_0.distcp"
+        ],
+        "reference_bounds_checked": true
+      },
+      "optim": {
+        "metadata_keys": 5152,
+        "referenced_chunks": 11914,
+        "rank_files": 8,
+        "nonempty_shards": 8,
+        "empty_unreferenced_shards": [],
+        "referenced_shards": [
+          "__0_0.distcp",
+          "__1_0.distcp",
+          "__2_0.distcp",
+          "__3_0.distcp",
+          "__4_0.distcp",
+          "__5_0.distcp",
+          "__6_0.distcp",
+          "__7_0.distcp"
+        ],
+        "reference_bounds_checked": true
+      },
+      "scheduler": {
+        "metadata_keys": 6,
+        "referenced_chunks": 6,
+        "rank_files": 8,
+        "nonempty_shards": 1,
+        "empty_unreferenced_shards": [
+          "__1_0.distcp",
+          "__2_0.distcp",
+          "__3_0.distcp",
+          "__4_0.distcp",
+          "__5_0.distcp",
+          "__6_0.distcp",
+          "__7_0.distcp"
+        ],
+        "referenced_shards": [
+          "__0_0.distcp"
+        ],
+        "reference_bounds_checked": true
+      },
+      "trainer": {
+        "metadata_keys": 49,
+        "referenced_chunks": 49,
+        "rank_files": 8,
+        "nonempty_shards": 8,
+        "empty_unreferenced_shards": [],
+        "referenced_shards": [
+          "__0_0.distcp",
+          "__1_0.distcp",
+          "__2_0.distcp",
+          "__3_0.distcp",
+          "__4_0.distcp",
+          "__5_0.distcp",
+          "__6_0.distcp",
+          "__7_0.distcp"
+        ],
+        "reference_bounds_checked": true
+      }
+    },
+    "scheduler_last_epoch": 2,
+    "trainer_iteration": 2,
+    "rng_ranks_read": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "small_states_read_back": true
+  },
+  "full_checkpoint_inventory": [
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/model/.metadata",
+      "bytes": 1870413,
+      "sha256": "63b48171a834a0b5419f4f9b94f72963044086aa7a4f1bc07681e5688f3fed30"
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/model/__0_0.distcp",
+      "bytes": 2528971546
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/model/__1_0.distcp",
+      "bytes": 2528971546
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/model/__2_0.distcp",
+      "bytes": 2528971546
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/model/__3_0.distcp",
+      "bytes": 2528971546
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/model/__4_0.distcp",
+      "bytes": 2528971546
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/model/__5_0.distcp",
+      "bytes": 2528971546
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/model/__6_0.distcp",
+      "bytes": 2528971546
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/model/__7_0.distcp",
+      "bytes": 2528971546
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/optim/.metadata",
+      "bytes": 3262734,
+      "sha256": "40a4c94c44d7598c2b70327063dd968d448b9df1372689d9412231953fdd7284"
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/optim/__0_0.distcp",
+      "bytes": 2142019648
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/optim/__1_0.distcp",
+      "bytes": 2136598134
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/optim/__2_0.distcp",
+      "bytes": 2136598134
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/optim/__3_0.distcp",
+      "bytes": 2136598134
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/optim/__4_0.distcp",
+      "bytes": 2136598134
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/optim/__5_0.distcp",
+      "bytes": 2136598134
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/optim/__6_0.distcp",
+      "bytes": 2136598134
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/optim/__7_0.distcp",
+      "bytes": 2136598134
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/scheduler/.metadata",
+      "bytes": 1235,
+      "sha256": "39a1297290adea59f4e2218df8b8a5782e1a83a7f80e61a4464996347d2b7435"
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/scheduler/__0_0.distcp",
+      "bytes": 7758
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/scheduler/__1_0.distcp",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/scheduler/__2_0.distcp",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/scheduler/__3_0.distcp",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/scheduler/__4_0.distcp",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/scheduler/__5_0.distcp",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/scheduler/__6_0.distcp",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/scheduler/__7_0.distcp",
+      "bytes": 0
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/trainer/.metadata",
+      "bytes": 12747,
+      "sha256": "bf339cd6595aa22f88a55d8d63bc1248a4116f6a79f2526de68b2925bfb58021"
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/trainer/__0_0.distcp",
+      "bytes": 23971
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/trainer/__1_0.distcp",
+      "bytes": 22710
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/trainer/__2_0.distcp",
+      "bytes": 22710
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/trainer/__3_0.distcp",
+      "bytes": 22710
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/trainer/__4_0.distcp",
+      "bytes": 22710
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/trainer/__5_0.distcp",
+      "bytes": 22710
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/trainer/__6_0.distcp",
+      "bytes": 22710
+    },
+    {
+      "path": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002/trainer/__7_0.distcp",
+      "bytes": 22710
+    }
+  ],
+  "modified_files_this_turn": [
+    {
+      "file": "LiteGen.dev/litegen/optim/master_shadow.py",
+      "added_lines": 6,
+      "removed_lines": 5
+    },
+    {
+      "file": "LiteGen.dev/litegen/optim/prepare.py",
+      "added_lines": 1,
+      "removed_lines": 1
+    },
+    {
+      "file": "README.md",
+      "added_lines": 15,
+      "removed_lines": 1
+    },
+    {
+      "file": "cosmos-training/cosmos_framework/data/generator/action/datasets/__init__.py",
+      "added_lines": 13,
+      "removed_lines": 12
+    },
+    {
+      "file": "cosmos-training/cosmos_framework/model/generator/mot/parallelize_vfm_network.py",
+      "added_lines": 8,
+      "removed_lines": 16
+    },
+    {
+      "file": "cosmos-training/mrlv/litegen_bridge_test.py",
+      "added_lines": 34,
+      "removed_lines": 1
+    },
+    {
+      "file": "cosmos-training/mrlv/npu/device_optimizer_test.py",
+      "added_lines": 43,
+      "removed_lines": 0
+    },
+    {
+      "file": "cosmos-training/mrlv/npu/import_test.py",
+      "added_lines": 25,
+      "removed_lines": 0
+    }
+  ],
+  "production_code_net_lines": -6,
+  "new_dependencies": [],
+  "patch": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/ponytail-review-20261105/this-turn.patch",
+  "reproduction_command": "cd /mnt/lvminrui/workspace/cosmos-litgen-npu-migration\nbash run.sh",
+  "not_checked": [
+    "5000-step cross-device numerical alignment",
+    "Optional mode-mixing/four-tower/PointFlow/FK training branches",
+    "CUDA hardware regression in this NPU-only container"
+  ],
+  "old_checkpoint_limit": "Old 20261105T092827Z and 20261105T094018Z two-step checkpoints are retained as failure-analysis evidence; do not resume formal training from them."
+}

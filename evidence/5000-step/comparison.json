@@ -1,0 +1,61 @@
+{
+  "scope": "Complete 5000-step training-loss comparison; formal gates recorded separately in alignment.json",
+  "start_step": 10,
+  "end_step": 5000,
+  "points_per_curve": 500,
+  "sampling_interval_steps": 10,
+  "smoothing": "Trailing arithmetic mean of up to 10 observations (100 training steps); no dropped raw points",
+  "npu_tensorboard_matches_csv_exactly": true,
+  "sources": {
+    "snapshot_utc": "2026-11-08T11:35:38.313317+00:00",
+    "npu_tensorboard_source": "/mnt/lvminrui/workspace/mrlv/wam-910b-8x-5000-20261105T131003Z/output/tensorboard",
+    "npu_csv_source": "/mnt/lvminrui/workspace/mrlv/wam-910b-8x-5000-20261105T131003Z/output/metrics.csv",
+    "a100_csv_source": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/reference/wam-task27-align5k-01/metrics.csv",
+    "a100_events_available": false,
+    "baseline_run": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/reference/wam-task27-align5k-01",
+    "npu_run": "/mnt/lvminrui/workspace/mrlv/wam-910b-8x-5000-20261105T131003Z"
+  },
+  "losses": {
+    "train/loss": {
+      "common_prefix": {
+        "a100_mean": 1.3773676903247833,
+        "910b_mean": 1.3763632822036742,
+        "signed_relative_mean_difference_percent": -0.07292229432739891
+      },
+      "last_500_steps": {
+        "a100_mean": 0.8741539776325226,
+        "910b_mean": 0.8746748399734497,
+        "signed_relative_mean_difference_percent": 0.05958473612827815
+      }
+    },
+    "train/video_loss": {
+      "common_prefix": {
+        "a100_mean": 0.09515704046189785,
+        "910b_mean": 0.0951917921602726,
+        "signed_relative_mean_difference_percent": 0.036520364868494935
+      },
+      "last_500_steps": {
+        "a100_mean": 0.08331519722938538,
+        "910b_mean": 0.08334933042526245,
+        "signed_relative_mean_difference_percent": 0.040968751214852044
+      }
+    },
+    "train/action_loss": {
+      "common_prefix": {
+        "a100_mean": 0.04257972989277914,
+        "910b_mean": 0.04244453443749808,
+        "signed_relative_mean_difference_percent": -0.31751130319872595
+      },
+      "last_500_steps": {
+        "a100_mean": 0.004100199928507209,
+        "910b_mean": 0.004118151951115578,
+        "signed_relative_mean_difference_percent": 0.4378328598943466
+      }
+    }
+  },
+  "snapshot_sha256": {
+    "a100_metrics_snapshot.csv": "add4eeecf880aef5482c61fc09b1179571dc51c5c7b742af476b04d3242e973e",
+    "npu_metrics_snapshot.csv": "b1a4c71e55511b5cf526268f2f0c715d1435f0c68dbb211eb399acf86b45f9db",
+    "tensorboard_snapshot/events.out.tfevents.1793884743.dev-mrlv-d-sys1-0.310381.0": "1c0affc7099bf4b9612464f1440941a35b3650f66fd8cd7d733ce2586d21763b"
+  }
+}

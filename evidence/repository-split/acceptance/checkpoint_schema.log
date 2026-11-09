@@ -1,0 +1,92 @@
+{
+  "status": "passed",
+  "checkpoint": "/tmp/cosmos-wam-910b-enti61u3/cosmos3_action/action_sft/sim_task27_wam_910b_smoke/checkpoints/iter_000000002",
+  "components": {
+    "model": {
+      "metadata_keys": 1098,
+      "referenced_chunks": 8784,
+      "rank_files": 8,
+      "nonempty_shards": 8,
+      "empty_unreferenced_shards": [],
+      "referenced_shards": [
+        "__0_0.distcp",
+        "__1_0.distcp",
+        "__2_0.distcp",
+        "__3_0.distcp",
+        "__4_0.distcp",
+        "__5_0.distcp",
+        "__6_0.distcp",
+        "__7_0.distcp"
+      ],
+      "reference_bounds_checked": true
+    },
+    "optim": {
+      "metadata_keys": 5152,
+      "referenced_chunks": 11914,
+      "rank_files": 8,
+      "nonempty_shards": 8,
+      "empty_unreferenced_shards": [],
+      "referenced_shards": [
+        "__0_0.distcp",
+        "__1_0.distcp",
+        "__2_0.distcp",
+        "__3_0.distcp",
+        "__4_0.distcp",
+        "__5_0.distcp",
+        "__6_0.distcp",
+        "__7_0.distcp"
+      ],
+      "reference_bounds_checked": true
+    },
+    "scheduler": {
+      "metadata_keys": 6,
+      "referenced_chunks": 6,
+      "rank_files": 8,
+      "nonempty_shards": 1,
+      "empty_unreferenced_shards": [
+        "__1_0.distcp",
+        "__2_0.distcp",
+        "__3_0.distcp",
+        "__4_0.distcp",
+        "__5_0.distcp",
+        "__6_0.distcp",
+        "__7_0.distcp"
+      ],
+      "referenced_shards": [
+        "__0_0.distcp"
+      ],
+      "reference_bounds_checked": true
+    },
+    "trainer": {
+      "metadata_keys": 49,
+      "referenced_chunks": 49,
+      "rank_files": 8,
+      "nonempty_shards": 8,
+      "empty_unreferenced_shards": [],
+      "referenced_shards": [
+        "__0_0.distcp",
+        "__1_0.distcp",
+        "__2_0.distcp",
+        "__3_0.distcp",
+        "__4_0.distcp",
+        "__5_0.distcp",
+        "__6_0.distcp",
+        "__7_0.distcp"
+      ],
+      "reference_bounds_checked": true
+    }
+  },
+  "scheduler_last_epoch": 2,
+  "trainer_iteration": 2,
+  "rng_ranks_read": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "small_states_read_back": true
+}

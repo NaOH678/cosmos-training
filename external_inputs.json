@@ -1,0 +1,127 @@
+{
+  "scope": "External assets are NOT in Git/archive. Payload hashes are not computed for multi-GB weights.",
+  "source_roots": {
+    "EDGE_DROID_MODEL_PATH": "/oss/shichaojian/models/cosmos3-edge-droid",
+    "BASE_CHECKPOINT_PATH": "/oss/shichaojian/models/cosmos3-edge-droid-dcp",
+    "SIM_POINTFK_BUNDLE": "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam"
+  },
+  "files": [
+    {
+      "root": "EDGE_DROID_MODEL_PATH",
+      "relative_path": "config.json",
+      "bytes": 7527,
+      "sha256": "da6a23cbf4477aafda3e773874bf2c98d6869156e8a450d944e2f28c94eee00b"
+    },
+    {
+      "root": "EDGE_DROID_MODEL_PATH",
+      "relative_path": "tokenizer.json",
+      "bytes": 17077500,
+      "sha256": "4dc692a99dca6d92a44e9529ffb53541eb79bb260eec7281bc51268c05d7311c"
+    },
+    {
+      "root": "EDGE_DROID_MODEL_PATH",
+      "relative_path": "tokenizer_config.json",
+      "bytes": 177253,
+      "sha256": "85577f01be64ea03ee9aacc0536088e47b96971e4aff21e0aa604900b1410386"
+    },
+    {
+      "root": "EDGE_DROID_MODEL_PATH",
+      "relative_path": "chat_template.jinja",
+      "bytes": 12158,
+      "sha256": "7120ee6666468d4e9b2dc11e133ac5c2fa765fa5907706bf0f906270aa5510c8"
+    },
+    {
+      "root": "EDGE_DROID_MODEL_PATH",
+      "relative_path": "preprocessor_config.json",
+      "bytes": 334,
+      "sha256": "7fc1e423001190416180fa0a22eb1ed0cb5fb90b525a6205fbe6d2316aa46a60"
+    },
+    {
+      "root": "EDGE_DROID_MODEL_PATH",
+      "relative_path": "processor_config.json",
+      "bytes": 781,
+      "sha256": "7a670dbb2f5f5e3de6570ed6c01e7f01b9b7fb0e00515d4ebef53b8f8c049fd1"
+    },
+    {
+      "root": "EDGE_DROID_MODEL_PATH",
+      "relative_path": "special_tokens_map.json",
+      "bytes": 563,
+      "sha256": "e9435fefd6d838fd9fcbbc44b97a8e3ff322be7f6dfb7e4fd2468586574bb52b"
+    },
+    {
+      "root": "EDGE_DROID_MODEL_PATH",
+      "relative_path": "video_preprocessor_config.json",
+      "bytes": 367,
+      "sha256": "4c7a48dd35a60057358a4269ae1e1402a70170bef916df1d850f15d617e225f7"
+    },
+    {
+      "root": "BASE_CHECKPOINT_PATH",
+      "relative_path": "model/.metadata",
+      "bytes": 139671,
+      "sha256": "55dc40584607bbd1713d421b4de822040dc91644d1b173d7727c3a058a0ea4f2"
+    },
+    {
+      "root": "BASE_CHECKPOINT_PATH",
+      "relative_path": "model/__0_0.distcp",
+      "bytes": 3370153843,
+      "sha256": null
+    },
+    {
+      "root": "BASE_CHECKPOINT_PATH",
+      "relative_path": "model/__0_1.distcp",
+      "bytes": 3370025978,
+      "sha256": null
+    },
+    {
+      "root": "SIM_POINTFK_BUNDLE",
+      "relative_path": "normalization_train_only.json",
+      "bytes": 4384,
+      "sha256": "9b15f453662433b311ef6994c5a19f424e27d2b956eec05471703b8b9f617f9a"
+    },
+    {
+      "root": "SIM_POINTFK_BUNDLE",
+      "relative_path": "datasets/cosmos-cache/window_index.json",
+      "bytes": 21442495,
+      "sha256": "e0f265e55b846e27892e3faf7c870027df681e6f151053418e4f520e80434e27"
+    },
+    {
+      "root": "SIM_POINTFK_BUNDLE",
+      "relative_path": "datasets/cosmos-cache/pointflow_fk_handguided1024/manifest.json",
+      "bytes": 21444959,
+      "sha256": "d7319e4b7cae9001c772ccf06a6c759fa87ea32f949619acfcbc85d56a6862ce"
+    },
+    {
+      "root": "SIM_POINTFK_BUNDLE",
+      "relative_path": "datasets/cosmos-cache/vae_window_latents/window_manifest.json",
+      "bytes": 12882392,
+      "sha256": "4b202b9ecb88bab8723d6b61f8a34979f61465dd895bb1987d93c2e5acef118e"
+    },
+    {
+      "root": "WAN_VAE_PATH",
+      "relative_path": "Wan2.2_VAE.pth",
+      "bytes": 2818839170,
+      "sha256": null
+    }
+  ],
+  "directories": [
+    {
+      "root": "SIM_POINTFK_BUNDLE",
+      "relative_path": "datasets/cosmos-cache/video_frames"
+    },
+    {
+      "root": "SIM_POINTFK_BUNDLE",
+      "relative_path": "datasets/cosmos-cache/vae_window_latents"
+    },
+    {
+      "root": "SIM_POINTFK_BUNDLE",
+      "relative_path": "datasets/cosmos-cache/pointflow_fk_handguided1024"
+    }
+  ],
+  "dataset": {
+    "latent_episodes": 100,
+    "latent_payload_bytes": 104564748800,
+    "video_frame_payload_bytes": 109126668800,
+    "action_record_count": 75640,
+    "vae_expected_sha256": null
+  }
+}

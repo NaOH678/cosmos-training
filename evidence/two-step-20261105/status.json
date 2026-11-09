@@ -1,0 +1,189 @@
+{
+  "status": "passed",
+  "started_at": "2026-11-05T20:41:24.931736+08:00",
+  "supervisor_pid": 293518,
+  "mode": "checks_and_wam_smoke",
+  "requested_image": null,
+  "host_architecture": "aarch64",
+  "stages": {
+    "activation": {
+      "status": "passed",
+      "started_at": "2026-11-05T20:41:24.935986+08:00",
+      "finished_at": "2026-11-05T20:41:26.172623+08:00",
+      "details": {
+        "python": "/tmp/cosmos-npu-env-20261105/bin/python",
+        "device": "npu"
+      }
+    },
+    "preflight": {
+      "status": "passed",
+      "started_at": "2026-11-05T20:41:26.178311+08:00",
+      "finished_at": "2026-11-05T20:41:50.979569+08:00",
+      "details": {
+        "status": "passed",
+        "target_chip": "Ascend 910B",
+        "target_cpu": "Kunpeng 920-5250",
+        "requested_image": null,
+        "architecture": "aarch64",
+        "python": "3.12.13",
+        "torch": "2.10.0+cpu",
+        "device": "npu",
+        "torch_npu": "2.10.0.post6",
+        "device_count": 8,
+        "devices": [
+          {
+            "index": 0,
+            "name": "Ascend910B2",
+            "status": "passed",
+            "bf16": true,
+            "bf16_sum": 256,
+            "bf16_matmul": true,
+            "synchronized": true
+          },
+          {
+            "index": 1,
+            "name": "Ascend910B2",
+            "status": "passed",
+            "bf16": true,
+            "bf16_sum": 256,
+            "bf16_matmul": true,
+            "synchronized": true
+          },
+          {
+            "index": 2,
+            "name": "Ascend910B2",
+            "status": "passed",
+            "bf16": true,
+            "bf16_sum": 256,
+            "bf16_matmul": true,
+            "synchronized": true
+          },
+          {
+            "index": 3,
+            "name": "Ascend910B2",
+            "status": "passed",
+            "bf16": true,
+            "bf16_sum": 256,
+            "bf16_matmul": true,
+            "synchronized": true
+          },
+          {
+            "index": 4,
+            "name": "Ascend910B2",
+            "status": "passed",
+            "bf16": true,
+            "bf16_sum": 256,
+            "bf16_matmul": true,
+            "synchronized": true
+          },
+          {
+            "index": 5,
+            "name": "Ascend910B2",
+            "status": "passed",
+            "bf16": true,
+            "bf16_sum": 256,
+            "bf16_matmul": true,
+            "synchronized": true
+          },
+          {
+            "index": 6,
+            "name": "Ascend910B2",
+            "status": "passed",
+            "bf16": true,
+            "bf16_sum": 256,
+            "bf16_matmul": true,
+            "synchronized": true
+          },
+          {
+            "index": 7,
+            "name": "Ascend910B2",
+            "status": "passed",
+            "bf16": true,
+            "bf16_sum": 256,
+            "bf16_matmul": true,
+            "synchronized": true
+          }
+        ],
+        "device_name": "Ascend910B2",
+        "bf16": true,
+        "npu-smi info": "+------------------------------------------------------------------------------------------------+\n| npu-smi 25.5.6                   Version: 25.5.6                                               |\n+---------------------------+---------------+----------------------------------------------------+\n| NPU   Name                | Health        | Power(W)    Temp(C)           Hugepages-Usage(page)|\n| Chip                      | Bus-Id        | AICore(%)   Memory-Usage(MB)  HBM-Usage(MB)        |\n+===========================+===============+====================================================+\n| 0     910B2               | OK            | 94.9        33                0    / 0             |\n| 0                         | 0000:C1:00.0  | 0           0    / 0          3509 / 65536         |\n+===========================+===============+====================================================+\n| 1     910B2               | OK            | 89.7        33                0    / 0             |\n| 0                         | 0000:C2:00.0  | 0           0    / 0          3500 / 65536         |\n+===========================+===============+====================================================+\n| 2     910B2               | OK            | 89.2        32                0    / 0             |\n| 0                         | 0000:81:00.0  | 0           0    / 0          3500 / 65536         |\n+===========================+===============+====================================================+\n| 3     910B2               | OK            | 93.6        33                0    / 0             |\n| 0                         | 0000:82:00.0  | 0           0    / 0          3499 / 65536         |\n+===========================+===============+====================================================+\n| 4     910B2               | OK            | 91.5        37                0    / 0             |\n| 0                         | 0000:01:00.0  | 0           0    / 0          3501 / 65536         |\n+===========================+===============+====================================================+\n| 5     910B2               | OK            | 91.2        38                0    / 0             |\n| 0                         | 0000:02:00.0  | 0           0    / 0          3501 / 65536         |\n+===========================+===============+====================================================+\n| 6     910B2               | OK            | 92.7        37                0    / 0             |\n| 0                         | 0000:41:00.0  | 0           0    / 0          3500 / 65536         |\n+===========================+===============+====================================================+\n| 7     910B2               | OK            | 87.5        36                0    / 0             |\n| 0                         | 0000:42:00.0  | 0           0    / 0          3500 / 65536         |\n+===========================+===============+====================================================+\n+---------------------------+---------------+----------------------------------------------------+\n| NPU     Chip              | Process id    | Process name             | Process memory(MB)      |\n+===========================+===============+====================================================+\n| 0       0                 | 293828        | python                   | 125                     |\n+===========================+===============+====================================================+\n| 1       0                 | 293828        | python                   | 125                     |\n+===========================+===============+====================================================+\n| 2       0                 | 293828        | python                   | 125                     |\n+===========================+===============+====================================================+\n| 3       0                 | 293828        | python                   | 125                     |\n+===========================+===============+====================================================+\n| 4       0                 | 293828        | python                   | 125                     |\n+===========================+===============+====================================================+\n| 5       0                 | 293828        | python                   | 125                     |\n+===========================+===============+====================================================+\n| 6       0                 | 293828        | python                   | 125                     |\n+===========================+===============+====================================================+\n| 7       0                 | 293828        | python                   | 125                     |\n+===========================+===============+====================================================+\n",
+        "uname -a": "Linux dev-mrlv-d-sys1-0 5.15.0-25-generic #25-Ubuntu SMP Wed Mar 30 15:57:31 UTC 2022 aarch64 aarch64 aarch64 GNU/Linux\n"
+      }
+    },
+    "attention": {
+      "status": "passed",
+      "started_at": "2026-11-05T20:41:50.985091+08:00",
+      "finished_at": "2026-11-05T20:42:09.916463+08:00",
+      "details": {
+        "executed_tests": 5,
+        "skips": 0,
+        "failures": 0
+      }
+    },
+    "fsdp_dcp": {
+      "status": "passed",
+      "started_at": "2026-11-05T20:42:09.922823+08:00",
+      "finished_at": "2026-11-05T20:42:39.707933+08:00",
+      "details": {
+        "status": "passed",
+        "device": "npu",
+        "world_size": 2,
+        "restored_step": 2,
+        "step_after_restore": true
+      }
+    },
+    "wam_smoke": {
+      "status": "passed",
+      "started_at": "2026-11-05T20:42:39.715608+08:00",
+      "finished_at": "2026-11-05T20:48:05.736288+08:00",
+      "details": {
+        "iterations": 2,
+        "metrics": [
+          {
+            "iteration": "1",
+            "train/loss": "13.729534149169922",
+            "train/video_loss": "0.17178936302661896",
+            "train/action_loss": "1.2011641263961792"
+          },
+          {
+            "iteration": "2",
+            "train/loss": "13.860825538635254",
+            "train/video_loss": "0.17859689891338348",
+            "train/action_loss": "1.2074856758117676"
+          }
+        ],
+        "checkpoint_components": {
+          "model": {
+            "shards": 8,
+            "nonempty_shards": 8,
+            "bytes": 20231772368
+          },
+          "optim": {
+            "shards": 8,
+            "nonempty_shards": 8,
+            "bytes": 17098206586
+          },
+          "scheduler": {
+            "shards": 8,
+            "nonempty_shards": 1,
+            "bytes": 7758
+          },
+          "trainer": {
+            "shards": 8,
+            "nonempty_shards": 8,
+            "bytes": 182941
+          }
+        }
+      }
+    }
+  },
+  "report_directory": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-910b-job-20261105-204124-bjelmaif",
+  "scope": "NPU kernels, 2-rank FSDP2/DCP, 8-rank two-step WAM; no 5000-step alignment",
+  "updated_at": "2026-11-05T20:48:06.284246+08:00",
+  "current_stage": "checkpoint_schema",
+  "stage_elapsed_seconds": 16.2,
+  "wam_output_directory": "/mnt/lvminrui/workspace/cosmos-litgen-npu-migration/outputs/wam-checkpoint-20261105T124101Z",
+  "checkpoint_is_temporary": false,
+  "finished_at": "2026-11-05T20:48:06.284202+08:00",
+  "wam_executed": true
+}

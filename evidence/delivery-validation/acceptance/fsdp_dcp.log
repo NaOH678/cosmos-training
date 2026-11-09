@@ -1,0 +1,4 @@
+<frozen runpy>:128: RuntimeWarning: 'torch.distributed.run' found in sys.modules after import of package 'torch.distributed', but prior to execution of 'torch.distributed.run'; this may result in unpredictable behaviour
+[rank0]:[W1108 12:11:59.875750480 NPUCachingAllocator.cpp:202] Warning: The current CANN and HDK(driver) versions require processing for 32 padding size, with memory allocation. (function operator())
+/tmp/cosmos-training-litegen-910b-env/lib/python3.12/site-packages/torch_npu/distributed/distributed_c10d.py:221: UserWarning: HCCL doesn't support gather at the moment. Implemented with allgather instead.
+  warnings.warn(
