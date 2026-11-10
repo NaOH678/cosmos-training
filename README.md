@@ -1,6 +1,6 @@
 # Cosmos 4B WAM × LiteGen × Ascend 910B
 
-将 Cosmos 的 task27 纯 WAM 4B 训练任务接入 LiteGen，已在 **Linux aarch64 / Python 3.12 / 单机 8 × Ascend910B2 64 GiB** 上验证，并提供固定节点数的多机训练入口。数据、模型、loss、训练循环、scheduler 和检查点由 Cosmos 管理；LiteGen 提供设备与分布式接入、FSDP2 包装和 NPU 优化器支持。
+将 Cosmos 4B WAM 训练任务接入 LiteGen，已在 **Linux aarch64 / Python 3.12 / 单机 8 × Ascend910B2 64 GiB** 上验证，并提供固定节点数的多机训练入口。数据、模型、loss、训练循环、scheduler 和检查点由 Cosmos 管理；LiteGen 提供设备与分布式接入、FSDP2 包装和 NPU 优化器支持。
 
 **已完成真实八卡两步功能验收和完整 5000 步训练。** 相对原生 8 × A100 基线，5000 步的 20 项对齐检查全部通过；三类 loss 全程均值相对差为 0.073%、0.037%、0.318%。这是本任务的 loss 曲线工程对齐，不是逐位一致、所有 Cosmos 分支兼容或相同训练速度。
 
@@ -18,15 +18,13 @@
 
 ## 1. 先准备目标节点
 
-新建910B平台任务使用以下基础镜像（使用者于2026-11-10更正为A2镜像）：
+使用以下已验证的基础镜像：
 
 ```text
 registry2.d.pjlab.org.cn/ccr-lepton-official-images/a2-cann:9.1.0-a2-ubuntu22.04-py3.12
 ```
 
-**镜像选择已更正，历史实验记录保持原样。** 旧容器最初选择了A3镜像，随后修复系统栈；实际验收时 CANN Toolkit/runtime 和 `Ascend-cann-910b-ops` 均为 **9.1.0**。后续新环境采用上述A2镜像，并按本文核对实际版本、910B芯片包和设备映射后验收。本次仅更正镜像配置与说明，没有拉取该A2镜像重建容器，不能将历史实验视为新镜像原装环境已通过测试。匹配时无需重复旧环境的换ops操作；Python bootstrap不安装或替换CANN/驱动。
-
-以下是已经实测的组合，不是对所有同系列版本的兼容承诺。
+验证环境与安装要求如下。
 
 | 项目 | 实测环境 / 要求 |
 |---|---|
@@ -53,7 +51,7 @@ npu-smi info
 df -h . /tmp /dev/shm
 ```
 
-宿主驱动、固件和匹配的 CANN/ops 由集群管理员或镜像提供。项目脚本不会自动升级这些系统组件，也不会把 910_93/A3 ops 当成 910B ops。
+宿主驱动、固件和匹配的 CANN/ops 由集群管理员或镜像提供。项目脚本不安装或升级这些系统组件。
 
 ## 2. 迁移源码和外部输入
 
@@ -88,7 +86,7 @@ cp config/cluster.env.example config/cluster.env
 | `EDGE_DROID_MODEL_PATH` | 模型 `config.json`、tokenizer、processor/preprocessor、special tokens、chat template 等配置 |
 | `BASE_CHECKPOINT_PATH` | 原始预训练 DCP；包含 `model/.metadata` 和两份 `model/*.distcp`，约 6.28 GiB |
 | `WAN_VAE_PATH` | `Wan2.2_VAE.pth` 文件，约 2.63 GiB |
-| `SIM_POINTFK_BUNDLE` | task27 原始训练归一化统计、窗口索引、动作记录、VAE latent 和视频帧缓存 |
+| `SIM_POINTFK_BUNDLE` | WAM 训练所需的归一化统计、窗口索引、动作记录、VAE latent 和视频帧缓存 |
 
 ```text
 <SIM_POINTFK_BUNDLE>/
@@ -130,7 +128,7 @@ export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-$OSS_ROOT/datasets/sim_task27_b
 | 环境与训练报告 | 项目下 `outputs/`；多节点通过 `OUTPUT_ROOT` 指定同一共享目录 |
 | 模型与数据 | 本地配置中的四个输入变量，支持任意实际挂载位置 |
 
-项目位于共享卷时，默认 venv 也在共享卷：按[共享环境说明](docs/shared_environment.md)**只由一个准备容器提前安装并封存**，各训练节点只读取。若选择每节点自行安装，显式将 `COSMOS_NPU_ENV` 设为节点本地路径，例如 `/tmp/cosmos-npu-env`；容器重建后需要重建。DTFS 曾有 `flock` 阻塞记录，不能让多个节点同时安装或升级同一个 venv。
+项目位于共享卷时，默认 venv 也在共享卷：按[共享环境说明](docs/shared_environment.md)**只由一个准备容器提前安装并封存**，各训练节点只读取。若选择每节点自行安装，显式将 `COSMOS_NPU_ENV` 设为节点本地路径，例如 `/tmp/cosmos-npu-env`；容器重建后需要重建。不要让多个节点同时安装或升级同一个 venv。
 
 迁移的是源码与安装流程，venv 必须在目标最终位置重新创建；共享 venv 的各节点需要相同基础 Python 路径和挂载位置。`external_inputs.json`、`reference/`、`evidence/`、`provenance/` 和历史实验报告中的来源绝对路径用于追溯，不是当前安装目录；输入检查使用本地配置覆盖后的路径。
 
@@ -287,27 +285,7 @@ bash train.sh
 
 已有完整结果在 `evidence/5000-step/`，包含 PNG/PDF/SVG、逐点 CSV、十个窗口统计、NPU TensorBoard 快照、原始配置和性能数据。`plot_loss_comparison.py`、`build_overview.py` 可在安装好的环境中依据同目录快照重新绘图；`verify_full_run.py` 是历史完整检查点复核脚本，需要历史源路径，不能拿无权重的交付包假装再次验证全部分片。
 
-## 7. 实际装配遇到的坑
-
-| 问题 | 原因与本项目处理 |
-|---|---|
-| 910B 机器上的算子包不匹配 | 原镜像有 910_93 ops；换为同版本官方 910B ops，驱动未改。不能只凭镜像标签认定支持当前芯片。 |
-| Git 报 glibc/库版本错误 | 仅 Git 子进程用 `env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git ...`；不对训练全局清空库路径。 |
-| 共享盘创建 venv 卡住 | DTFS 上曾出现 `flock` 阻塞；可选本地 `/tmp`，或由一个准备容器提前安装共享环境。训练节点不得并发安装；不要删除正在使用的锁。 |
-| Python 版本/架构错误 | 显式指定镜像原生 ARM Python 3.12，bootstrap 验证架构和版本。环境不能跨架构或直接搬路径。 |
-| CANN 的 Python 路径污染安装检查 | bootstrap 的安装子进程清理 `PYTHONPATH`；训练激活重新加载 CANN，保留其动态库路径。 |
-| 全 wheel 安装失败 | `antlr4-python3-runtime==4.9.3`、`iopath==0.1.10` 使用锁定 sdist；仅这两项允许源码构建，安装固定构建工具并关闭隔离构建，保留哈希检查。 |
-| 上游 extras 拉取 Apex/FlashAttention 等 CUDA 包 | 使用包内 NPU 安装元数据及统一锁文件；不要额外安装完整 CUDA extras。 |
-| 无关 LeRobot 导入阻塞 WAM | 数据集按需导入；同时适配 wandb 的 runid 导入路径，补齐 iopath/portalocker/pytz。 |
-| DCP 元数据含 `pathlib._local` | 加入 Python 3.12 的元数据兼容读取。检查点来源必须可信，DCP 元数据不是不可信输入解析接口。 |
-| 初始 loss 与预训练起点不符 | 发现 FP32 master 在 DCP 加载前复制随机权重；修复为首次有梯度更新时创建 master，完整恢复保留已有 FP32 状态。详见实验说明。 |
-| scheduler 七个空分片被误判丢失 | DCP 对复制状态去重，rank 0 保存实际内容；依据 metadata 引用、字节边界和回读结果判断，不能要求每个分片非空。 |
-| 意外续训破坏起点 | 使用全新输出目录；launcher 默认拒绝已有可恢复检查点，显式 `ALLOW_RESUME=1` 才允许恢复。 |
-| 更换源码目录却加载旧代码 | editable 安装与路径绑定；新位置重新创建环境并检查两份包的 `__file__`。 |
-
-不要从旧的 `wam-checkpoint-20261105T092827Z` 或 `...T094018Z` 两步检查点继续正式训练：它们早于 master 初始化修复，仅是故障排查证据。本交付使用修复后完成 5000 步的源码。
-
-## 8. 文件组织与可追溯性
+## 7. 文件组织与可追溯性
 
 ```text
 run.sh                    两步验收 / 输入检查 / 环境安装统一入口

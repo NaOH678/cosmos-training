@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-10T13:14:47.607013+00:00",
+  "created_at_utc": "2026-11-10T14:46:15.740134+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, documentation and small evidence; external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,8 +16,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 25356,
-      "sha256": "5bb56e33bcd84d491742005c68756b9e13e5c5f9f09c024192d72d49083dd7fe"
+      "bytes": 22104,
+      "sha256": "4f9f8132337dd4ca3562918e5fc646df2e8c711a46df2c8418312695b113d2b3"
     },
     {
       "path": "config/cluster.env.example",
