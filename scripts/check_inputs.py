@@ -67,7 +67,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--all-payloads", action="store_true")
     args = parser.parse_args()
-    oss = Path(os.environ.get("OSS_ROOT", "/oss")) / "shichaojian"
+    oss = Path(os.environ.get("OSS_ROOT", "/oss"))
     model = Path(os.environ.get("EDGE_DROID_MODEL_PATH", oss / "models/cosmos3-edge-droid"))
     # A separate root for VAE allows arbitrary model/tokenizer mount locations.
     vae = Path(os.environ.get("WAN_VAE_PATH", model / "vae/Wan2.2_VAE.pth"))
@@ -75,7 +75,7 @@ def main():
         "EDGE_DROID_MODEL_PATH": model,
         "BASE_CHECKPOINT_PATH": Path(os.environ.get("BASE_CHECKPOINT_PATH", oss / "models/cosmos3-edge-droid-dcp")),
         "SIM_POINTFK_BUNDLE": Path(
-            os.environ.get("SIM_POINTFK_BUNDLE", oss / "wam_datasets_20261029/sim_task27_ball_wam")
+            os.environ.get("SIM_POINTFK_BUNDLE", oss / "datasets/sim_task27_ball_wam")
         ),
         "WAN_VAE_PATH": vae.parent,
     }

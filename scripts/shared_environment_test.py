@@ -101,3 +101,54 @@ fi
     assert result.returncode == (17 if fail_check else 0), result.stderr
     assert stages.read_text().splitlines() == (["validate"] if fail_check else ["validate", "pip-check"])
     assert not Path(f"{prefix}.bootstrap.lock").exists()
+
+
+@pytest.mark.parametrize("location", ["default", "relative", "absolute", "symlink"])
+def test_relocated_checkout_uses_same_environment_for_install_and_activation(tmp_path, location):
+    bundle = tmp_path / "renamed project"
+    scripts = bundle / "scripts"
+    scripts.mkdir(parents=True)
+    (bundle / "config").mkdir()
+    for name in ["activate.sh", "bootstrap.sh"]:
+        shutil.copy(Path(__file__).with_name(name), scripts)
+    shutil.copy(Path(__file__).resolve().parents[1] / "config/cluster.env.example", bundle / "config")
+    prefix = bundle / ".venv-npu"
+    overrides = {}
+    if location == "relative":
+        (bundle / "environments").mkdir()
+        prefix = bundle / "environment v1"
+        overrides["COSMOS_NPU_ENV"] = "environments/../environment v1"
+    elif location == "absolute":
+        prefix = tmp_path / "shared environments" / "v1"
+        overrides["COSMOS_NPU_ENV"] = str(prefix)
+    elif location == "symlink":
+        prefix = tmp_path / "shared environments" / "v1"
+        (bundle / "venv-link").symlink_to(prefix, target_is_directory=True)
+        overrides["COSMOS_NPU_ENV"] = "venv-link"
+    (prefix / "bin").mkdir(parents=True)
+    interpreter = prefix / "bin/python"
+    interpreter.write_text('#!/bin/bash\n[[ "$1" == */check_litegen.py ]]\n')
+    interpreter.chmod(0o755)
+    commands = tmp_path / "commands"
+    commands.mkdir()
+    (commands / "uname").write_text('#!/bin/bash\nprintf "aarch64\\n"\n')
+    (commands / "uname").chmod(0o755)
+    cann = tmp_path / "cann.sh"
+    cann.write_text('export PYTHONPATH=/vendor/cann/python\nexport LD_LIBRARY_PATH=/vendor/cann/libraries\n')
+    env = {"PATH": f"{commands}:{os.environ['PATH']}", "CANN_ENV": str(cann),
+           "OSS_ROOT": str(tmp_path / "input mount"), **overrides}
+    result = subprocess.run([
+        "bash", "-c", '''set -euo pipefail
+source "$1/config/cluster.env.example"
+bash "$1/scripts/bootstrap.sh" --plan
+source "$1/scripts/activate.sh"
+printf 'ACTIVE_PREFIX=%s\nACTIVE_PYTHON=%s\nACTIVE_LIBS=%s\nINPUT_MODEL=%s\n' \
+    "$COSMOS_NPU_ENV" "$TRAIN_PYTHON" "$LD_LIBRARY_PATH" "$EDGE_DROID_MODEL_PATH"
+''', "test", str(bundle)], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert f"Environment: {prefix}\n" in result.stdout
+    assert f"ACTIVE_PREFIX={prefix}\n" in result.stdout
+    assert f"ACTIVE_PYTHON={interpreter}\n" in result.stdout
+    assert "ACTIVE_LIBS=/vendor/cann/libraries\n" in result.stdout
+    assert f"INPUT_MODEL={tmp_path / 'input mount/models/cosmos3-edge-droid'}\n" in result.stdout
+    assert "Bootstrap Python: python3.12\n" in result.stdout

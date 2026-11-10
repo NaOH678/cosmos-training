@@ -10,6 +10,7 @@ PYTHON="${NPU_BOOTSTRAP_PYTHON:-python3.12}"
 export LITEGEN_ROOT="${LITEGEN_ROOT:-$BUNDLE/../LiteGen.dev}"
 PREFIX="${COSMOS_NPU_ENV:-$BUNDLE/.venv-npu}"
 [[ "$PREFIX" = /* ]] || PREFIX="$BUNDLE/$PREFIX"
+PREFIX="$(realpath -m "$PREFIX")"
 REPORT_ROOT="${NPU_BOOTSTRAP_REPORT_ROOT:-$BUNDLE/outputs/environment}"
 if [[ "${1:-}" == --plan ]]; then
     printf 'Bootstrap Python: %s\nEnvironment: %s\nLock: %s\n' "$PYTHON" "$PREFIX" "$BUNDLE/environment/requirements.lock"

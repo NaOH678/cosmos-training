@@ -9,6 +9,8 @@ _cosmos_migration_activate() {
     local bundle prefix cann_env candidate result=0 restore_nounset=0
     bundle="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     prefix="${COSMOS_NPU_ENV:-$bundle/.venv-npu}"
+    [[ "$prefix" = /* ]] || prefix="$bundle/$prefix"
+    prefix="$(realpath -m "$prefix")"
     if [[ "$(uname -m)" != aarch64 ]]; then
         printf 'Requires Linux aarch64; current architecture: %s\n' "$(uname -m)" >&2
         return 1

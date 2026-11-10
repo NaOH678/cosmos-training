@@ -25,6 +25,8 @@ cosmos-training/mrlv/       现有启动器、监控、比较和 NPU 验证实�
 
 ```bash
 cd /目标卷/cosmos-training-litegen-910b
+# 本段选择每节点独立安装；共享环境请使用上面链接中的单次准备流程。
+export COSMOS_NPU_ENV=/tmp/cosmos-npu-env
 bash run.sh --verify
 bash run.sh --check-inputs
 bash run.sh --bootstrap-only
@@ -33,7 +35,7 @@ cp config/train.env.example config/train.env
 
 各节点需有相同软件栈、足够 CPU/内存和完整驱动设备映射。平台还须提供跨节点 HCCL 网络；主节点端口可连接不能代替 HCCL 集合通信测试。通信网卡环境变量按实际集群设置，本项目不猜测网卡名称。
 
-平台在所有节点执行同一启动命令时，可将 `bash run.sh --bootstrap-only` 放在 `bash train.sh` 之前，自动在每节点创建本地环境。共享源码不代表共享 `/tmp`；新容器不能直接使用开发容器的 `/tmp/cosmos-training-litegen-910b-env`。设置 `NPU_BOOTSTRAP_REPORT_ROOT="$OUTPUT_ROOT/setup/$(hostname)"` 可将各节点的 `installed.json` 分开保存，安装日志也应写入该目录。安装失败必须停止训练；使用管道记录日志时启用 `set -o pipefail`。构建依赖临时清单位于各自 venv 内，不在共享目录并发写入。
+平台在所有节点执行同一启动命令时，可将 `bash run.sh --bootstrap-only` 放在 `bash train.sh` 之前，自动在每节点创建本地环境。共享源码不代表共享 `/tmp`；新容器不能直接使用开发容器的 `/tmp/cosmos-npu-env`。设置 `NPU_BOOTSTRAP_REPORT_ROOT="$OUTPUT_ROOT/setup/$(hostname)"` 可将各节点的 `installed.json` 分开保存，安装日志也应写入该目录。安装失败必须停止训练；使用管道记录日志时启用 `set -o pipefail`。构建依赖临时清单位于各自 venv 内，不在共享目录并发写入。
 
 本集群作业已实际观察到旧版平台变量：`WORLD_SIZE=4` 表示节点数，`RANK=0..3` 表示节点编号；在平台入口映射为 `NNODES` 和 `NODE_RANK` 后，再调用训练脚本。不要将该含义推广到 `torchrun` 创建的训练进程，其 `WORLD_SIZE` 和 `RANK` 表示全局训练进程数和编号。
 

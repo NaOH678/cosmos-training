@@ -34,7 +34,7 @@ registry2.d.pjlab.org.cn/ccr-lepton-official-images/a2-cann:9.1.0-a2-ubuntu22.04
 | 设备 | 8 × Ascend910B2，65536 MiB HBM/卡，驱动设备映射完整 |
 | CANN / ops | 9.1.0，**910B 对应的 ops** |
 | 驱动 / 固件 | 25.5.6 / 7.8.0.10.220 |
-| 原生 Python | 3.12.13；本机 `/usr/local/python3.12.13/bin/python3.12` |
+| 原生 Python | 实测 3.12.13；通过 `NPU_BOOTSTRAP_PYTHON` 指定目标镜像的 ARM Python 3.12 |
 | PyTorch / TorchNPU | `2.10.0+cpu` ARM wheel / `2.10.0.post6` |
 | 环境创建 | 镜像原生 ARM Python 3.12 + venv；146 个哈希锁定 Python 分发包 |
 | 容器资源参考 | CPU quota 144 核，内存上限 1920 GiB，共享内存 128 GiB；这是本机配置，非最小资源结论 |
@@ -60,20 +60,24 @@ df -h . /tmp /dev/shm
 从两个独立分支克隆，保持并列目录。以下 Git 命令只在其子进程中清理动态库路径，训练仍保留 CANN 环境：
 
 ```bash
-cd /目标卷
+export WORKSPACE_ROOT=/目标共享卷/工作目录
+export NPU_BOOTSTRAP_PYTHON=python3.12  # 若不在 PATH，改为目标镜像中的实际解释器路径
+"$NPU_BOOTSTRAP_PYTHON" --version
+mkdir -p "$WORKSPACE_ROOT"
+cd "$WORKSPACE_ROOT"
 env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git clone --branch lmr-cosmos \
   https://github.com/NaOH678/cosmos-training.git cosmos-training-litegen-910b
 env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git clone --branch lmr-cosmos \
   https://github.com/DeepLink-org/LiteGen.dev.git LiteGen.dev
 cd cosmos-training-litegen-910b
-LITEGEN_COMMIT=$(/usr/local/python3.12.13/bin/python3.12 -c 'import json; print(json.load(open("config/litegen.lock.json"))["commit"])')
+LITEGEN_COMMIT=$("$NPU_BOOTSTRAP_PYTHON" -c 'import json; print(json.load(open("config/litegen.lock.json"))["commit"])')
 env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git -C ../LiteGen.dev checkout --detach "$LITEGEN_COMMIT"
 ```
 
-Python路径按镜像实际位置调整。固定提交用于重现已验收状态；开发时可切回 LiteGen 的 `lmr-cosmos` 分支。具体链接与升级流程见[衔接说明](docs/litegen_integration.md)。如果使用源码压缩包，仍需单独克隆 LiteGen。压缩包不含本机 `config/cluster.env`；源码目录中的该文件只适用于当前集群。
+`WORKSPACE_ROOT` 由接收方选择，项目目录可重命名；脚本根据自身位置定位源码。Python路径按镜像实际位置调整。固定提交用于重现已验收状态；开发时可切回 LiteGen 的 `lmr-cosmos` 分支。具体链接与升级流程见[衔接说明](docs/litegen_integration.md)。如果使用源码压缩包，仍需单独克隆 LiteGen。压缩包不含本机 `config/cluster.env`；源码目录中的该文件只适用于当前集群。
 
 ```bash
-cd /目标卷/cosmos-training-litegen-910b
+cd "$WORKSPACE_ROOT/cosmos-training-litegen-910b"
 cp config/cluster.env.example config/cluster.env
 ```
 
@@ -102,20 +106,33 @@ cp config/cluster.env.example config/cluster.env
 
 [external_inputs.json](external_inputs.json) 记录原始路径、必要文件大小、配置/清单 SHA256 及缓存规模。初始权重和多 GiB payload 没有逐文件内容哈希，输入检查不等于这些 payload 的全量内容校验。
 
-当前集群配置示例；迁移到其他机器时修改右侧路径：
+目标集群配置示例；只修改本地 `config/cluster.env`，该文件不提交 Git。以下模型/数据目录是通用布局，必须对应实际挂载的原始输入：
 
 ```bash
-export NPU_BOOTSTRAP_PYTHON=/usr/local/python3.12.13/bin/python3.12
-export COSMOS_NPU_ENV=/tmp/cosmos-training-litegen-910b-env
-export LITEGEN_ROOT=/目标卷/LiteGen.dev
-export CANN_ENV=/usr/local/Ascend/cann/set_env.sh
-export EDGE_DROID_MODEL_PATH=/oss/shichaojian/models/cosmos3-edge-droid
-export BASE_CHECKPOINT_PATH=/oss/shichaojian/models/cosmos3-edge-droid-dcp
-export WAN_VAE_PATH=/oss/shichaojian/models/cosmos3-edge-droid/vae/Wan2.2_VAE.pth
-export SIM_POINTFK_BUNDLE=/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam
+export NPU_BOOTSTRAP_PYTHON="${NPU_BOOTSTRAP_PYTHON:-python3.12}"
+export COSMOS_NPU_ENV="${COSMOS_NPU_ENV:-.venv-npu}"
+# LiteGen 默认使用项目同级的 ../LiteGen.dev；其他位置再显式设置 LITEGEN_ROOT。
+# CANN 默认自动查找标准安装位置；其他位置再设置 CANN_ENV。
+export OSS_ROOT="${OSS_ROOT:-/目标数据卷}"
+export EDGE_DROID_MODEL_PATH="${EDGE_DROID_MODEL_PATH:-$OSS_ROOT/models/cosmos3-edge-droid}"
+export BASE_CHECKPOINT_PATH="${BASE_CHECKPOINT_PATH:-$OSS_ROOT/models/cosmos3-edge-droid-dcp}"
+export WAN_VAE_PATH="${WAN_VAE_PATH:-$EDGE_DROID_MODEL_PATH/vae/Wan2.2_VAE.pth}"
+export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-$OSS_ROOT/datasets/sim_task27_ball_wam}"
 ```
 
-`NPU_BOOTSTRAP_PYTHON` 必须指向**镜像自身可用的 ARM Python 3.12**；本机裸命令 `python3.12` 不在 PATH，不能照搬默认命令。不要移动旧 venv 或从 x86 导出二进制环境。每节点自动安装时，`COSMOS_NPU_ENV` 使用本地盘 `/tmp`，容器重建后需要重建。也可按[共享环境说明](docs/shared_environment.md)在共享卷的最终路径提前安装并封存，训练节点只读取。DTFS 曾有 `flock` 阻塞记录，不能让多个节点同时安装或升级同一个 venv。
+`NPU_BOOTSTRAP_PYTHON` 必须指向**镜像自身可用的 ARM Python 3.12**。如果 `python3.12` 不在 PATH，在本地配置中填写目标镜像的实际路径；安装器仍检查架构和版本。不要移动旧 venv 或从 x86 导出二进制环境。
+
+| 路径 | 默认或设置方式 |
+|---|---|
+| 项目 | 接收方选择克隆目录；脚本自动定位项目根目录 |
+| LiteGen | 项目同级 `../LiteGen.dev`，可用 `LITEGEN_ROOT` 指定其他绝对路径 |
+| Python venv | 项目下 `.venv-npu`；`COSMOS_NPU_ENV` 的相对路径统一相对于项目根目录 |
+| 环境与训练报告 | 项目下 `outputs/`；多节点通过 `OUTPUT_ROOT` 指定同一共享目录 |
+| 模型与数据 | 本地配置中的四个输入变量，支持任意实际挂载位置 |
+
+项目位于共享卷时，默认 venv 也在共享卷：按[共享环境说明](docs/shared_environment.md)**只由一个准备容器提前安装并封存**，各训练节点只读取。若选择每节点自行安装，显式将 `COSMOS_NPU_ENV` 设为节点本地路径，例如 `/tmp/cosmos-npu-env`；容器重建后需要重建。DTFS 曾有 `flock` 阻塞记录，不能让多个节点同时安装或升级同一个 venv。
+
+迁移的是源码与安装流程，venv 必须在目标最终位置重新创建；共享 venv 的各节点需要相同基础 Python 路径和挂载位置。`external_inputs.json`、`reference/`、`evidence/`、`provenance/` 和历史实验报告中的来源绝对路径用于追溯，不是当前安装目录；输入检查使用本地配置覆盖后的路径。
 
 ## 3. 安装环境并检查输入
 
@@ -276,7 +293,7 @@ bash train.sh
 |---|---|
 | 910B 机器上的算子包不匹配 | 原镜像有 910_93 ops；换为同版本官方 910B ops，驱动未改。不能只凭镜像标签认定支持当前芯片。 |
 | Git 报 glibc/库版本错误 | 仅 Git 子进程用 `env -u LD_LIBRARY_PATH -u LD_PRELOAD /usr/bin/git ...`；不对训练全局清空库路径。 |
-| 共享盘创建 venv 卡住 | DTFS 上 `flock` 阻塞；改用本地 `/tmp` 环境。不要删除正在使用的锁或同时安装同一 venv。 |
+| 共享盘创建 venv 卡住 | DTFS 上曾出现 `flock` 阻塞；可选本地 `/tmp`，或由一个准备容器提前安装共享环境。训练节点不得并发安装；不要删除正在使用的锁。 |
 | Python 版本/架构错误 | 显式指定镜像原生 ARM Python 3.12，bootstrap 验证架构和版本。环境不能跨架构或直接搬路径。 |
 | CANN 的 Python 路径污染安装检查 | bootstrap 的安装子进程清理 `PYTHONPATH`；训练激活重新加载 CANN，保留其动态库路径。 |
 | 全 wheel 安装失败 | `antlr4-python3-runtime==4.9.3`、`iopath==0.1.10` 使用锁定 sdist；仅这两项允许源码构建，安装固定构建工具并关闭隔离构建，保留哈希检查。 |

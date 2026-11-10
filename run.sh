@@ -7,10 +7,10 @@ export COSMOS_NPU_ENV="${COSMOS_NPU_ENV:-$BUNDLE/.venv-npu}"
 export PYTHONNOUSERSITE=1
 [[ "$COSMOS_NPU_ENV" = /* ]] || export COSMOS_NPU_ENV="$BUNDLE/$COSMOS_NPU_ENV"
 export OSS_ROOT="${OSS_ROOT:-/oss}"
-export EDGE_DROID_MODEL_PATH="${EDGE_DROID_MODEL_PATH:-$OSS_ROOT/shichaojian/models/cosmos3-edge-droid}"
-export BASE_CHECKPOINT_PATH="${BASE_CHECKPOINT_PATH:-$OSS_ROOT/shichaojian/models/cosmos3-edge-droid-dcp}"
+export EDGE_DROID_MODEL_PATH="${EDGE_DROID_MODEL_PATH:-$OSS_ROOT/models/cosmos3-edge-droid}"
+export BASE_CHECKPOINT_PATH="${BASE_CHECKPOINT_PATH:-$OSS_ROOT/models/cosmos3-edge-droid-dcp}"
 export WAN_VAE_PATH="${WAN_VAE_PATH:-$EDGE_DROID_MODEL_PATH/vae/Wan2.2_VAE.pth}"
-export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-$OSS_ROOT/shichaojian/wam_datasets_20261029/sim_task27_ball_wam}"
+export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-$OSS_ROOT/datasets/sim_task27_ball_wam}"
 PYTHON="${NPU_BOOTSTRAP_PYTHON:-python3.12}"
 case "${1:-}" in
     --help|-h)

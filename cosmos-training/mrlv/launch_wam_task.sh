@@ -33,7 +33,7 @@ Topology: NPROC_PER_NODE=8, NNODES=1, NODE_RANK=0 (single-node default).
 These take precedence over their SENSECORE_* aliases. Multi-node jobs require
 NODE_RANK, a reachable MASTER_ADDR and the same absolute OUTPUT_ROOT on all nodes.
 Pure FSDP2: shard=NPROC_PER_NODE*NNODES, replicate=1. No automatic remote launch.
-Mount /mnt/lvminrui and /oss in the task container. Run this script with bash.
+Mount the configured code, inputs and shared output in the task container. Run with bash.
 HELP
 }
 
@@ -53,7 +53,7 @@ DEVICE_KIND="${LITEGEN_DEVICE:-${COSMOS_DEVICE:-cuda}}"
 [[ "$DEVICE_KIND" == cuda || "$DEVICE_KIND" == npu ]] || die "Unsupported training device: $DEVICE_KIND"
 export COSMOS_DEVICE="$DEVICE_KIND" LITEGEN_DEVICE="$DEVICE_KIND"
 if [[ -z "${TRAIN_PYTHON:-}" ]]; then
-    CONDA_INIT="${CONDA_INIT:-/mnt/lvminrui/conda_init.sh}"
+    [[ -n "${CONDA_INIT:-}" ]] || die "Set TRAIN_PYTHON or CONDA_INIT for this environment; see the project README."
     CONDA_ENV="${CONDA_ENV:-cosmos}"
     [[ -r "$CONDA_INIT" ]] || die "Conda init is not readable: $CONDA_INIT"
     set +u
@@ -109,10 +109,10 @@ export SENSECORE_PYTORCH_NNODES="$NNODES" SENSECORE_PYTORCH_NODE_RANK="$NODE_RAN
 
 # 3. 设置 4B HF 资源、DCP 初始权重、VAE 和 task27 数据的位置。
 OSS_ROOT="${OSS_ROOT:-/oss}"
-export EDGE_DROID_MODEL_PATH="${EDGE_DROID_MODEL_PATH:-$OSS_ROOT/shichaojian/models/cosmos3-edge-droid}"
-export BASE_CHECKPOINT_PATH="${BASE_CHECKPOINT_PATH:-$OSS_ROOT/shichaojian/models/cosmos3-edge-droid-dcp}"
+export EDGE_DROID_MODEL_PATH="${EDGE_DROID_MODEL_PATH:-$OSS_ROOT/models/cosmos3-edge-droid}"
+export BASE_CHECKPOINT_PATH="${BASE_CHECKPOINT_PATH:-$OSS_ROOT/models/cosmos3-edge-droid-dcp}"
 export WAN_VAE_PATH="${WAN_VAE_PATH:-$EDGE_DROID_MODEL_PATH/vae/Wan2.2_VAE.pth}"
-export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-$OSS_ROOT/shichaojian/wam_datasets_20261029/sim_task27_ball_wam}"
+export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-$OSS_ROOT/datasets/sim_task27_ball_wam}"
 SIM_CACHE="$SIM_POINTFK_BUNDLE/datasets/cosmos-cache"
 export SIM_POINTFK_SELECTION_ROOT="$SIM_CACHE/pointflow_fk_handguided1024"
 export SIM_ACTION_STATS_PATH="$SIM_POINTFK_BUNDLE/normalization_train_only.json"

@@ -117,6 +117,7 @@ def test_batch_and_smoke_policies(launch, smoke, settings, batch, global_batch):
 
 
 @pytest.mark.parametrize("settings,message", [
+    ({"TRAIN_PYTHON": None, "CONDA_INIT": None}, "Set TRAIN_PYTHON or CONDA_INIT"),
     ({"NNODES": 0}, "NNODES must be a positive integer"),
     ({"NNODES": "1+3"}, "NNODES must be a positive integer"),
     ({"NPROC_PER_NODE": 0}, "NPROC_PER_NODE must be a positive integer"),
