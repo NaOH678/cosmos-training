@@ -10,6 +10,7 @@ PYTHON="${NPU_BOOTSTRAP_PYTHON:-python3.12}"
 export LITEGEN_ROOT="${LITEGEN_ROOT:-$BUNDLE/../LiteGen.dev}"
 PREFIX="${COSMOS_NPU_ENV:-$BUNDLE/.venv-npu}"
 [[ "$PREFIX" = /* ]] || PREFIX="$BUNDLE/$PREFIX"
+REPORT_ROOT="${NPU_BOOTSTRAP_REPORT_ROOT:-$BUNDLE/outputs/environment}"
 if [[ "${1:-}" == --plan ]]; then
     printf 'Bootstrap Python: %s\nEnvironment: %s\nLock: %s\n' "$PYTHON" "$PREFIX" "$BUNDLE/environment/requirements.lock"
     exit 0
@@ -21,7 +22,7 @@ import platform, sys
 if platform.machine() != 'aarch64' or sys.version_info[:2] != (3, 12):
     raise SystemExit('Environment lock targets Linux aarch64 / Python 3.12; use native image Python 3.12.')
 PY
-mkdir -p "$(dirname "$PREFIX")" "$BUNDLE/outputs/environment"
+mkdir -p "$(dirname "$PREFIX")" "$REPORT_ROOT"
 exec 9>"$PREFIX.bootstrap.lock"
 flock 9
 if [[ ! -e "$PREFIX" ]]; then
@@ -47,7 +48,7 @@ EXPECTED="${LOCK_HASH%% *}:$PREFIX"
 if [[ ! -r "$READY" || "$(cat "$READY")" != "$EXPECTED" ]]; then
     # antlr4 4.9.3 and iopath 0.1.10 are source-only. Build its hash-checked sdist with the
     # locked setuptools, without fetching unpinned isolated build dependencies.
-    BUILD_LOCK="$BUNDLE/outputs/environment/build-requirements.lock"
+    BUILD_LOCK="$PREFIX/.build-requirements.lock"
     "$PREFIX/bin/python" - "$BUNDLE/environment/requirements.lock" "$BUILD_LOCK" <<'PYBUILD'
 import re, sys
 from pathlib import Path
@@ -69,7 +70,7 @@ fi
 "$PREFIX/bin/python" -m pip check
 "$PREFIX/bin/python" "$BUNDLE/scripts/check_environment.py" \
     --lock "$BUNDLE/environment/requirements.lock" \
-    --report "$BUNDLE/outputs/environment/installed.json"
+    --report "$REPORT_ROOT/installed.json"
 printf '%s\n' "$EXPECTED" > "$READY"
 FFMPEG="$("$PREFIX/bin/python" - <<'PY'
 from pathlib import Path

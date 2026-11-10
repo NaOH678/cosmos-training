@@ -9,8 +9,12 @@ _cosmos_migration_activate() {
     local bundle prefix cann_env candidate result=0 restore_nounset=0
     bundle="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     prefix="${COSMOS_NPU_ENV:-$bundle/.venv-npu}"
-    if [[ "$(uname -m)" != aarch64 || ! -x "$prefix/bin/python" ]]; then
-        printf 'Requires an aarch64 task and a prepared Python environment: %s\n' "$prefix" >&2
+    if [[ "$(uname -m)" != aarch64 ]]; then
+        printf 'Requires Linux aarch64; current architecture: %s\n' "$(uname -m)" >&2
+        return 1
+    fi
+    if [[ ! -x "$prefix/bin/python" ]]; then
+        printf 'Python environment is missing: %s; run bash run.sh --bootstrap-only on this node first.\n' "$prefix" >&2
         return 1
     fi
     export LITEGEN_ROOT="${LITEGEN_ROOT:-$bundle/../LiteGen.dev}"

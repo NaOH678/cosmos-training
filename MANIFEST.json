@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-10T03:07:03.929975+00:00",
+  "created_at_utc": "2026-11-10T09:09:33.010097+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, documentation and small evidence; external LiteGen checkout, assets, environments and live outputs excluded",
@@ -3371,8 +3371,8 @@
     },
     {
       "path": "docs/distributed_training.md",
-      "bytes": 7706,
-      "sha256": "d0e80cc99c2aaccdee4e8b3bd7b04d083741280e7df54f84ac9460496402c5aa"
+      "bytes": 8645,
+      "sha256": "c0b2b2add5e92a621bca8dbc79679e5fccc444176d6ad46e71ada1252b4e4bf7"
     },
     {
       "path": "docs/experiment_910b.md",
@@ -4481,13 +4481,13 @@
     },
     {
       "path": "scripts/activate.sh",
-      "bytes": 1931,
-      "sha256": "cf127b01f9c424baa3fdf4bf066422b062e2295f5a65af1ae76c3aa68142b905"
+      "bytes": 2082,
+      "sha256": "ae22ce1cca952c277a0c28e9e43d288e0df699e653e97d143df1803bb8aa0bc9"
     },
     {
       "path": "scripts/bootstrap.sh",
-      "bytes": 4235,
-      "sha256": "f27b6febb060a988b486e3fe65626630244ce697930af477c035ccdc3a3a5cf3"
+      "bytes": 4258,
+      "sha256": "d90f391da792d7bc7c32c1acf1797d97a7d84a86493b2b95786bfcb5898b3e15"
     },
     {
       "path": "scripts/check_environment.py",
