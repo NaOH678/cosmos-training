@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-10T09:09:33.010097+00:00",
+  "created_at_utc": "2026-11-10T10:05:07.533527+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, documentation and small evidence; external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,13 +16,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 23081,
-      "sha256": "79feb081d43d89f0950f657dc666d7c41ac507fc247e78c92c0980fb985e36c9"
+      "bytes": 23632,
+      "sha256": "3fb26c619cac0d496c03dcfbdcdbb2b3a40024bd8b70d9e5d638fa316a0a0ba4"
     },
     {
       "path": "config/cluster.env.example",
-      "bytes": 1888,
-      "sha256": "cf8090757f03809de192a05a8ac471cc2fe2b60e806c3ca2a5258d54de5443a9"
+      "bytes": 1916,
+      "sha256": "5589fc8f926ab79593da958a00009c35faffbe39a4235eeeafd65e2638b9e8d4"
     },
     {
       "path": "config/litegen.lock.json",
@@ -3371,8 +3371,8 @@
     },
     {
       "path": "docs/distributed_training.md",
-      "bytes": 8645,
-      "sha256": "c0b2b2add5e92a621bca8dbc79679e5fccc444176d6ad46e71ada1252b4e4bf7"
+      "bytes": 8826,
+      "sha256": "2c411ef128c7ce28665572748a62e760752e52a7c65b4c004836774f5cc2d9f1"
     },
     {
       "path": "docs/experiment_910b.md",
@@ -3393,6 +3393,11 @@
       "path": "docs/repository_split_validation.md",
       "bytes": 4008,
       "sha256": "ce1504d3caaf43580fcc6595aa5fed4900e546194b46da6722ca9ba1c438e429"
+    },
+    {
+      "path": "docs/shared_environment.md",
+      "bytes": 5063,
+      "sha256": "340cfef221d8e798e47ab610920fcee6a3663abe613a9c3c5ad345ad9e3e3343"
     },
     {
       "path": "environment/conda-environment.yml",
@@ -4486,13 +4491,13 @@
     },
     {
       "path": "scripts/bootstrap.sh",
-      "bytes": 4258,
-      "sha256": "d90f391da792d7bc7c32c1acf1797d97a7d84a86493b2b95786bfcb5898b3e15"
+      "bytes": 4693,
+      "sha256": "3a6bdc3f4ac256d04397cfb9b5d58bbbea5a3f7ff66823e0592ad6e8564ad10e"
     },
     {
       "path": "scripts/check_environment.py",
-      "bytes": 1600,
-      "sha256": "5f86af717490a1216cfc53f40288c6413737dde9e67eaa830407494e1403ac36"
+      "bytes": 2635,
+      "sha256": "7feadc2e6942731997ee6246d7a79f77d8394b6dd3090cdc31aeae67a0565d34"
     },
     {
       "path": "scripts/check_inputs.py",
@@ -4508,6 +4513,16 @@
       "path": "scripts/check_litegen_test.py",
       "bytes": 2400,
       "sha256": "f1b5bf512f668b9839c91d299c284779150773061ceb951cd2f6ccfccf167c58"
+    },
+    {
+      "path": "scripts/shared_environment_test.py",
+      "bytes": 4400,
+      "sha256": "75ed864b3744856093d774ef6cece0635cb05cf27c578f82c484a12a37455811"
+    },
+    {
+      "path": "scripts/submit_sensecore.sh",
+      "bytes": 1785,
+      "sha256": "dc00d7cb71226026d7116f0d9149b62b58447e7e23956bf3a36c34ba9570f969"
     },
     {
       "path": "scripts/verify_bundle.py",

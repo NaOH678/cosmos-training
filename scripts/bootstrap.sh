@@ -16,6 +16,15 @@ if [[ "${1:-}" == --plan ]]; then
     exit 0
 fi
 [[ $# == 0 ]] || { printf 'Unknown bootstrap arguments.\n' >&2; exit 2; }
+if [[ -f "$PREFIX/.cosmos-shared" ]]; then
+    export PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1
+    unset PYTHONPATH
+    "$PREFIX/bin/python" "$BUNDLE/scripts/check_environment.py" --require-ready \
+        --lock "$BUNDLE/environment/requirements.lock" --report "$REPORT_ROOT/installed.json"
+    "$PREFIX/bin/python" -m pip check
+    printf 'Prepared shared environment verified without installation: %s\n' "$PREFIX"
+    exit 0
+fi
 "$PYTHON" "$BUNDLE/scripts/check_litegen.py"
 "$PYTHON" - <<'PY'
 import platform, sys
@@ -71,7 +80,6 @@ fi
 "$PREFIX/bin/python" "$BUNDLE/scripts/check_environment.py" \
     --lock "$BUNDLE/environment/requirements.lock" \
     --report "$REPORT_ROOT/installed.json"
-printf '%s\n' "$EXPECTED" > "$READY"
 FFMPEG="$("$PREFIX/bin/python" - <<'PY'
 from pathlib import Path
 import importlib.util
@@ -83,4 +91,5 @@ print(files[0])
 PY
 )"
 ln -sfn "$FFMPEG" "$PREFIX/bin/ffmpeg"
+printf '%s\n' "$EXPECTED" > "$READY"
 printf 'Environment ready: %s\n' "$PREFIX"

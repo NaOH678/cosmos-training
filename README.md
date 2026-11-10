@@ -10,6 +10,7 @@
 - [跨仓库衔接与版本升级](docs/litegen_integration.md)：LiteGen 分支链接、固定提交、克隆、安装及升级流程。
 - [LiteGen 实际改动](docs/litegen_changes.md)：与原 LiteGen 目录逐文件比较。
 - [多节点、多卡训练](docs/distributed_training.md)：统一 `train.sh` 入口、四节点 32 卡配置、两步训练和结果检查；多节点配置支持不等于已完成多节点硬件验收。
+- [预先安装的共享环境](docs/shared_environment.md)：一次安装、各节点只校验和读取，避免作业启动时重复访问包源；提供可直接提交的平台入口。
 
 训练入口分为两类：`bash run.sh` 保留单机八卡验收；`bash train.sh` 用于可配置的单机/多机正式训练，`bash train.sh --smoke` 用于指定拓扑的两步训练。环境/挂载配置在 `config/cluster.env`，可选训练拓扑配置在 `config/train.env`（从 `config/train.env.example` 复制）。
 
@@ -114,7 +115,7 @@ export WAN_VAE_PATH=/oss/shichaojian/models/cosmos3-edge-droid/vae/Wan2.2_VAE.pt
 export SIM_POINTFK_BUNDLE=/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam
 ```
 
-`NPU_BOOTSTRAP_PYTHON` 必须指向**镜像自身可用的 ARM Python 3.12**；本机裸命令 `python3.12` 不在 PATH，不能照搬默认命令。不要移动旧 venv 或从 x86 导出二进制环境。`COSMOS_NPU_ENV` 建议使用支持可靠文件锁的本地盘；本集群 DTFS 的 `flock` 曾阻塞，所以实测使用 `/tmp`。容器重建后需要重建这个环境；模型和正式输出仍放共享卷。
+`NPU_BOOTSTRAP_PYTHON` 必须指向**镜像自身可用的 ARM Python 3.12**；本机裸命令 `python3.12` 不在 PATH，不能照搬默认命令。不要移动旧 venv 或从 x86 导出二进制环境。每节点自动安装时，`COSMOS_NPU_ENV` 使用本地盘 `/tmp`，容器重建后需要重建。也可按[共享环境说明](docs/shared_environment.md)在共享卷的最终路径提前安装并封存，训练节点只读取。DTFS 曾有 `flock` 阻塞记录，不能让多个节点同时安装或升级同一个 venv。
 
 ## 3. 安装环境并检查输入
 
@@ -130,6 +131,7 @@ bash run.sh --bootstrap-only 2>&1 | tee outputs/setup/bootstrap.log
 - `--verify` 校验本交付的 `MANIFEST.json`。原迁移包的历史清单另存于 `provenance/original-migration-manifest.json`，不要拿旧清单校验修复后的源码。
 - `--check-inputs` 检查模型/数据清单哈希、权重大小、所有 frame/latent 文件及确定性抽样的动作文件；`--all-payloads` 额外检查全部动作文件是否存在。结果在 `outputs/input_check.json`。
 - `--bootstrap-only` 使用原生 Python 创建独立 venv，从 [environment/requirements.lock](environment/requirements.lock) 安装依赖，先核对外部 LiteGen 的提交和运行时修改状态，再以 `--no-deps` 安装外部 LiteGen 与本项目 Cosmos 的 editable 源码，执行 `pip check` 和所有锁定版本检查。版本报告及 LiteGen 提交/路径写入 `outputs/environment/installed.json`。
+- 对带 `.cosmos-shared` 标记的预建共享环境，bootstrap 只核对准备状态、依赖和源码，不执行安装。训练平台入口使用 `scripts/submit_sensecore.sh`；准备流程见[共享环境说明](docs/shared_environment.md)。
 - 安装不改系统 Python、CANN 或驱动。首次安装需能访问 Python 包源；使用集群镜像源时保留锁文件的版本和哈希。
 - 重复 bootstrap 可复用同一位置的环境；移动源码目录时应使用新的 venv 并重新 bootstrap，避免 editable 注册仍指向旧目录。
 

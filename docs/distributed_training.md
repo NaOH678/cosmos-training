@@ -21,7 +21,7 @@ cosmos-training/mrlv/       现有启动器、监控、比较和 NPU 验证实�
 
 按 README 准备镜像、匹配 910B 的实际 CANN/ops、Python 和同一版本的两个仓库。模型/数据路径应一致；检查点输出必须是所有节点看到的同一共享目录，不能使用节点各自的 `/tmp`。共享文件系统须支持跨节点文件锁和 DCP 文件读写。
 
-每节点独立使用本地 venv，不要并发修改一个共享 venv。在已有配置的环境中不要覆盖 `cluster.env`：
+可选择[预先安装的共享 venv](shared_environment.md)，由 `scripts/submit_sensecore.sh` 在各节点校验后使用，全程不安装依赖。若选择各节点自行安装，则每节点使用本地 venv，不要并发修改一个共享 venv。在已有配置的环境中不要覆盖 `cluster.env`：
 
 ```bash
 cd /目标卷/cosmos-training-litegen-910b
