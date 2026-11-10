@@ -30,7 +30,9 @@
 
 ## 3. 镜像和验证边界
 
-基础镜像为使用者提供的 `registry2.d.pjlab.org.cn/ccr-lepton-official-images/a3-cann:9.2.0-a3-ubuntu22.04-py3.12`；本容器实际CANN runtime及910B ops均为9.1.0。[版本原始记录](../evidence/repository-split/image-and-cann.json)。本轮没有拉取镜像重建新容器，也没有验证原装CANN 9.2.0。
+本次拆分验收当时记录的镜像为使用者提供的 `registry2.d.pjlab.org.cn/ccr-lepton-official-images/a3-cann:9.2.0-a3-ubuntu22.04-py3.12`；该容器修复后的实际CANN runtime及910B ops均为9.1.0。[版本原始记录](../evidence/repository-split/image-and-cann.json)。当时没有拉取镜像重建新容器，也没有验证原装CANN 9.2.0。
+
+2026-11-10更新：使用者确认原镜像选择有误，新建910B任务应使用 `registry2.d.pjlab.org.cn/ccr-lepton-official-images/a2-cann:9.1.0-a2-ubuntu22.04-py3.12`。配置模板和迁移说明已同步；上述历史证据中的镜像字段保留原记录，不据此声称已在新A2镜像中重跑实验。
 
 本轮复用已存在的原生ARM Python 3.12 venv，并实际执行bootstrap更新两份editable注册和依赖校验；首次建环境的历史记录见 [交付验证](delivery_validation.md)。输入检查未对所有大型payload重新做内容哈希。
 

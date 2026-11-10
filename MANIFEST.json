@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-09T14:37:44.190900+00:00",
+  "created_at_utc": "2026-11-10T03:07:03.929975+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, documentation and small evidence; external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,13 +16,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 23029,
-      "sha256": "7b8d963d3abc6c960b6cfd546ad7334f14706717221d550aa183675186a65232"
+      "bytes": 23081,
+      "sha256": "79feb081d43d89f0950f657dc666d7c41ac507fc247e78c92c0980fb985e36c9"
     },
     {
       "path": "config/cluster.env.example",
-      "bytes": 1878,
-      "sha256": "462d12abd36aa673837f70c7c2626a070291321a3aecf9f128a6d28c44aa3344"
+      "bytes": 1888,
+      "sha256": "cf8090757f03809de192a05a8ac471cc2fe2b60e806c3ca2a5258d54de5443a9"
     },
     {
       "path": "config/litegen.lock.json",
@@ -3386,13 +3386,13 @@
     },
     {
       "path": "docs/litegen_integration.md",
-      "bytes": 4652,
-      "sha256": "b518a0aaa4681483ff06b493a73d1f1f88358df153ad805a48f7184bc9539405"
+      "bytes": 4734,
+      "sha256": "4609c03830d8fbde42475f0086e3160d398bf6ef80af65ad9dcd3342e59f7707"
     },
     {
       "path": "docs/repository_split_validation.md",
-      "bytes": 3648,
-      "sha256": "b0a29762154503b466cfc52e0205085a975de7744272f0722ee48691809f4e61"
+      "bytes": 4008,
+      "sha256": "ce1504d3caaf43580fcc6595aa5fed4900e546194b46da6722ca9ba1c438e429"
     },
     {
       "path": "environment/conda-environment.yml",

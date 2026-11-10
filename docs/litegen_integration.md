@@ -35,7 +35,7 @@ export LITEGEN_ROOT=/实际路径/LiteGen.dev
 
 ## 3. 安装与运行
 
-平台任务基础镜像为 `registry2.d.pjlab.org.cn/ccr-lepton-official-images/a3-cann:9.2.0-a3-ubuntu22.04-py3.12`。镜像标签由使用者提供；当前实测容器内CANN/910B ops为9.1.0，详细区别及硬件前提见README第1节。
+新建910B任务采用使用者更正的A2镜像：`registry2.d.pjlab.org.cn/ccr-lepton-official-images/a2-cann:9.1.0-a2-ubuntu22.04-py3.12`。已有实验的实际CANN/910B ops均为9.1.0；新镜像首次安装与硬件验收仍需执行，历史A3镜像排障记录不改写。检查步骤与硬件前提见README第1节。
 
 ```bash
 cd /实际路径/cosmos-training-litegen-910b
