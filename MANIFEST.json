@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-09T08:09:25.671169+00:00",
+  "created_at_utc": "2026-11-09T14:37:44.190900+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, documentation and small evidence; external LiteGen checkout, assets, environments and live outputs excluded",
@@ -11,13 +11,13 @@
     },
     {
       "path": ".gitignore",
-      "bytes": 435,
-      "sha256": "9fc019fabd58f3239698c2e33bb8e06b0e869c0a3b0890ba0f8931d30d106641"
+      "bytes": 452,
+      "sha256": "ea815f93d4a31a3c54213041f55aeb1ebd2a2510f6590cbeb10c5da2d99ad3bf"
     },
     {
       "path": "README.md",
-      "bytes": 19993,
-      "sha256": "ed697e6c3bbb6a2fa851afb578a16527edeeb0499f5fd1f1f9df5f4bc8df41af"
+      "bytes": 23029,
+      "sha256": "7b8d963d3abc6c960b6cfd546ad7334f14706717221d550aa183675186a65232"
     },
     {
       "path": "config/cluster.env.example",
@@ -28,6 +28,11 @@
       "path": "config/litegen.lock.json",
       "bytes": 241,
       "sha256": "050a237c40da7ebe6d21b2911a9ca4ccdd4cb7db7b34935e30339c30c21c3f6b"
+    },
+    {
+      "path": "config/train.env.example",
+      "bytes": 1110,
+      "sha256": "f20011bc8931a93c5f61447f9db90922abf3d2b531ad5044a8f277cea65ad2b0"
     },
     {
       "path": "cosmos-training/LICENSE",
@@ -2561,8 +2566,8 @@
     },
     {
       "path": "cosmos-training/cosmos_framework/scripts/train.py",
-      "bytes": 13717,
-      "sha256": "854ec2e78b508319912242a8abc69261034ac760d9ea9865daa584d88231ed56"
+      "bytes": 13790,
+      "sha256": "36d9b7379f1464ce56fca56dcd05bc1f4863da9dcbb076ba08921e4f4d8efb47"
     },
     {
       "path": "cosmos-training/cosmos_framework/simulation/__init__.py",
@@ -3261,18 +3266,23 @@
     },
     {
       "path": "cosmos-training/mrlv/launch_wam_litegen.sh",
-      "bytes": 1179,
-      "sha256": "e34092e2ab515e0e0479c9ff84f8cdfdb5a4cb6950bc4048e097d3a21e2c4085"
+      "bytes": 1333,
+      "sha256": "174e0df8060cb5774791c38426881ced1660e9a3cffd61a30e45cbe4a7b4a14e"
     },
     {
       "path": "cosmos-training/mrlv/launch_wam_task.sh",
-      "bytes": 15006,
-      "sha256": "3f05181f0a3632182358a607c7652e2aec742ce23951a152b0917e6489894bc8"
+      "bytes": 16389,
+      "sha256": "f3a56ea808059e738f8a37c9a8aecac9395c33daddd426e680d6f15fb2e0dbcb"
+    },
+    {
+      "path": "cosmos-training/mrlv/launcher_test.py",
+      "bytes": 6726,
+      "sha256": "4bc14d998d2ebb4fec2aaf6d768ea66857620e745cb025b00e35631260d12032"
     },
     {
       "path": "cosmos-training/mrlv/litegen_bridge_test.py",
-      "bytes": 7793,
-      "sha256": "36d44b36dbf0527b81495c070842d53e43b7f89e0b84724f87d57701d79b04bb"
+      "bytes": 8346,
+      "sha256": "8daaa870308f3262f32e1e598aa802279f906e2b56957f91b4ea42948af74876"
     },
     {
       "path": "cosmos-training/mrlv/npu/activate_conda.sh",
@@ -3286,13 +3296,13 @@
     },
     {
       "path": "cosmos-training/mrlv/npu/checkpoint_verify.py",
-      "bytes": 4750,
-      "sha256": "74c59e5640c896b3fbd3256f86645c00e45be80e4adc22ac1db48b58a94e8b48"
+      "bytes": 5575,
+      "sha256": "738039441da681c30fd4350d595335816e45eed97e7e57a6b03701a3377d7d99"
     },
     {
       "path": "cosmos-training/mrlv/npu/checkpoint_verify_test.py",
-      "bytes": 2055,
-      "sha256": "9c5f661cc826b3a431c7c82d8593febd2a95b7271d35470a5b46f4036fcaa00a"
+      "bytes": 3022,
+      "sha256": "3841f476faa18f2b8fa4d97fc753974a3b024a686f92aaaf7e48f3664154897d"
     },
     {
       "path": "cosmos-training/mrlv/npu/comparison_test.py",
@@ -3321,13 +3331,13 @@
     },
     {
       "path": "cosmos-training/mrlv/npu/job_runner.py",
-      "bytes": 16286,
-      "sha256": "0ee5e81762e273a13ff48adab3a56285f66dff4b427da12d797d180d853aa291"
+      "bytes": 17295,
+      "sha256": "84c699e603284e4b7be66519d7252bd1f15952045a1810a79134f196fae8d57d"
     },
     {
       "path": "cosmos-training/mrlv/npu/job_runner_test.py",
-      "bytes": 3423,
-      "sha256": "2ec0242f31de02a33fc3faadf73e0db2aad458aa999c808c03bc44673d6efc16"
+      "bytes": 5798,
+      "sha256": "58b38f057e5404c6d6a60fc6b8f6b0b103ccf309db055a45b135d35bfd8efffd"
     },
     {
       "path": "cosmos-training/mrlv/npu/preflight.py",
@@ -3358,6 +3368,11 @@
       "path": "docs/delivery_validation.md",
       "bytes": 4389,
       "sha256": "2da02df964f3ad4b24a49dc0b2756d7ae1974765d226d23d9b1863fb3667664a"
+    },
+    {
+      "path": "docs/distributed_training.md",
+      "bytes": 7706,
+      "sha256": "d0e80cc99c2aaccdee4e8b3bd7b04d083741280e7df54f84ac9460496402c5aa"
     },
     {
       "path": "docs/experiment_910b.md",
@@ -4498,6 +4513,11 @@
       "path": "scripts/verify_bundle.py",
       "bytes": 739,
       "sha256": "82f6141a7d0a9ccd7f295431d4b9ebdf15b9ac9906be0419131bb7715424bc09"
+    },
+    {
+      "path": "train.sh",
+      "bytes": 609,
+      "sha256": "ee94a30dd48159a35d5e4ec5335c51d1f462087bbc77cd69ce8adf9aef455a2e"
     }
   ],
   "external_litegen": {

@@ -54,6 +54,36 @@ def test_nonfinite_wam_loss_cannot_pass(tmp_path):
         verify_wam(tmp_path)
 
 
+@pytest.mark.parametrize("world_size", [8, 16, 32])
+def test_wam_result_requires_requested_ranks_and_all_components(tmp_path, world_size):
+    (tmp_path / "metrics.csv").write_text(
+        "iteration,train/loss,train/video_loss,train/action_loss\n1,1,1,1\n2,1,1,1\n"
+    )
+    (tmp_path / "performance.json").write_text(json.dumps({
+        "world_size": world_size, "device": "npu", "window_steps": 1,
+    }))
+    job = tmp_path / "cosmos3_action/action_sft/test"
+    job.mkdir(parents=True)
+    (job / "config.yaml").touch()
+    (job / "litegen_runtime.json").write_text(json.dumps({
+        "runtime": {"device": "npu"}, "optimization": {"parallel": {"strategy": "fsdp2"}},
+    }))
+    checkpoint = job / "checkpoints/iter_000000002"
+    for name in ("model", "optim", "scheduler", "trainer"):
+        component = checkpoint / name
+        component.mkdir(parents=True)
+        (component / ".metadata").write_bytes(b"metadata checked separately")
+        for rank in range(world_size):
+            (component / f"__{rank}_0.distcp").write_bytes(b"data" if name != "scheduler" or rank == 0 else b"")
+    (checkpoint.parent / "latest_checkpoint.txt").write_text(checkpoint.name)
+    assert verify_wam(tmp_path, world_size=world_size)["world_size"] == world_size
+    with pytest.raises(ValueError, match="NPU training ranks"):
+        verify_wam(tmp_path, world_size=world_size * 2)
+    (checkpoint / "optim" / f"__{world_size-1}_0.distcp").unlink()
+    with pytest.raises(ValueError, match="Incomplete WAM DCP"):
+        verify_wam(tmp_path, world_size=world_size)
+
+
 @pytest.mark.parametrize("temporary", [False, True])
 def test_preserves_evidence_without_copying_checkpoint_payload(tmp_path, temporary):
     report = tmp_path / "report"
@@ -85,3 +115,20 @@ def test_artifact_failure_does_not_report_job_passed(tmp_path):
     status = json.loads((tmp_path / "status.json").read_text())
     assert status["status"] == "failed"
     assert "volume is full" in status["artifact_error"]
+
+
+def test_original_acceptance_pins_eight_ranks_even_with_multinode_environment(tmp_path, monkeypatch):
+    from mrlv.npu import job_runner
+
+    job = Job(tmp_path)
+    job.python = sys.executable
+    job.env.update(NNODES="4", NPROC_PER_NODE="16", NODE_RANK="3", GLOBAL_BATCH_SIZE="128",
+                   NPU_WAM_OUTPUT_ROOT=str(tmp_path / "smoke"))
+    monkeypatch.setattr(job_runner.shutil, "disk_usage", lambda _: type("Disk", (), {"free": 80 * 2**30})())
+    monkeypatch.setattr(job_runner, "verify_wam", lambda _: {})
+    commands = []
+    job.command = lambda stage, args, **kwargs: commands.append((stage, kwargs.get("env")))
+    job.wam()
+    env = commands[0][1]
+    assert (env["NNODES"], env["NPROC_PER_NODE"], env["NODE_RANK"]) == ("1", "8", "0")
+    assert env["GLOBAL_BATCH_SIZE"] == "8"

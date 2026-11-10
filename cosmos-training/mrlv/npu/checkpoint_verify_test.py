@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.distributed.checkpoint as dcp
 
-from mrlv.npu.checkpoint_verify import read_small_state, verify_component
+from mrlv.npu.checkpoint_verify import read_small_state, verify_component, verify_checkpoint
 
 
 @pytest.fixture
@@ -50,3 +50,21 @@ def test_missing_metadata_reference_cannot_pass(replicated_checkpoint):
     path.write_bytes(pickle.dumps(metadata))
     with pytest.raises(ValueError, match="Incomplete DCP metadata chunk references"):
         verify_component(replicated_checkpoint, replicated=True)
+
+
+def test_32_rank_rng_and_requested_step_are_checked(monkeypatch, tmp_path):
+    from mrlv.npu import checkpoint_verify as module
+
+    monkeypatch.setattr(module, "verify_component", lambda *args, **kwargs: {})
+    trainer = {"iteration": 5000, **{f"rng_state_{rank}": {
+        key: b"rng" for key in ("torch", "torch_npu", "numpy_packed_bytes", "random_packed_bytes")
+    } for rank in range(32)}}
+    monkeypatch.setattr(module, "read_small_state",
+                        lambda path: {"last_epoch": 5000} if path.name == "scheduler" else trainer)
+    result = verify_checkpoint(tmp_path, world_size=32, steps=5000)
+    assert result["rng_ranks_read"] == list(range(32))
+    with pytest.raises(ValueError, match="restore step 2"):
+        verify_checkpoint(tmp_path, world_size=32)
+    del trainer["rng_state_31"]["torch_npu"]
+    with pytest.raises(ValueError, match="rank 31"):
+        verify_checkpoint(tmp_path, world_size=32, steps=5000)

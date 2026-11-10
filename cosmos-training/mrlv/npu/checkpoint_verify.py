@@ -66,7 +66,7 @@ def read_small_state(folder):
     return state
 
 
-def verify_checkpoint(checkpoint, *, world_size=8):
+def verify_checkpoint(checkpoint, *, world_size=8, steps=2):
     checkpoint = Path(checkpoint)
     components = {
         name: verify_component(checkpoint / name, world_size=world_size, replicated=name == "scheduler")
@@ -74,8 +74,8 @@ def verify_checkpoint(checkpoint, *, world_size=8):
     }
     scheduler = read_small_state(checkpoint / "scheduler")
     trainer = read_small_state(checkpoint / "trainer")
-    if scheduler["last_epoch"] != 2 or trainer["iteration"] != 2:
-        raise ValueError("DCP scheduler/trainer did not restore step 2")
+    if scheduler["last_epoch"] != steps or trainer["iteration"] != steps:
+        raise ValueError(f"DCP scheduler/trainer did not restore step {steps}")
     rng_ranks = []
     for rank in range(world_size):
         state = trainer[f"rng_state_{rank}"]
@@ -97,14 +97,27 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", type=Path)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument("--world-size", type=int, default=8)
+    parser.add_argument("--steps", type=int, default=2)
     args = parser.parse_args()
-    checkpoints = list(args.root.glob("cosmos3_action/action_sft/*/checkpoints/iter_000000002"))
-    if len(checkpoints) != 1:
-        raise ValueError("Expected exactly one WAM checkpoint at step 2")
-    result = verify_checkpoint(checkpoints[0])
+    if args.world_size < 2 or args.steps < 1:
+        parser.error("--world-size must be >=2 and --steps must be positive")
+    from mrlv.npu.job_runner import verify_wam
+
+    try:
+        wam = verify_wam(args.root, world_size=args.world_size, steps=args.steps)
+        checkpoints = list(args.root.glob(f"cosmos3_action/action_sft/*/checkpoints/iter_{args.steps:09d}"))
+        if len(checkpoints) != 1:
+            raise ValueError(f"Expected exactly one WAM checkpoint at step {args.steps}")
+        result = verify_checkpoint(checkpoints[0], world_size=args.world_size, steps=args.steps)
+        result.update(wam=wam, scope="Saved WAM metrics and DCP; not kernel/communication or loss-alignment acceptance")
+    except Exception as error:
+        result = {"status": "failed", "error": str(error)}
+    args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2))
+    return 0 if result["status"] == "passed" else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

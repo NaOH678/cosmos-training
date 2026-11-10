@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 在任务平台申请单节点 GPU 后执行一次；默认 8 卡基线，--smoke 可用 2 卡。
+# 每个节点执行一次；默认单机 8 卡，使用全局 FSDP2 支持多节点。
 # 默认训练 Cosmos3-Edge-DROID 4B / task27 / WAM，运行 2000 步。
 set -euo pipefail
 
@@ -13,7 +13,7 @@ usage() {
 Usage: bash mrlv/launch_wam_task.sh [--smoke] [--dry-run] [-- HYDRA_OVERRIDE ...]
 
 Default: activate Conda cosmos, then train 4B Edge-DROID WAM on task27.
-         1 node / 8 GPUs, batch 16/GPU, 2000 steps, 40000-step LR schedule.
+         1 node / 8 accelerators, global batch 128, 2000 steps, 40000-step LR schedule.
 --smoke: 2 steps, batch 1/GPU; disable compile and validation, save at step 2.
          Set SENSECORE_ACCELERATE_DEVICE_COUNT=2 for a two-GPU smoke test.
 --dry-run: activate the environment and resolve the config without GPU workers.
@@ -24,14 +24,15 @@ Defaults below can be overridden with environment variables:
   CONDA_INIT, CONDA_ENV, OSS_ROOT, OUTPUT_ROOT, WAM_TMPDIR (default /tmp),
   WAM_COMPILER_CACHE_ROOT (default: a fresh directory under WAM_TMPDIR),
   EDGE_DROID_MODEL_PATH, BASE_CHECKPOINT_PATH, WAN_VAE_PATH, SIM_POINTFK_BUNDLE,
-  MAX_ITER, BATCH_SIZE, GRAD_ACCUM_ITER, CYCLE_LENGTH, COMPILE, RUN_VALIDATION, SAVE_ITER,
+  MAX_ITER, GLOBAL_BATCH_SIZE, BATCH_SIZE, GRAD_ACCUM_ITER, CYCLE_LENGTH, COMPILE, RUN_VALIDATION, SAVE_ITER,
   VALIDATION_ITER, LOGGING_ITER, TRAIN_WORKERS, TRAIN_SEED, JOB_NAME.
   BASELINE_MONITOR (1), TENSORBOARD_DIR ($OUTPUT_ROOT/tensorboard),
   BENCH_WARMUP_STEPS (50; skipped when summarizing steady-state performance).
 
-Platform topology: SENSECORE_ACCELERATE_DEVICE_COUNT=8,
-  SENSECORE_PYTORCH_NNODES=1, SENSECORE_PYTORCH_NODE_RANK=0.
-MASTER_ADDR and MASTER_PORT are preserved when provided by the platform.
+Topology: NPROC_PER_NODE=8, NNODES=1, NODE_RANK=0 (single-node default).
+These take precedence over their SENSECORE_* aliases. Multi-node jobs require
+NODE_RANK, a reachable MASTER_ADDR and the same absolute OUTPUT_ROOT on all nodes.
+Pure FSDP2: shard=NPROC_PER_NODE*NNODES, replicate=1. No automatic remote launch.
 Mount /mnt/lvminrui and /oss in the task container. Run this script with bash.
 HELP
 }
@@ -82,19 +83,29 @@ export TMPDIR="${WAM_TMPDIR:-/tmp}"
 mkdir -p "$TMPDIR"
 
 # 2. 设置 torchrun 需要的变量。保留平台注入的值；未注入时使用单机 8 卡默认值。
-export SENSECORE_ACCELERATE_DEVICE_COUNT="${SENSECORE_ACCELERATE_DEVICE_COUNT:-${NPROC_PER_NODE:-8}}"
-export SENSECORE_PYTORCH_NNODES="${SENSECORE_PYTORCH_NNODES:-${NNODES:-1}}"
-export SENSECORE_PYTORCH_NODE_RANK="${SENSECORE_PYTORCH_NODE_RANK:-${NODE_RANK:-0}}"
-export MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
+export NPROC_PER_NODE="${NPROC_PER_NODE:-${SENSECORE_ACCELERATE_DEVICE_COUNT:-8}}"
+export NNODES="${NNODES:-${SENSECORE_PYTORCH_NNODES:-1}}"
+export NODE_RANK="${NODE_RANK:-${SENSECORE_PYTORCH_NODE_RANK:-}}"
 export MASTER_PORT="${MASTER_PORT:-29644}"
-[[ "$SENSECORE_ACCELERATE_DEVICE_COUNT" =~ ^[1-9][0-9]*$ ]] || die "Accelerator count must be a positive integer"
-[[ "$SENSECORE_PYTORCH_NNODES" == 1 && "$SENSECORE_PYTORCH_NODE_RANK" == 0 ]] ||
-    die "This script requires 1 node / node rank 0; received $SENSECORE_PYTORCH_NNODES nodes / rank $SENSECORE_PYTORCH_NODE_RANK"
-[[ "$MODE" == smoke || "$SENSECORE_ACCELERATE_DEVICE_COUNT" == 8 ]] ||
-    die "The baseline requires 8 accelerators; use --smoke to check training on fewer accelerators"
+for setting in NPROC_PER_NODE NNODES; do
+    [[ "${!setting}" =~ ^[1-9][0-9]*$ ]] || die "$setting must be a positive integer"
+done
+if (( NNODES > 1 )); then
+    [[ -n "$NODE_RANK" ]] || die "Multi-node training requires NODE_RANK on every node"
+    [[ -n "${MASTER_ADDR:-}" ]] || die "Multi-node training requires MASTER_ADDR"
+    case "$MASTER_ADDR" in
+        localhost|localhost.*|127.*|::1|\[::1\]|0.0.0.0|::) die "MASTER_ADDR must be reachable from every node" ;;
+    esac
+    [[ "${OUTPUT_ROOT:-}" = /* ]] || die "Multi-node training requires the same absolute OUTPUT_ROOT on every node"
+else
+    export NODE_RANK="${NODE_RANK:-0}" MASTER_ADDR="${MASTER_ADDR:-127.0.0.1}"
+fi
+[[ "$NODE_RANK" =~ ^(0|[1-9][0-9]*)$ ]] && (( NODE_RANK < NNODES )) || die "NODE_RANK must be in [0, NNODES)"
+TOTAL_RANKS=$((NPROC_PER_NODE * NNODES))
+(( TOTAL_RANKS >= 2 )) || die "WAM FSDP2 requires at least 2 training ranks"
 [[ "$MASTER_PORT" =~ ^[1-9][0-9]{0,4}$ ]] && (( MASTER_PORT <= 65535 )) || die "Invalid MASTER_PORT: $MASTER_PORT"
-export NPROC_PER_NODE="$SENSECORE_ACCELERATE_DEVICE_COUNT"
-export NNODES="$SENSECORE_PYTORCH_NNODES" NODE_RANK="$SENSECORE_PYTORCH_NODE_RANK"
+export SENSECORE_ACCELERATE_DEVICE_COUNT="$NPROC_PER_NODE"
+export SENSECORE_PYTORCH_NNODES="$NNODES" SENSECORE_PYTORCH_NODE_RANK="$NODE_RANK"
 
 # 3. 设置 4B HF 资源、DCP 初始权重、VAE 和 task27 数据的位置。
 OSS_ROOT="${OSS_ROOT:-/oss}"
@@ -126,17 +137,35 @@ export COSMOS_CPU_AFFINITY_MODE=partition
 
 # 5. 训练参数和输出目录。显式指定相同 OUTPUT_ROOT 时会自动续训。
 if [[ "$MODE" == smoke ]]; then
-    MAX_ITER="${MAX_ITER:-2}"; BATCH_SIZE="${BATCH_SIZE:-1}"
+    MAX_ITER="${MAX_ITER:-2}"
     COMPILE="${COMPILE:-false}"; RUN_VALIDATION="${RUN_VALIDATION:-false}"
     SAVE_ITER="${SAVE_ITER:-2}"; LOGGING_ITER="${LOGGING_ITER:-1}"
 else
-    MAX_ITER="${MAX_ITER:-2000}"; BATCH_SIZE="${BATCH_SIZE:-16}"
+    MAX_ITER="${MAX_ITER:-2000}"
     DEFAULT_COMPILE=false
     if [[ "$DEVICE_KIND" == cuda ]]; then DEFAULT_COMPILE=true; fi
     COMPILE="${COMPILE:-$DEFAULT_COMPILE}"; RUN_VALIDATION="${RUN_VALIDATION:-true}"
     SAVE_ITER="${SAVE_ITER:-500}"; LOGGING_ITER="${LOGGING_ITER:-10}"
 fi
 GRAD_ACCUM_ITER="${GRAD_ACCUM_ITER:-1}"
+[[ "$GRAD_ACCUM_ITER" =~ ^[1-9][0-9]*$ ]] || die "GRAD_ACCUM_ITER must be a positive integer"
+if [[ -z "${BATCH_SIZE:-}" ]]; then
+    if [[ "$MODE" == smoke && -z "${GLOBAL_BATCH_SIZE:-}" ]]; then
+        BATCH_SIZE=1
+    else
+        GLOBAL_BATCH_SIZE="${GLOBAL_BATCH_SIZE:-128}"
+        [[ "$GLOBAL_BATCH_SIZE" =~ ^[1-9][0-9]*$ ]] || die "GLOBAL_BATCH_SIZE must be a positive integer"
+        (( GLOBAL_BATCH_SIZE % (TOTAL_RANKS * GRAD_ACCUM_ITER) == 0 )) ||
+            die "GLOBAL_BATCH_SIZE must be divisible by total ranks * GRAD_ACCUM_ITER"
+        BATCH_SIZE=$((GLOBAL_BATCH_SIZE / TOTAL_RANKS / GRAD_ACCUM_ITER))
+    fi
+fi
+[[ "$BATCH_SIZE" =~ ^[1-9][0-9]*$ ]] || die "BATCH_SIZE must be a positive integer"
+EFFECTIVE_BATCH=$((TOTAL_RANKS * BATCH_SIZE * GRAD_ACCUM_ITER))
+if [[ -n "${GLOBAL_BATCH_SIZE:-}" ]]; then
+    [[ "$GLOBAL_BATCH_SIZE" =~ ^[1-9][0-9]*$ ]] && [[ "$GLOBAL_BATCH_SIZE" == "$EFFECTIVE_BATCH" ]] ||
+        die "GLOBAL_BATCH_SIZE conflicts with BATCH_SIZE, topology or GRAD_ACCUM_ITER"
+fi
 CYCLE_LENGTH="${CYCLE_LENGTH:-40000}"
 VALIDATION_ITER="${VALIDATION_ITER:-2000}"
 TRAIN_WORKERS="${TRAIN_WORKERS:-4}"
@@ -149,7 +178,7 @@ done
 [[ "$COMPILE" == true || "$COMPILE" == false ]] || die "COMPILE must be true or false"
 [[ "$RUN_VALIDATION" == true || "$RUN_VALIDATION" == false ]] || die "RUN_VALIDATION must be true or false"
 [[ "$JOB_NAME" =~ ^[a-zA-Z0-9_.-]+$ ]] || die "JOB_NAME contains unsupported characters"
-RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)_$$"
+RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)_node${NODE_RANK}_$$"
 # 覆盖 Conda 激活脚本的共享盘缓存默认值，避免并发缓存文件读取失败。
 WAM_COMPILER_CACHE_ROOT="${WAM_COMPILER_CACHE_ROOT:-$TMPDIR/cosmos-wam-compile-$RUN_STAMP}"
 export TRITON_CACHE_DIR="$WAM_COMPILER_CACHE_ROOT/triton"
@@ -236,8 +265,8 @@ TAIL_OVERRIDES=(
     "dataloader_train.dataloader.batch_size=$BATCH_SIZE"
     "dataloader_train.dataloader.num_workers=$TRAIN_WORKERS"
     "dataloader_train.dataloader.in_order=true"
-    "model.config.parallelism.data_parallel_shard_degree=$NPROC_PER_NODE"
-    "model.config.parallelism.data_parallel_replicate_degree=$NNODES"
+    "model.config.parallelism.data_parallel_shard_degree=$TOTAL_RANKS"
+    "model.config.parallelism.data_parallel_replicate_degree=1"
     "model.config.parallelism.context_parallel_shard_degree=1"
     "model.config.compile.enabled=$COMPILE"
     "model.config.rectified_flow_training_config.independent_action_schedule=false"
@@ -256,7 +285,7 @@ printf 'Accelerators/node=%s nodes=%s node_rank=%s master=%s:%s\n' \
 printf 'Model=%s\nCheckpoint=%s\nData=%s\nOutput=%s\n' \
     "$EDGE_DROID_MODEL_PATH" "$BASE_CHECKPOINT_PATH" "$SIM_POINTFK_BUNDLE" "$OUTPUT_ROOT"
 printf 'Mode=%s steps=%s batch/rank=%s global_batch=%s compile=%s dry_run=%s\n' \
-    "$MODE" "$MAX_ITER" "$BATCH_SIZE" "$((NPROC_PER_NODE * BATCH_SIZE * GRAD_ACCUM_ITER))" "$COMPILE" "$DRY_RUN"
+    "$MODE" "$MAX_ITER" "$BATCH_SIZE" "$EFFECTIVE_BATCH" "$COMPILE" "$DRY_RUN"
 
 # 7. 只解析配置时不运行 torchrun、不申请 GPU worker。
 if [[ "$DRY_RUN" == 1 ]]; then

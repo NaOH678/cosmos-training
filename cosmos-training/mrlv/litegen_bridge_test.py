@@ -53,16 +53,25 @@ def test_rejects_topology_changes(monkeypatch, key, value):
         bridge.make_config(config)
 
 
-def test_npu_runtime_config(monkeypatch):
-    monkeypatch.setenv("WORLD_SIZE", "8")
+@pytest.mark.parametrize("world_size", [8, 16, 32])
+def test_npu_runtime_config(monkeypatch, world_size):
+    monkeypatch.setenv("WORLD_SIZE", str(world_size))
     monkeypatch.setenv("LITEGEN_DEVICE", "npu")
     config = OmegaConf.load(CONFIG)
     config.job.path_local = str(CONFIG.parent)
     config.model.config.compile.enabled = False
+    config.model.config.parallelism.data_parallel_shard_degree = world_size
+    config.dataloader_train.dataloader.batch_size = 128 // world_size
     result = bridge.make_config(config)
     assert result.runtime.device == "npu"
     assert result.optimization.precision.cast_model is None
     assert not result.optimization.precision.allow_tf32
+    assert result.global_batch_size == 128
+    from litegen.distributed.parallel_plan import ParallelPlan
+
+    plan = ParallelPlan.from_config(result.optimization.parallel, device_type="npu", backend="hccl",
+                                    world_size=world_size, local_world_size=8)
+    assert plan.mesh_shape == (world_size,)
 
 
 def test_npu_compile_requires_separate_validation(monkeypatch):

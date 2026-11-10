@@ -291,7 +291,8 @@ if __name__ == "__main__":
         from cosmos_framework.integrations import litegen as litegen_bridge
 
         if litegen_bridge.selected():
-            runtime_config = litegen_bridge.make_config(config, world_size=int(os.environ.get("NPROC_PER_NODE", "8")))
+            world_size = int(os.environ.get("NPROC_PER_NODE", "8")) * int(os.environ.get("NNODES", "1"))
+            runtime_config = litegen_bridge.make_config(config, world_size=world_size)
             logging.info("LiteGen runtime config:\n" + str(runtime_config))
         logging.info("Config:\n" + config.pretty_print(use_color=True))
         os.makedirs(config.job.path_local, exist_ok=True)

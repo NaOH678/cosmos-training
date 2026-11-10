@@ -6,6 +6,7 @@ outputs/
 assets/
 wheelhouse/
 config/cluster.env
+config/train.env
 *.bootstrap.lock
 *.distcp
 *.pt

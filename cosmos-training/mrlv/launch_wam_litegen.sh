@@ -16,8 +16,11 @@ else
 fi
 # Fail on an accidental restart: comparison must begin at the pretrained DCP.
 # Set ALLOW_RESUME=1 explicitly for interruption recovery, with the same output directory.
-export OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/../outputs/wam-task27-litegen-$(date -u +%Y%m%dT%H%M%SZ)}"
-if [[ "${ALLOW_RESUME:-0}" != 1 && -d "$OUTPUT_ROOT" ]] &&
+# Independent node timestamps cannot identify one distributed checkpoint tree.
+if [[ "${NNODES:-${SENSECORE_PYTORCH_NNODES:-1}}" == 1 ]]; then
+    export OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/../outputs/wam-task27-litegen-$(date -u +%Y%m%dT%H%M%SZ)}"
+fi
+if [[ "${ALLOW_RESUME:-0}" != 1 && -d "${OUTPUT_ROOT:-}" ]] &&
     [[ -n "$(find "$OUTPUT_ROOT" -name latest_checkpoint.txt -print -quit)" ]]; then
     printf 'Output contains a resumable checkpoint: %s (use a fresh OUTPUT_ROOT or ALLOW_RESUME=1)\n' "$OUTPUT_ROOT" >&2
     exit 1

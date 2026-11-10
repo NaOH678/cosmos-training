@@ -46,33 +46,45 @@ def verify_junit(path):
     return {"executed_tests": len(cases), "skips": 0, "failures": 0}
 
 
-def verify_wam(root):
+def verify_wam(root, *, world_size=8, steps=2):
+    root = Path(root)
     with (root / "metrics.csv").open(newline="") as stream:
         rows = list(csv.DictReader(stream))
-    if [int(row["iteration"]) for row in rows] != [1, 2]:
-        raise ValueError("WAM smoke did not record exactly iterations 1 and 2")
     if not all(math.isfinite(float(row[key])) for row in rows for key in LOSS_KEYS):
         raise ValueError("WAM loss contains NaN/Inf")
+    performance = json.loads((root / "performance.json").read_text())
+    if performance["world_size"] != world_size or performance["device"] != "npu":
+        raise ValueError(f"Expected {world_size} NPU training ranks")
+    interval = performance["window_steps"]
+    if not isinstance(interval, int) or interval < 1 or steps % interval:
+        raise ValueError("Expected steps divisible by the recorded logging interval")
+    if [int(row["iteration"]) for row in rows] != list(range(interval, steps + 1, interval)):
+        raise ValueError(f"WAM did not record the complete metrics through step {steps}")
     configs = list(root.glob("cosmos3_action/action_sft/*/config.yaml"))
     if len(configs) != 1:
         raise ValueError("Expected one effective WAM configuration")
+    runtime = json.loads((configs[0].parent / "litegen_runtime.json").read_text())
+    if runtime["runtime"]["device"] != "npu" or runtime["optimization"]["parallel"]["strategy"] != "fsdp2":
+        raise ValueError("Expected LiteGen NPU FSDP2 training")
     checkpoint = configs[0].parent / "checkpoints"
-    if (checkpoint / "latest_checkpoint.txt").read_text().strip() != "iter_000000002":
+    checkpoint_name = f"iter_{steps:09d}"
+    if (checkpoint / "latest_checkpoint.txt").read_text().strip() != checkpoint_name:
         raise ValueError("WAM final checkpoint is missing or has the wrong iteration")
     components = {}
     for name in ("model", "optim", "scheduler", "trainer"):
-        folder = checkpoint / "iter_000000002" / name
+        folder = checkpoint / checkpoint_name / name
         shards = list(folder.glob("*.distcp"))
         nonempty = sum(p.stat().st_size > 0 for p in shards)
         # DCP deduplicates replicated scheduler state onto rank 0. Empty,
         # unreferenced scheduler files are valid; the schema stage checks every
         # metadata reference and reads scheduler/trainer state back from disk.
-        if (not (folder / ".metadata").is_file() or len(shards) != 8
-                or nonempty == 0 or (name != "scheduler" and nonempty != 8)):
+        if (not (folder / ".metadata").is_file() or len(shards) != world_size
+                or nonempty == 0 or (name != "scheduler" and nonempty != world_size)):
             raise ValueError(f"Incomplete WAM DCP component: {name}")
         components[name] = {"shards": len(shards), "nonempty_shards": nonempty,
                             "bytes": sum(p.stat().st_size for p in shards)}
-    return {"iterations": 2, "metrics": rows, "checkpoint_components": components}
+    return {"iterations": steps, "world_size": world_size, "device": "npu",
+            "metrics": rows, "checkpoint_components": components}
 
 
 class Job:
@@ -284,6 +296,10 @@ class Job:
         env = dict(self.env)
         env.update(
             OUTPUT_ROOT=str(self.wam_root),
+            NPROC_PER_NODE="8",
+            NNODES="1",
+            NODE_RANK="0",
+            GLOBAL_BATCH_SIZE="8",
             SENSECORE_ACCELERATE_DEVICE_COUNT="8",
             SENSECORE_PYTORCH_NNODES="1",
             SENSECORE_PYTORCH_NODE_RANK="0",

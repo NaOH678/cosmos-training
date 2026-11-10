@@ -1,6 +1,6 @@
 # Cosmos 4B WAM × LiteGen × Ascend 910B
 
-将 Cosmos 的 task27 纯 WAM 4B 训练任务接入 LiteGen，在 **Linux aarch64 / Python 3.12 / 单机 8 × Ascend910B2 64 GiB** 上运行。数据、模型、loss、训练循环、scheduler 和检查点由 Cosmos 管理；LiteGen 提供设备与分布式接入、FSDP2 包装和 NPU 优化器支持。
+将 Cosmos 的 task27 纯 WAM 4B 训练任务接入 LiteGen，已在 **Linux aarch64 / Python 3.12 / 单机 8 × Ascend910B2 64 GiB** 上验证，并提供固定节点数的多机训练入口。数据、模型、loss、训练循环、scheduler 和检查点由 Cosmos 管理；LiteGen 提供设备与分布式接入、FSDP2 包装和 NPU 优化器支持。
 
 **已完成真实八卡两步功能验收和完整 5000 步训练。** 相对原生 8 × A100 基线，5000 步的 20 项对齐检查全部通过；三类 loss 全程均值相对差为 0.073%、0.037%、0.318%。这是本任务的 loss 曲线工程对齐，不是逐位一致、所有 Cosmos 分支兼容或相同训练速度。
 
@@ -9,6 +9,9 @@
 - [交付目录复测记录](docs/delivery_validation.md)：独立环境、新路径验收与可追溯来源。
 - [跨仓库衔接与版本升级](docs/litegen_integration.md)：LiteGen 分支链接、固定提交、克隆、安装及升级流程。
 - [LiteGen 实际改动](docs/litegen_changes.md)：与原 LiteGen 目录逐文件比较。
+- [多节点、多卡训练](docs/distributed_training.md)：统一 `train.sh` 入口、四节点 32 卡配置、两步训练和结果检查；多节点配置支持不等于已完成多节点硬件验收。
+
+训练入口分为两类：`bash run.sh` 保留单机八卡验收；`bash train.sh` 用于可配置的单机/多机正式训练，`bash train.sh --smoke` 用于指定拓扑的两步训练。环境/挂载配置在 `config/cluster.env`，可选训练拓扑配置在 `config/train.env`（从 `config/train.env.example` 复制）。
 
 本目录包含独立可安装源码、哈希锁定依赖、A100 基线、验收脚本和实验小型证据；**模型权重、约 200 GiB 以上的数据缓存、35 GiB 级训练检查点、CANN/驱动和 Python 环境须另外准备**。LiteGen 作为独立仓库维护，不随本项目或压缩包分发；运行时通过 `LITEGEN_ROOT` 引用外部 checkout。随附报告中的历史绝对路径用于追溯，不是运行依赖。
 
@@ -39,7 +42,7 @@ registry2.d.pjlab.org.cn/ccr-lepton-official-images/a3-cann:9.2.0-a3-ubuntu22.04
 
 `torch` 版本中的 `+cpu` 是本次 ARM 分发包标识，TorchNPU 注册后训练运行在 NPU；不能仅凭版本后缀判断执行设备。验收会实际执行 NPU BF16 算子。
 
-平台应分配一台含八张卡的任务容器，**只启动一次根目录的脚本**，由脚本创建训练 rank。不要让平台再启动八份同一脚本。检查 `npu-smi info`、`/dev/davinci0` 至 `/dev/davinci7`、`/dev/davinci_manager`，以及平台要求的辅助设备和驱动挂载。
+执行单机八卡验收时，平台应分配一台含八张卡的任务容器，只执行一次 `bash run.sh`。执行多机训练时，每个节点各执行一次 `bash train.sh`，由脚本创建本节点的训练 rank；不要按卡数重复启动 launcher。检查每节点的 `npu-smi info`、`/dev/davinci0` 至 `/dev/davinci7`、`/dev/davinci_manager`，以及平台要求的辅助设备和驱动挂载。
 
 ```bash
 uname -m
@@ -165,7 +168,7 @@ bash run.sh --report-root "$PWD/outputs/acceptance-$(date -u +%Y%m%dT%H%M%SZ)"
 
 两步验收使用 batch 1/卡、关闭 validation，不能代替 5000 步数值对齐。默认完整 smoke 检查点写 `/tmp`，检查完删除大分片、保留诊断报告。要保留权重，可在 `cluster.env` 中设置**尚不存在**的 `NPU_WAM_OUTPUT_ROOT=/持久卷/全新目录`，该文件系统至少有 40 GiB 空闲。`--checks-only` 只覆盖算子和两卡小模型，不执行真实 WAM。
 
-## 5. 原配置 5000 步训练
+## 5. 单机八卡原配置 5000 步训练
 
 先完成上面的八卡验收。正式实验从原始 `BASE_CHECKPOINT_PATH` 开始，使用全新输出目录。下面覆盖的是已验证的实验参数：batch 16/卡、global batch 128、梯度累积 1、seed 42、BF16、学习率周期 40000、warmup 50；5000 步结束不意味着把调度周期改成 5000。
 
@@ -173,30 +176,29 @@ bash run.sh --report-root "$PWD/outputs/acceptance-$(date -u +%Y%m%dT%H%M%SZ)"
 cd /目标卷/cosmos-training-litegen-910b
 source config/cluster.env
 source scripts/activate.sh
-export SENSECORE_ACCELERATE_DEVICE_COUNT=8
-export SENSECORE_PYTORCH_NNODES=1 SENSECORE_PYTORCH_NODE_RANK=0
-export MAX_ITER=5000 SAVE_ITER=5000 BATCH_SIZE=16 GRAD_ACCUM_ITER=1
+export NPROC_PER_NODE=8 NNODES=1 NODE_RANK=0
+export MAX_ITER=5000 SAVE_ITER=5000 BATCH_SIZE=16 GLOBAL_BATCH_SIZE=128 GRAD_ACCUM_ITER=1
 export CYCLE_LENGTH=40000 TRAIN_SEED=42 TRAIN_WORKERS=4
 export COMPILE=false RUN_VALIDATION=true VALIDATION_ITER=2000 LOGGING_ITER=10
 export BASELINE_MONITOR=1 BENCH_WARMUP_STEPS=50 ALLOW_RESUME=0
 export JOB_NAME=sim_task27_wam_910b_align5k
 export OUTPUT_ROOT="$PWD/outputs/wam-5000-$(date -u +%Y%m%dT%H%M%SZ)/output"
-bash cosmos-training/mrlv/launch_wam_litegen.sh
+bash train.sh
 ```
 
-已有的 `launch_wam_litegen.sh` 复用原始 WAM launcher 与训练配置，不另写一套训练循环。`--dry-run` 只解析配置；正式训练需要去掉该选项。不会静默回退 CPU。`ALLOW_RESUME=1` 才允许从同一输出目录的已有检查点续训；有意续训前应确认检查点正确且配置一致。
+`train.sh` 依次读取 `config/cluster.env`、可选的 `config/train.env`，激活环境后调用已有的 `launch_wam_litegen.sh`；后者复用原始 WAM launcher 与训练配置，不另写一套训练循环。`--dry-run` 只解析配置；正式训练需要去掉该选项。不会静默回退 CPU。`ALLOW_RESUME=1` 才允许从同一输出目录的已有检查点续训；有意续训前应确认检查点、拓扑和数值配置一致。
 
 ### 后台运行，关闭终端不影响任务
 
 执行上一段的 `source` 和 `export`，**将最后一行训练命令替换为以下段落**。`OUTPUT_ROOT` 仍须为新路径：
 
 ```bash
-export RUN_DIR="$(dirname "$OUTPUT_ROOT")"
+export RUN_DIR="$(dirname "$OUTPUT_ROOT")/launcher-node-${NODE_RANK:-0}"
 mkdir -p "$RUN_DIR"
 nohup setsid bash -c '
   date -u +%FT%TZ > "$RUN_DIR/started_at.txt"
   printf "running\n" > "$RUN_DIR/status.txt"
-  bash cosmos-training/mrlv/launch_wam_litegen.sh
+  bash train.sh
   rc=$?
   printf "%s\n" "$rc" > "$RUN_DIR/exit_code.txt"
   date -u +%FT%TZ > "$RUN_DIR/finished_at.txt"
@@ -222,6 +224,33 @@ tail -n 3 "$OUTPUT_ROOT/metrics.csv"
 
 正式输出包括 metrics、TensorBoard、性能报告、最终有效配置及 `cosmos3_action/action_sft/<job>/checkpoints/iter_000005000`。本实验 `SAVE_ITER=5000`，因此常规中间保存不发生；同一任务的保留策略会清理较早检查点，跨不同输出目录不会互相清理。多个检查点同时存在时空间需求会超过 40 GiB。
 
+### 扩展到四节点 32 卡
+
+所有节点准备相同版本的两个仓库、环境和输入，输出必须是同一共享目录。先按[多节点说明](docs/distributed_training.md)完成各节点预检及 32 卡两步训练，再在四个节点各执行下面的正式训练命令。替换主节点地址和共享路径；`NODE_RANK` 分别设置为 0、1、2、3：
+
+```bash
+cd /目标卷/cosmos-training-litegen-910b
+export NNODES=4 NPROC_PER_NODE=8 NODE_RANK=0
+export MASTER_ADDR=10.0.0.10 MASTER_PORT=29644
+export OUTPUT_ROOT=/共享卷/outputs/wam-32card-5000-001
+export GLOBAL_BATCH_SIZE=128 GRAD_ACCUM_ITER=1
+export MAX_ITER=5000 SAVE_ITER=5000
+unset BATCH_SIZE  # 根据全局 batch 自动得到每卡 batch 4
+bash train.sh
+```
+
+多节点不会自动登录其他机器启动进程；上面的命令须由平台或使用者在每节点各执行一次。后台运行时沿用上面的包装，保持共享 `OUTPUT_ROOT`，外层 `RUN_DIR` 按节点编号区分，避免覆盖其他节点的日志和退出状态。
+
+| 拓扑 | 默认正式训练每卡 batch | 全局 batch | 全局 FSDP2 分片数 |
+|---|---:|---:|---:|
+| 1 节点 × 8 卡 | 16 | 128 | 8 |
+| 2 节点 × 8 卡 | 8 | 128 | 16 |
+| 4 节点 × 8 卡 | 4 | 128 | 32 |
+
+以上默认值适用于梯度累积 1、未显式指定每卡 batch 的正式训练。`--smoke` 默认每卡 batch 1；全局 batch 不能整除总卡数与梯度累积次数的乘积时会报错。详细参数、每节点配置及 `--world-size 32 --steps 2/5000` 结果检查命令见[多节点训练文档](docs/distributed_training.md)。
+
+本轮 74 项回归、8/16/32 rank 配置解析和真实八卡两步验收通过；八卡两步的三类 loss 与之前记录一致。四节点 32 卡的硬件通信、性能及 5000 步 loss 趋势仍待实测，不能由配置解析通过推断。验证记录位于 `outputs/multinode-validation/validation_summary.json`。
+
 ## 6. 与 A100 做完整对齐
 
 ```bash
@@ -232,6 +261,8 @@ tail -n 3 "$OUTPUT_ROOT/metrics.csv"
 ```
 
 保持原门槛：三类 loss 全程均值相对差 ≤5%，每 500 步窗口均值相对差 ≤10%；比较完整 5000 步、有效配置、动作归一化及运行元数据。只允许 `compile.enabled` 不同。性能单独报告，不把 910B 吞吐强行套用 A100 速度门槛。
+
+此入口对应原八卡对齐实验，仍严格比较卡数、每卡 batch 和分片数。16/32 卡实验会产生这些配置差异，需要独立记录并审核跨规模比较条件；本次未放宽原比较规则。
 
 **该严格工具还比较模型/数据路径。** 保持原挂载路径时可直接使用上述命令；迁移后路径不同，即使内容相同也会被判为配置不同。此时先核对输入内容，再对副本中的具体路径建立可审计映射，保留原始和映射后配置；不能关闭全部配置比较、改原基线或放宽 loss 门槛。两步输出不应送入该 5000 步对齐入口。
 
@@ -261,8 +292,10 @@ tail -n 3 "$OUTPUT_ROOT/metrics.csv"
 
 ```text
 run.sh                    两步验收 / 输入检查 / 环境安装统一入口
+train.sh                  每节点执行一次的可配置训练入口
 scripts/                  bootstrap、activate、输入和源码校验
 config/cluster.env.example 目标集群配置模板
+config/train.env.example   节点拓扑、全局 batch 和训练参数模板
 external_inputs.json      外部权重和缓存清单
 MANIFEST.json             本交付文件 SHA256
 cosmos-training/          Cosmos 运行时、原配置、桥接、NPU 验收与训练脚本
