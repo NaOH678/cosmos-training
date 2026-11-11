@@ -18,10 +18,10 @@ sys.path.insert(0, str(ROOT / "cosmos-training"))
 from mrlv.compare_wam_litegen import LOSS_KEYS, load_recorded_metrics, numerical_config
 
 RUNS = (
-    ("wam-steps5k-8xA100", "A | 8 x A100 / Native", "#2563eb", "-"),
-    ("wam-steps5k-8xA100-LiteGen", "B | 8 x A100 / LiteGen", "#009e73", "--"),
-    ("wam-steps5k-8x910B-LiteGen", "C | 8 x 910B / LiteGen", "#d55e00", "-."),
-    ("wam-steps5k-32x910B-LiteGen", "D | 32 x 910B / LiteGen", "#9b51b6", ":"),
+    ("wam-steps5k-8xA100", "A | 8 x A100 / Native", "#0057ff", "-"),
+    ("wam-steps5k-8xA100-LiteGen", "B | 8 x A100 / LiteGen", "#00a83b", "-"),
+    ("wam-steps5k-8x910B-LiteGen", "C | 8 x 910B / LiteGen", "#ff6b00", "--"),
+    ("wam-steps5k-32x910B-LiteGen", "D | 32 x 910B / LiteGen", "#d000ff", "--"),
 )
 STEPS = np.arange(10, 5001, 10)
 plt.rcParams.update({
@@ -112,7 +112,7 @@ def main():
     for ax, key, title in zip(axes, LOSS_KEYS, ("Total loss", "Video loss", "Action loss")):
         for name, label, color, style in RUNS:
             values = curves[name][0][key]
-            ax.plot(STEPS, values, color=color, alpha=0.24, linewidth=0.7)
+            ax.plot(STEPS, values, color=color, linestyle=style, alpha=0.24, linewidth=0.7)
             ax.plot(STEPS, values.rolling(10, min_periods=1).mean(), color=color,
                     linestyle=style, linewidth=1.8, label=label)
         ax.set_title(title, loc="left", fontsize=13, fontweight="bold")
