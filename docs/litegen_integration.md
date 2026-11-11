@@ -70,4 +70,4 @@ source scripts/activate.sh
 
 ## 5. 验证范围
 
-交付包含四组5000步实验数据，位置和比较命令见[README](../README.md)。历史实验、旧源码来源和仓库拆分复测保留在[固定 Git 提交](https://github.com/NaOH678/cosmos-training/tree/470fdd883dc28c850c30f553f08170096ac78da5)，不参与运行；平台自身的修改与测试说明由[LiteGen 文档](https://github.com/DeepLink-org/LiteGen.dev/blob/lmr-cosmos/docs/cosmos_integration.md)维护。
+交付包含四组5000步实验数据及[完整对比报告](../reference/comparison-four-runs/experiment_comparison.md)；已完成的 sys5 四节点32卡配置和平台单份提交命令见[README 第6节](../README.md#6-四节点-32-卡正式训练)。历史实验、旧源码来源和仓库拆分复测保留在[固定 Git 提交](https://github.com/NaOH678/cosmos-training/tree/470fdd883dc28c850c30f553f08170096ac78da5)，不参与运行；平台自身的修改与测试说明由[LiteGen 文档](https://github.com/DeepLink-org/LiteGen.dev/blob/lmr-cosmos/docs/cosmos_integration.md)维护。

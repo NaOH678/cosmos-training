@@ -184,7 +184,7 @@ class Job:
     def activate(self):
         if platform.machine() != "aarch64":
             raise RuntimeError("This job uses the prepared ARM environment; the allocated host must be aarch64")
-        # Capture only environment settings relevant to Conda/CANN. Never dump
+        # Capture only environment settings relevant to venv/CANN. Never dump
         # the complete platform environment (which may include credentials).
         code = (
             "import json,os; keys={'PATH','LD_LIBRARY_PATH','PYTHONPATH','CONDA_PREFIX',"
@@ -200,7 +200,7 @@ class Job:
                 "-c",
                 'set -e; source "$1"; "$TRAIN_PYTHON" -c "$2"',
                 "cosmos-npu",
-                REPO / "mrlv/npu/activate_conda.sh",
+                WORKSPACE / "scripts/activate.sh",
                 code,
             ],
             timeout=120,

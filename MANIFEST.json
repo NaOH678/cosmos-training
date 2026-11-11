@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-11T03:37:00.539424+00:00",
+  "created_at_utc": "2026-11-11T03:52:49.773524+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, reference data and operating documentation; historical evidence/provenance, external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,8 +16,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 24718,
-      "sha256": "c56292038504fb4c86c57344118e6dce62ea7fe534244182b916db45d8e8e73a"
+      "bytes": 28855,
+      "sha256": "e3561e9329c2facda345c111ece973d21bc4cee7ec0e841031f00fef0609195c"
     },
     {
       "path": "config/cluster.env.example",
@@ -3285,11 +3285,6 @@
       "sha256": "7eb35a019eba94b4256d8a2cda55b0415f18f8ff1e0508910487a625e6d01caf"
     },
     {
-      "path": "cosmos-training/mrlv/npu/activate_conda.sh",
-      "bytes": 169,
-      "sha256": "7753a7c3ae8b032d8c6e4afb0ee0d8393c9c5ba190fbf6e1ef861ee7abfe325f"
-    },
-    {
       "path": "cosmos-training/mrlv/npu/attention_test.py",
       "bytes": 8165,
       "sha256": "2d48a2ad45dd3e86f120c310251b801a76cfc0fd76e8e274647c8171394f331d"
@@ -3331,8 +3326,8 @@
     },
     {
       "path": "cosmos-training/mrlv/npu/job_runner.py",
-      "bytes": 17295,
-      "sha256": "84c699e603284e4b7be66519d7252bd1f15952045a1810a79134f196fae8d57d"
+      "bytes": 17292,
+      "sha256": "dbc095007d2e6d4a6e72cf140a3434d0f968155209bb50387f8fbe5951451ccd"
     },
     {
       "path": "cosmos-training/mrlv/npu/job_runner_test.py",
@@ -3366,18 +3361,18 @@
     },
     {
       "path": "docs/distributed_training.md",
-      "bytes": 8793,
-      "sha256": "937a1ec3d9edb93c92dd33d0ca437997f6c81180b08e5d07a687531559aeca9b"
+      "bytes": 10349,
+      "sha256": "fe044552229d879a0dbeb2f447b02d8a4eb056f890e6dc5d2a16437856bd9b7b"
     },
     {
       "path": "docs/litegen_integration.md",
-      "bytes": 4979,
-      "sha256": "5afd06973f2200e7e41dc5b4e2e6d3076091de0a7e7ea5e3d3476a57e8ce4e9b"
+      "bytes": 5145,
+      "sha256": "b2cbe809ffbd629953b322469415d7bfe4f40e8c00b789d9de03f7fbb6c73798"
     },
     {
       "path": "docs/shared_environment.md",
-      "bytes": 5363,
-      "sha256": "775c39086aaa2065f9e62b1955930f8ef7cf1131469da6b96c11da2914d903ca"
+      "bytes": 5718,
+      "sha256": "032c3ff34149f79202cec5d191cce59cb68f67cdb51afc9e8adff3830cfe82ec"
     },
     {
       "path": "environment/requirements.in",

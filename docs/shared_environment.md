@@ -54,15 +54,9 @@ export COSMOS_NPU_ENV="${COSMOS_NPU_ENV:-.venv-npu}"
 
 ## 平台只提交一份启动命令
 
-平台在每个节点执行一次，所有节点使用相同的新输出目录：
+已完成的 `job-mrlv-sys5` 使用四节点、每节点八张 910B，5000 步训练的配置、平台变量映射和完整提交命令集中在 [README 第 6 节](../README.md#6-四节点-32-卡正式训练)。先按本页完成共享环境准备，再使用该节的单份命令；平台在每个节点执行一次。
 
-```bash
-cd /目标共享卷/workspace/cosmos-training-litegen-910b
-export OUTPUT_ROOT="$PWD/outputs/wam-32card-5000-run01"
-exec bash scripts/submit_sensecore.sh
-```
-
-若平台已将工作目录设为项目根目录，可省略 `cd`；目录名字不影响启动。所有节点必须使用同一输出目录名，不要各自用时间戳生成它。
+平台工作目录应为共享项目根目录，所有节点使用同一个新的输出目录名，不要在各节点分别生成时间戳。命令显式指定 5000 步、global batch 128、累积 1 和学习率周期 40000，每卡 batch 自动得到 4；使用 `config/train.env.example` 避免旧本地训练配置覆盖参数。
 
 入口读取 `config/cluster.env` 并激活环境，核对准备标记、146个依赖、`pip check` 和本节点全部910B的BF16运算，然后调用原来的 `train.sh`。任何检查失败即停止，使用管道记录日志时也保留非零退出码。运行时不下载或安装 Python 包，不创建新的 venv，不运行外层 torchrun。
 
@@ -70,7 +64,7 @@ exec bash scripts/submit_sensecore.sh
 
 拓扑优先级为：标准 `NPROC_PER_NODE`/`NNODES`/`NODE_RANK`，其次 `SENSECORE_*`。每节点卡数缺省8；旧平台的 `WORLD_SIZE`、`RANK` 分别作为节点数、节点编号的最后来源。此映射只适用于平台在每节点启动一次的入口，不适用于已经由 torchrun 创建的训练worker。`MASTER_ADDR`、`MASTER_PORT` 必须由平台提供。
 
-正式训练沿用5000步、global batch128、累积1和学习率周期40000。四节点八卡时每卡batch4。若 `config/train.env` 或调用环境有显式训练参数，以现有launcher规则为准；不要保留旧的 `BATCH_SIZE=16`。加 `--smoke` 可执行该拓扑的两步训练；加 `--dry-run` 只校验Python环境并解析训练配置，跳过NPU预检与实际训练。
+README 的正式提交命令显式设置5000步、global batch128、累积1和学习率周期40000；四节点八卡时每卡batch4，并通过 `TRAIN_ENV=config/train.env.example` 避免旧本地配置覆盖。需要两步任务时使用[多节点说明](distributed_training.md)中的独立 smoke 命令，先清除正式训练参数；直接在保留 `MAX_ITER=5000` 的命令后添加 `--smoke` 不会自动覆盖该值。加 `--dry-run` 只校验Python环境并解析训练配置，跳过NPU预检与实际训练。
 
 每节点报告位于：
 

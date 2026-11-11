@@ -17,7 +17,13 @@ cosmos-training/mrlv/       现有启动器、监控、比较和 NPU 验证实�
 
 已完成单节点 8 × 910B 和四节点 32 × 910B 的 5000 步实验，loss 与性能数据保留在 [`reference/`](../reference/)。新集群仍须按下文执行各节点预检和两步测试，再开始正式训练。
 
-## 每个节点先安装
+## 平台作业：推荐复现 sys5 的共享环境入口
+
+`job-mrlv-sys5` 已完成 4 节点 × 8 张 910B、5000 步训练和最终产物检查。平台无法逐节点登录时，按 [README 第 6 节](../README.md#6-四节点-32-卡正式训练)使用预装共享 venv，只提交一份 `scripts/submit_sensecore.sh` 启动命令；平台提供的 `WORLD_SIZE=4` / `RANK=0..3` 在入口转为节点拓扑，随后 torchrun 创建总计 32 个训练 rank。
+
+下文保留各节点独立环境和手动部署方式，供不使用该平台入口的集群参考。两种环境方式都要求相同的源码、输入和共享输出；不需要同时执行两种安装流程。
+
+## 先准备每个节点可访问的环境
 
 按 README 准备镜像、匹配 910B 的实际 CANN/ops、Python 和同一版本的两个仓库。模型/数据路径应一致；检查点输出必须是所有节点看到的同一共享目录，不能使用节点各自的 `/tmp`。共享文件系统须支持跨节点文件锁和 DCP 文件读写。
 
@@ -69,7 +75,7 @@ GLOBAL_BATCH_SIZE = NNODES × NPROC_PER_NODE × BATCH_SIZE × GRAD_ACCUM_ITER
 
 `--smoke` 默认每卡 batch 1、两步、关闭 validation、逐步记录 loss 并在第 2 步保存。显式设置的 batch、步数等仍优先；避免继承正式训练参数。正式训练默认 5000 步、保存于 5000 步，学习率周期仍为 40000；BF16、seed 42、FP32 master AdamW 和 `compile=false` 沿用原配置。
 
-## 四节点 32 卡：先预检和两步测试
+## 四节点 32 卡：本地检查与跨节点两步验证
 
 每节点先运行本地算子与两卡恢复检查。此命令不验证跨节点通信：
 
@@ -77,7 +83,20 @@ GLOBAL_BATCH_SIZE = NNODES × NPROC_PER_NODE × BATCH_SIZE × GRAD_ACCUM_ITER
 bash run.sh --checks-only --report-root "$PWD/outputs/local-check-$(hostname)-$(date -u +%Y%m%dT%H%M%SZ)"
 ```
 
-在四个节点的独立 shell 设置同一组公共值，替换 IP 和目录。节点编号分别设置为 0、1、2、3：
+使用平台单份命令时，工作目录设为共享项目根目录，以一个新的跨节点任务提交以下命令。清除正式训练覆盖值后，`--smoke` 才会采用两步、每卡 batch 1 和关闭 validation 的默认配置：
+
+```bash
+set -euo pipefail
+export TRAIN_ENV="$PWD/config/train.env.example"
+export OUTPUT_ROOT="$PWD/outputs/wam-910b-32card-smoke-run01"
+export NPROC_PER_NODE=8 GRAD_ACCUM_ITER=1 ALLOW_RESUME=0
+unset NNODES NODE_RANK BATCH_SIZE GLOBAL_BATCH_SIZE MAX_ITER SAVE_ITER RUN_VALIDATION LOGGING_ITER
+exec bash scripts/submit_sensecore.sh --smoke
+```
+
+每节点的本地检查与跨节点 smoke 是不同任务；先完成前者，再统一启动后者。
+
+以下是能够分别管理各节点 shell 时的手动方式。设置同一组公共值，替换 IP 和目录；节点编号分别设置为 0、1、2、3：
 
 ```bash
 cd /目标卷/cosmos-training-litegen-910b
@@ -137,4 +156,4 @@ bash train.sh
 
 全局 batch 128 保持每个 optimizer step 的样本数，但 rank 数、随机数流和归约顺序仍变化，不能预先承诺曲线逐点一致或四倍加速。全局 FSDP2 会跨节点收集参数、归约梯度，须实测集群网络上的性能。
 
-交付中的四组实验数据及趋势、性能摘要命令见 [README](../README.md)。跨规模对比时记录卡数、每卡 batch 和全局 batch，使用完整 loss 记录与同口径的性能窗口；正式验收工具保留原有检查条件。
+交付中的四组实验数据、完整曲线、差异图及 rank 随机数机制说明见[实验对比报告](../reference/comparison-four-runs/experiment_comparison.md)，重现命令见 [README](../README.md)。跨规模对比时记录卡数、每卡 batch 和全局 batch，使用完整 loss 记录与同口径的性能窗口；正式验收工具保留原有检查条件。
