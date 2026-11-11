@@ -15,7 +15,7 @@ cosmos-training/mrlv/       现有启动器、监控、比较和 NPU 验证实�
 
 采用固定节点数的全局 FSDP2：`shard=NNODES*NPROC_PER_NODE`、`replicate=1`，CP/CFGP 保持 1。不提供自动申请节点、SSH 启动、训练中动态扩缩容或 HSDP 切换。
 
-**16/32 rank 配置解析通过不能证明真实多节点通信、性能或 loss 对齐通过。** 已有八卡 5000 步结果属于原实验。本轮检查记录在 `outputs/multinode-validation/`，汇总见该目录的 `validation_summary.json`。
+已完成单节点 8 × 910B 和四节点 32 × 910B 的 5000 步实验，loss 与性能数据保留在 [`reference/`](../reference/)。新集群仍须按下文执行各节点预检和两步测试，再开始正式训练。
 
 ## 每个节点先安装
 
@@ -137,4 +137,4 @@ bash train.sh
 
 全局 batch 128 保持每个 optimizer step 的样本数，但 rank 数、随机数流和归约顺序仍变化，不能预先承诺曲线逐点一致或四倍加速。全局 FSDP2 会跨节点收集参数、归约梯度，须实测集群网络上的性能。
 
-原 `compare_wam_cross_device.py` 仍执行严格的八卡配置比较，未放宽规则。32 卡结果直接送入它，会因 world size、每卡 batch 和分片数变化而失败；不等价于 loss 不对齐。跨规模实验需要独立、可审计的比较流程，明确记录允许的拓扑/batch 差异并保留原 loss 阈值；本次未新增这一实验分析功能。
+交付中的四组实验数据及趋势、性能摘要命令见 [README](../README.md)。跨规模对比时记录卡数、每卡 batch 和全局 batch，使用完整 loss 记录与同口径的性能窗口；正式验收工具保留原有检查条件。

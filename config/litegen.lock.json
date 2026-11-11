@@ -1,7 +1,7 @@
 {
   "repository": "https://github.com/DeepLink-org/LiteGen.dev.git",
   "branch": "lmr-cosmos",
-  "commit": "84a251bacc38fd50f14f96a428ce06786ec12c37",
+  "commit": "9d3f19ebfbc9826a89827579c365a6dbf6a1f746",
   "base_branch": "develop",
   "base_commit": "ceff826ad729151fb385b1f4df787ebc4b5bd888"
 }

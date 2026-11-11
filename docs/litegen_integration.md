@@ -4,8 +4,8 @@
 
 | 仓库 / 分支 | 作用 |
 |---|---|
-| [NaOH678/cosmos-training · lmr-cosmos](https://github.com/NaOH678/cosmos-training/tree/lmr-cosmos) | 可迁移WAM项目：Cosmos源码、910B适配、依赖锁、输入检查、验收、实验记录 |
-| [DeepLink-org/LiteGen.dev · lmr-cosmos](https://github.com/DeepLink-org/LiteGen.dev/tree/lmr-cosmos) | 从develop派生的平台适配：设备接口、延迟物化、FP32 master初始化修复 |
+| [NaOH678/cosmos-training · lmr-cosmos](https://github.com/NaOH678/cosmos-training/tree/lmr-cosmos) | 可迁移WAM项目：Cosmos源码、910B适配、依赖锁、输入检查、验收、实验数据与操作文档 |
+| [DeepLink-org/LiteGen.dev · lmr-cosmos](https://github.com/DeepLink-org/LiteGen.dev/tree/lmr-cosmos) | 平台代码及[分支修改说明](https://github.com/DeepLink-org/LiteGen.dev/blob/lmr-cosmos/docs/cosmos_integration.md) |
 
 Cosmos分支根目录沿用交付项目结构，训练源码位于 `cosmos-training/`。它基于原仓库main创建新分支，main保持不变。LiteGen分支保留完整平台开发仓库，不随Cosmos源码包分发。
 
@@ -19,7 +19,7 @@ workspace/
     run.sh                        验收入口
 ```
 
-当前锁定平台提交：[84a251bacc38fd50f14f96a428ce06786ec12c37](https://github.com/DeepLink-org/LiteGen.dev/commit/84a251bacc38fd50f14f96a428ce06786ec12c37)。
+当前锁定平台提交以 [`config/litegen.lock.json`](../config/litegen.lock.json) 为准。平台文件修改、设备接口、模型物化和优化器初始化契约集中在 LiteGen 的[分支修改说明](https://github.com/DeepLink-org/LiteGen.dev/blob/lmr-cosmos/docs/cosmos_integration.md)，本项目仅保留安装与运行所需的衔接流程。
 
 ## 2. 克隆与固定版本
 
@@ -35,7 +35,7 @@ export LITEGEN_ROOT=/实际路径/LiteGen.dev
 
 ## 3. 安装与运行
 
-新建910B任务采用使用者更正的A2镜像：`registry2.d.pjlab.org.cn/ccr-lepton-official-images/a2-cann:9.1.0-a2-ubuntu22.04-py3.12`。已有实验的实际CANN/910B ops均为9.1.0；新镜像首次安装与硬件验收仍需执行，历史A3镜像排障记录不改写。检查步骤与硬件前提见README第1节。
+使用已验证的镜像 `registry2.d.pjlab.org.cn/ccr-lepton-official-images/a2-cann:9.1.0-a2-ubuntu22.04-py3.12`，检查步骤与硬件前提见[README 第1节](../README.md#1-先准备目标节点)。
 
 ```bash
 cd /实际路径/cosmos-training-litegen-910b
@@ -47,7 +47,7 @@ bash run.sh --bootstrap-only
 bash run.sh
 ```
 
-bootstrap使用本项目 `environment/requirements.lock` 的146个锁定分发包，然后安装外部LiteGen的核心包（`--no-deps --no-build-isolation -e`），不启用LiteGen的CUDA extras或默认uv开发环境。平台完整 `pyproject.toml` 和 `uv.lock` 保留在平台仓库；PyYAML核心下界调整到已验证的6.0，以兼容本任务锁文件。
+bootstrap使用本项目 `environment/requirements.lock` 的146个锁定分发包，然后安装外部LiteGen的核心包（`--no-deps --no-build-isolation -e`），不启用LiteGen的CUDA extras或默认uv开发环境。平台安装元数据由LiteGen仓库维护。
 
 激活后 `LITEGEN_DEVICE=npu`、`COSMOS_DEVICE=npu`，训练继续由Cosmos原生循环驱动。检查导入位置：
 
@@ -61,13 +61,13 @@ source scripts/activate.sh
 
 ## 4. 后续同步平台更新
 
-1. 在独立LiteGen仓库切回 `lmr-cosmos`，获取develop的新提交并正常合并；解决冲突时保留本分支的设备接口、`materialize_meta=False` 及master延迟初始化契约。
-2. 提交平台修改，执行平台单元测试；以新的commit更新本项目 `config/litegen.lock.json`，保留两个仓库各自的提交记录。
-3. 重新bootstrap并执行回归、五项真实NPU attention、两卡恢复和八卡两步验收。更新本项目受版本管理文件时同时更新MANIFEST中的对应SHA256。
-4. 如需声称新的平台版本仍通过5000步数值对齐，按README复跑并用原阈值比较；历史报告不能自动代表新版本。
+1. 在独立LiteGen仓库切回 `lmr-cosmos`，获取并合并需要的平台更新；按平台的集成契约处理冲突。
+2. 提交平台修改，将其完整commit更新到本项目 `config/litegen.lock.json`，同时更新MANIFEST中的文件哈希及 `external_litegen` 记录。
+3. 若只有文档变化，核对平台运行时代码和安装依赖未变，并执行源码版本锁、现有环境和文档链接检查。若运行时或安装依赖变化，重新bootstrap并执行相关回归、五项真实NPU attention、两卡恢复和八卡两步验收。
+4. 需要验证新运行时的5000步训练结果时，按README执行完整实验并比较原始指标；保留两个仓库及实验各自的版本记录。
 
 正在运行的训练使用editable源码，勿在同一checkout中切换分支或修改平台；升级使用单独checkout和环境。项目不会在启动时自动git pull。
 
 ## 5. 验证范围
 
-拆分前的完整5000步报告和平台逐文件差异已移至 Git 历史归档，可通过[实验说明](experiment_910b.md)和[平台改动说明](litegen_changes.md)中的固定版本链接查看，不是安装或训练依赖。当前拆分的复测说明见[仓库拆分验证](repository_split_validation.md)。
+交付包含四组5000步实验数据，位置和比较命令见[README](../README.md)。历史实验、旧源码来源和仓库拆分复测保留在[固定 Git 提交](https://github.com/NaOH678/cosmos-training/tree/470fdd883dc28c850c30f553f08170096ac78da5)，不参与运行；平台自身的修改与测试说明由[LiteGen 文档](https://github.com/DeepLink-org/LiteGen.dev/blob/lmr-cosmos/docs/cosmos_integration.md)维护。

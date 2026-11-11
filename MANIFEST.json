@@ -1,8 +1,8 @@
 {
-  "created_at_utc": "2026-11-11T02:43:08.683468+00:00",
+  "created_at_utc": "2026-11-11T02:56:18.049170+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
-  "scope": "Cosmos migration source and documentation; historical evidence, external LiteGen checkout, assets, environments and live outputs excluded",
+  "scope": "Cosmos migration source, reference data and operating documentation; historical evidence/provenance, external LiteGen checkout, assets, environments and live outputs excluded",
   "files": [
     {
       "path": ".gitattributes",
@@ -16,8 +16,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 25045,
-      "sha256": "362c2221c2162080d68316849dba7d18aa47457c807cea2f0c91616ca973da80"
+      "bytes": 24844,
+      "sha256": "1908f2ef430d77b53788ecb696c41ae106467b7f6692858d246efc6683bc0338"
     },
     {
       "path": "config/cluster.env.example",
@@ -27,7 +27,7 @@
     {
       "path": "config/litegen.lock.json",
       "bytes": 241,
-      "sha256": "050a237c40da7ebe6d21b2911a9ca4ccdd4cb7db7b34935e30339c30c21c3f6b"
+      "sha256": "a553651aebedb00bf58aa7eed932486dfa5c5c54d456ce04405869f47797a27e"
     },
     {
       "path": "config/train.env.example",
@@ -3365,39 +3365,19 @@
       "sha256": "b3aefc49abe9a4c800f59271ecf6ab9098585ec91fe79fc516b3b176d055a37f"
     },
     {
-      "path": "docs/delivery_validation.md",
-      "bytes": 5943,
-      "sha256": "a9421ebd6947f549ef976406c1c0dadd1dd4d964f83c5597fa51c0c70e4aff01"
-    },
-    {
       "path": "docs/distributed_training.md",
-      "bytes": 8949,
-      "sha256": "6430b43ed0f3bf4b5ca96c80d7b85f73738fbc6c39a6430beadf2df45f5fe833"
-    },
-    {
-      "path": "docs/experiment_910b.md",
-      "bytes": 17979,
-      "sha256": "6872461567302a9f1846c2d6939d18551e782ae41880f1936cb0034969dcef79"
-    },
-    {
-      "path": "docs/litegen_changes.md",
-      "bytes": 7355,
-      "sha256": "ddcc558e2ba3674f8c4e2df812f27d10ae5fde2335202a3a7c9905fb85b9fd21"
+      "bytes": 8793,
+      "sha256": "937a1ec3d9edb93c92dd33d0ca437997f6c81180b08e5d07a687531559aeca9b"
     },
     {
       "path": "docs/litegen_integration.md",
-      "bytes": 4795,
-      "sha256": "e69b55a0578642b8581b258456cea0bfbaf8f3fd07c1aa4c9fdfbaf990da4b68"
-    },
-    {
-      "path": "docs/repository_split_validation.md",
-      "bytes": 5298,
-      "sha256": "96bfed4c94bc1578dc55006a8654f9d8d9613ce31fc89c2c1596b4cd7903da92"
+      "bytes": 4979,
+      "sha256": "5afd06973f2200e7e41dc5b4e2e6d3076091de0a7e7ea5e3d3476a57e8ce4e9b"
     },
     {
       "path": "docs/shared_environment.md",
-      "bytes": 5816,
-      "sha256": "7b9b2cb517e7d52acbc474113b1609754c612d3f5986e7cb46abb43497989905"
+      "bytes": 5363,
+      "sha256": "775c39086aaa2065f9e62b1955930f8ef7cf1131469da6b96c11da2914d903ca"
     },
     {
       "path": "environment/conda-environment.yml",
@@ -3418,51 +3398,6 @@
       "path": "external_inputs.json",
       "bytes": 4140,
       "sha256": "a2a987714688d238e6319dc9e9c2ea8b9b78ab9eaf2339cf511a4c414f70f187"
-    },
-    {
-      "path": "provenance/LiteGen.dev/pyproject.toml",
-      "bytes": 4591,
-      "sha256": "55f2969faacce5c9c4a84ba736c8afca23de8eee29f27bbcc30905449077eb9d"
-    },
-    {
-      "path": "provenance/cosmos-training/pyproject.toml",
-      "bytes": 11647,
-      "sha256": "06fdbbd83dd4caa16652e98ecaae8fabd3e1ef11807acfed7b97c0a2109e754e"
-    },
-    {
-      "path": "provenance/delivery.json",
-      "bytes": 421,
-      "sha256": "0414e1cc0e21f17c46cbe9a37be63adfed7104fa21e89810740d351b79c6f1c6"
-    },
-    {
-      "path": "provenance/original-migration-manifest.json",
-      "bytes": 152869,
-      "sha256": "37a6eae7a2f5edfe496a9689fd90c5967d89686a64edf68704528ea416e2736a"
-    },
-    {
-      "path": "provenance/runtime-parity.json",
-      "bytes": 389,
-      "sha256": "3b1dc320e01764a706780794d6b8495144c2da5442f45490487b15e54b4c23fa"
-    },
-    {
-      "path": "provenance/validated-source-head.txt",
-      "bytes": 41,
-      "sha256": "56cd2a2938e2c6b846d10b71cadf7c3257185293cc129dcc6439dc97fee824a4"
-    },
-    {
-      "path": "provenance/validated-source-sha256.json",
-      "bytes": 106677,
-      "sha256": "1aa967f64c61105a419caec8678fae7f4bc1bb82d0cffee644b8963a8eb3bf9d"
-    },
-    {
-      "path": "provenance/validated-source-status.txt",
-      "bytes": 963,
-      "sha256": "055ac62b086949a192a9dd5a173167b4e3e9b686517fb1c0310de68e875fdc86"
-    },
-    {
-      "path": "provenance/validated-source.patch",
-      "bytes": 39959,
-      "sha256": "86d52aaa11954a1430617158d727276b0b1bd7b38e567c2c188c8b22889cde3b"
     },
     {
       "path": "reference/wam-steps5k-32x910B-LiteGen/action_stats.json",
@@ -3623,7 +3558,7 @@
   "external_litegen": {
     "repository": "https://github.com/DeepLink-org/LiteGen.dev.git",
     "branch": "lmr-cosmos",
-    "commit": "84a251bacc38fd50f14f96a428ce06786ec12c37",
+    "commit": "9d3f19ebfbc9826a89827579c365a6dbf6a1f746",
     "base_branch": "develop",
     "base_commit": "ceff826ad729151fb385b1f4df787ebc4b5bd888"
   }

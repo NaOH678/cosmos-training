@@ -4,11 +4,10 @@
 
 **已完成真实八卡两步功能验收和完整 5000 步训练。** 相对原生 8 × A100 基线，5000 步的 20 项对齐检查全部通过；三类 loss 全程均值相对差为 0.073%、0.037%、0.318%。这是本任务的 loss 曲线工程对齐，不是逐位一致、所有 Cosmos 分支兼容或相同训练速度。
 
-- [国产卡适配实验说明](docs/experiment_910b.md)：配置、接入职责、改动、完整 loss/性能对比及验证边界。
+- [历史国产卡适配实验说明](https://github.com/NaOH678/cosmos-training/blob/470fdd883dc28c850c30f553f08170096ac78da5/docs/experiment_910b.md)：原八卡实验记录；当前四组实验数据与趋势比较命令见下文 `reference/` 说明。
 - [5000 步完整报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/full_comparison.json)、[loss 对比图](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/loss_comparison.png)。
-- [交付目录复测记录](docs/delivery_validation.md)：独立环境、新路径验收与可追溯来源。
 - [跨仓库衔接与版本升级](docs/litegen_integration.md)：LiteGen 分支链接、固定提交、克隆、安装及升级流程。
-- [LiteGen 实际改动](docs/litegen_changes.md)：与原 LiteGen 目录逐文件比较。
+- [LiteGen 分支修改说明](https://github.com/DeepLink-org/LiteGen.dev/blob/lmr-cosmos/docs/cosmos_integration.md)：平台侧文件修改、接口契约、初始化修复与验证范围，由 LiteGen 仓库维护。
 - [多节点、多卡训练](docs/distributed_training.md)：统一 `train.sh` 入口、四节点 32 卡配置、两步训练和结果检查；已完成实验的数据与比较边界见下文 `reference/` 说明。
 - [预先安装的共享环境](docs/shared_environment.md)：一次安装、各节点只校验和读取，避免作业启动时重复访问包源；提供可直接提交的平台入口。
 
@@ -132,7 +131,7 @@ export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-$OSS_ROOT/datasets/sim_task27_b
 
 项目位于共享卷时，默认 venv 也在共享卷：按[共享环境说明](docs/shared_environment.md)**只由一个准备容器提前安装并封存**，各训练节点只读取。若选择每节点自行安装，显式将 `COSMOS_NPU_ENV` 设为节点本地路径，例如 `/tmp/cosmos-npu-env`；容器重建后需要重建。不要让多个节点同时安装或升级同一个 venv。
 
-迁移的是源码与安装流程，venv 必须在目标最终位置重新创建；共享 venv 的各节点需要相同基础 Python 路径和挂载位置。`external_inputs.json`、`reference/`、`provenance/` 和历史实验报告中的来源绝对路径用于追溯，不是当前安装目录；输入检查使用本地配置覆盖后的路径。
+迁移的是源码与安装流程，venv 必须在目标最终位置重新创建；共享 venv 的各节点需要相同基础 Python 路径和挂载位置。`external_inputs.json`、`reference/` 和历史实验报告中的来源绝对路径用于追溯，不是当前安装目录；输入检查使用本地配置覆盖后的路径。
 
 ## 3. 安装环境并检查输入
 
@@ -145,7 +144,7 @@ bash run.sh --check-inputs --all-payloads 2>&1 | tee outputs/setup/inputs.log
 bash run.sh --bootstrap-only 2>&1 | tee outputs/setup/bootstrap.log
 ```
 
-- `--verify` 校验本交付的 `MANIFEST.json`。原迁移包的历史清单另存于 `provenance/original-migration-manifest.json`，不要拿旧清单校验修复后的源码。
+- `--verify` 校验当前交付的 `MANIFEST.json`，不依赖旧迁移包的历史清单。
 - `--check-inputs` 检查模型/数据清单哈希、权重大小、所有 frame/latent 文件及确定性抽样的动作文件；`--all-payloads` 额外检查全部动作文件是否存在。结果在 `outputs/input_check.json`。
 - `--bootstrap-only` 使用原生 Python 创建独立 venv，从 [environment/requirements.lock](environment/requirements.lock) 安装依赖，先核对外部 LiteGen 的提交和运行时修改状态，再以 `--no-deps` 安装外部 LiteGen 与本项目 Cosmos 的 editable 源码，执行 `pip check` 和所有锁定版本检查。版本报告及 LiteGen 提交/路径写入 `outputs/environment/installed.json`。
 - 对带 `.cosmos-shared` 标记的预建共享环境，bootstrap 只核对准备状态、依赖和源码，不执行安装。训练平台入口使用 `scripts/submit_sensecore.sh`；准备流程见[共享环境说明](docs/shared_environment.md)。
@@ -354,9 +353,8 @@ cosmos-training/          Cosmos 运行时、原配置、桥接、NPU 验收与�
 config/litegen.lock.json   外部 LiteGen 仓库、分支和验收提交；不含平台源码
 environment/              固定依赖和环境资料
 reference/                两组 8 × A100、8/32 × 910B 的 5000 步实验数据，无历史权重
-docs/                     实验、LiteGen 改动、新目录复测说明
-provenance/               来源提交、补丁、原清单和源码快照哈希
+docs/                     跨仓库衔接、共享环境和多节点训练操作说明
 outputs/                  本地新运行输出；不进入迁移压缩包
 ```
 
-本次拆分保持 Cosmos 训练运行时、数值配置和测试阈值不变；安装与激活入口改为校验并引用外部 LiteGen。原迁移仓库 HEAD 为 `60655e9c7bb8581bab95c2470816cf150e5bc57d`，其中包含未提交修复；真实来源以 `provenance/validated-source.patch` 和 `validated-source-sha256.json` 为准。复制时 750 个交付文件全部匹配 5000 步实验快照；这些是拆分前的历史快照证据；当前文件以本分支 MANIFEST 为准。Cosmos/附属运行时许可证保留在项目内，LiteGen 的许可证保留在独立平台仓库。
+当前交付由 Git 提交、`MANIFEST.json` 和 `config/litegen.lock.json` 记录版本与文件哈希。旧源码补丁、导出清单及复测报告保留在[历史提交](https://github.com/NaOH678/cosmos-training/tree/470fdd883dc28c850c30f553f08170096ac78da5)，不参与安装、训练或验收。Cosmos/附属运行时许可证保留在项目内，LiteGen 的许可证与平台修改说明保留在独立仓库。
