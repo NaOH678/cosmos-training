@@ -4,7 +4,7 @@
 
 **已完成真实八卡两步功能验收和完整 5000 步训练。** 相对原生 8 × A100 基线，5000 步的 20 项对齐检查全部通过；三类 loss 全程均值相对差为 0.073%、0.037%、0.318%。这是本任务的 loss 曲线工程对齐，不是逐位一致、所有 Cosmos 分支兼容或相同训练速度。
 
-- [四组 5000 步实验对比报告](reference/comparison-four-runs/README.md)：完整 loss 曲线、逐窗口性能曲线、吞吐与显存汇总，包含可重现绘图脚本。
+- [四组 5000 步实验对比报告](reference/comparison-four-runs/experiment_comparison.md)：完整 loss 曲线、相对基线差异图、rank 随机数机制说明、性能曲线与显存汇总，包含可重现绘图脚本。
 - [历史国产卡适配实验说明](https://github.com/NaOH678/cosmos-training/blob/470fdd883dc28c850c30f553f08170096ac78da5/docs/experiment_910b.md)：原八卡实验记录；当前四组实验数据与趋势比较命令见下文 `reference/` 说明。
 - [5000 步完整报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/full_comparison.json)、[loss 对比图](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/loss_comparison.png)。
 - [跨仓库衔接与版本升级](docs/litegen_integration.md)：LiteGen 分支链接、固定提交、克隆、安装及升级流程。
@@ -305,7 +305,7 @@ bash train.sh
 
 需要以 LiteGen A100 实验为对照时，将基线目录改为 `reference/wam-steps5k-8xA100-LiteGen`。
 
-[四组实验对比报告](reference/comparison-four-runs/README.md)展示三类 loss 的完整 5000 步曲线、逐窗口耗时与吞吐曲线，以及效率和显存汇总。报告直接读取上述四组数据，不需要历史检查点或原始模型挂载。使用已安装项目依赖的 Python 重新生成图表与统计：
+[四组实验对比报告](reference/comparison-four-runs/experiment_comparison.md)展示三类 loss 的完整 5000 步曲线、逐窗口耗时与吞吐曲线，以及效率和显存汇总。报告直接读取上述四组数据，不需要历史检查点或原始模型挂载。使用已安装项目依赖的 Python 重新生成图表与统计：
 
 ```bash
 "$TRAIN_PYTHON" reference/comparison-four-runs/generate_report.py

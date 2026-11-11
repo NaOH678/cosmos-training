@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-11T03:26:19.908268+00:00",
+  "created_at_utc": "2026-11-11T03:37:00.539424+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, reference data and operating documentation; historical evidence/provenance, external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,8 +16,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 24653,
-      "sha256": "9c7547fc79808ad4aab59826fc21d83cb431830ef43b8a6bc4cd5ec04b098464"
+      "bytes": 24718,
+      "sha256": "c56292038504fb4c86c57344118e6dce62ea7fe534244182b916db45d8e8e73a"
     },
     {
       "path": "config/cluster.env.example",
@@ -3395,49 +3395,59 @@
       "sha256": "a2a987714688d238e6319dc9e9c2ea8b9b78ab9eaf2339cf511a4c414f70f187"
     },
     {
-      "path": "reference/comparison-four-runs/README.md",
-      "bytes": 10031,
-      "sha256": "aa66f178bfa0c615539cffc702bc90cf68e82be1569062fe6de6b7980ced36f6"
+      "path": "reference/comparison-four-runs/experiment_comparison.md",
+      "bytes": 15634,
+      "sha256": "af469531e763ec57645ddacc11beb626c9df4c1a93a2183f1fa63bd6fec546af"
     },
     {
       "path": "reference/comparison-four-runs/generate_report.py",
-      "bytes": 11388,
-      "sha256": "0c41683ffa142edc5373bf3a2c37f71e8d4161709acb097d1c096ac823abfb8e"
+      "bytes": 14640,
+      "sha256": "38e4f9254a8e59e0561c35ec9f177fde325dfe71d474b4257588d6d432c8e1cc"
+    },
+    {
+      "path": "reference/comparison-four-runs/loss_difference.png",
+      "bytes": 323613,
+      "sha256": "138cd11b78b221c8c428820e1bf7e8a181d2efe245254eb719e2e7c605083f2d"
+    },
+    {
+      "path": "reference/comparison-four-runs/loss_difference.svg",
+      "bytes": 145777,
+      "sha256": "e7ebcde758f139b3b596aeafe917cc84f5f557b3ab7031f5ae09efcf24563fb3"
     },
     {
       "path": "reference/comparison-four-runs/loss_full.png",
-      "bytes": 588428,
-      "sha256": "b63bdc6aef194fabeace6e0805513605c8a24a7ef7c381d75f6f10441252b4d1"
+      "bytes": 588300,
+      "sha256": "3b0ebbe56f29987d3180bbf78add5811fa990b791250b305c15fc4a9d582c46f"
     },
     {
       "path": "reference/comparison-four-runs/loss_full.svg",
       "bytes": 340239,
-      "sha256": "00cebe871c5a41e088b9fbc4077f1dd48d1a454dd0b5a2788997bf39d6867d7c"
+      "sha256": "ee090c14ae0f6f665270f45a6458bdf7472003ffab54a25583753d2c55df9a38"
     },
     {
       "path": "reference/comparison-four-runs/performance_curves.png",
-      "bytes": 257967,
-      "sha256": "52e4beef590ec17e30228af47cdbea9787f2cf8d63a70d18009aa972c5177134"
+      "bytes": 244977,
+      "sha256": "5d93e56fd673d84bff4dcb5e6e20892dba8b3d65d0db41aba473c1aea5f09b14"
     },
     {
       "path": "reference/comparison-four-runs/performance_curves.svg",
       "bytes": 147505,
-      "sha256": "590b766541ddc444cdbb1635c9b1575596ab3406c16679861497a4d937b50209"
+      "sha256": "f1ef87e5d1b0a49289eded1423ebf9e9d229288f6dcdf88e196f5d2317fea75c"
     },
     {
       "path": "reference/comparison-four-runs/performance_summary.png",
-      "bytes": 256471,
-      "sha256": "c572ba98f5c00a462f8848389721d9a26b2bb9d6f5aebfe77675597fe439427e"
+      "bytes": 255351,
+      "sha256": "8262b517e61711df0f293f9f25153503afa5911cc9abd2710391360444246087"
     },
     {
       "path": "reference/comparison-four-runs/performance_summary.svg",
       "bytes": 136046,
-      "sha256": "ef4c43d1077e4d265551cc133bdf68dab614227aed3825a4e2ac0113793fa28d"
+      "sha256": "5c14bd3f105b76954768e4b1ae679b75ee15ad732083caedc41644b34d497c73"
     },
     {
       "path": "reference/comparison-four-runs/summary.json",
-      "bytes": 15725,
-      "sha256": "23f275a93a2381dd457dfdd8f6f12eccc33987c7143952e9557b0d61ff68d843"
+      "bytes": 20929,
+      "sha256": "57ea2ba73fe9ef05c819fe2a705ff75a824e2f7247db8d9bd0ce480d91361ab6"
     },
     {
       "path": "reference/wam-steps5k-32x910B-LiteGen/action_stats.json",

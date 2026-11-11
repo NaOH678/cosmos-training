@@ -33,7 +33,7 @@ NPU 配置文件中的 `optimizer_type: FusedAdam` 是保留的配置入口，�
 - 三个面板依次为 `train/loss`、`train/video_loss`、`train/action_loss`，均显示完整 5000 步范围，没有末段放大图。
 - 浅色细线展示每组全部 500 个原始记录点；深色线为向后 10 个记录点的移动平均，约覆盖 100 个训练步，开头不足 10 点时使用已有点。
 - Total loss 和 Action loss 使用对数纵轴，便于同时看清初期快速下降和后续趋势；Video loss 使用线性纵轴。横轴均为训练步数。
-- loss 每 10 步采样一次，记录的是该步跨 rank 聚合的训练 loss，**不是连续 10 步的平均 loss**。所有图表统一使用蓝、绿、橙、紫四种颜色区分 A/B/C/D；A100 两组使用实线，910B 两组使用虚线。
+- loss 每 10 步采样一次，记录的是该步跨 rank 聚合的训练 loss，**不是连续 10 步的平均 loss**。所有图表统一使用灰色、亮绿、亮蓝、大红四种颜色区分 A/B/C/D；A100 两组使用实线，910B 两组使用虚线。
 
 以下均值基于全部 500 个原始记录点，不基于平滑曲线计算：
 
@@ -53,7 +53,57 @@ NPU 配置文件中的 `optimizer_type: FusedAdam` 是保留的配置入口，�
 | C | 13.789311 → 0.773656 | 0.181396 → 0.074932 | 1.197535 → 0.002433 |
 | D | 13.991405 → 0.790655 | 0.197275 → 0.075715 | 1.201865 → 0.003350 |
 
-## 3. 性能随训练步数的变化
+## 3. 相对原生 8 × A100 的 loss 差异及原因
+
+![相对原生 8 × A100 的全程及分窗口 loss 差异](loss_difference.png)
+
+[下载 SVG 矢量图](loss_difference.svg)
+
+左上图比较 B/C/D 三组相对 A 的**全程记录均值相对差的绝对值**：`100 × abs(mean(candidate) / mean(A) - 1)`。它不是逐点绝对误差的平均值。
+
+其余三个面板分别展示 Total、Video、Action loss 的**有符号 500 步窗口均值相对差**：`100 × (mean(candidate_window) / mean(A_window) - 1)`。正数表示高于 A，负数表示低于 A；灰色零线是 A 基准。每个窗口包含 50 个未平滑记录点，十个窗口覆盖完整 1–5000 步，末个点只是其中一个窗口，不是最后 500 步的放大图。
+
+| 对照 A 的实验 | Total loss 全程均值有符号差 | Video loss 全程均值有符号差 | Action loss 全程均值有符号差 |
+|---|---:|---:|---:|
+| B：8 × A100 LiteGen | +0.0162% | +0.0684% | −0.1005% |
+| C：8 × 910B LiteGen | −0.0729% | +0.0365% | −0.3175% |
+| D：32 × 910B LiteGen | +1.8846% | +0.0685% | +5.9432% |
+
+32 卡的较大差异主要体现在 Action loss：第 501–1000 步窗口均值高约 14.40%，之后多个窗口转为低于 A。它不是训练全过程持续向同一方向偏移。Action loss 后期基准值很小，相同绝对差会表现为更大的百分比；全程均值又会受到初期较大 loss 的影响，不能只看一个百分比判断训练效果。
+
+### 为什么固定 seed=42 和 global batch=128 仍会出现差异
+
+**随机数与 global rank 挂钩，是这次扩卡比较必须说明的因素。** 这不是 LiteGen 新增的规则：已核对原生 Cosmos 和当前接入代码，都由 [trainer](../../cosmos-training/cosmos_framework/trainer/__init__.py#L111) 调用 `set_random_seed(seed=42, by_rank=True)`；[随机种子工具](../../cosmos-training/cosmos_framework/utils/misc.py#L130) 的实际逻辑是：
+
+```python
+seed = configured_seed + distributed.get_rank()
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+```
+
+这里的 rank 是整个分布式作业的 **global rank**，不是每个节点重复的 local rank。
+
+| 项目 | 8 卡实验 | 32 卡实验 |
+|---|---|---|
+| global rank | 0–7 | 0–31 |
+| rank 派生初始种子 | 42–49 | 42–73 |
+| 每 rank batch | 16 | 4 |
+| 每次更新组合方式 | 8 个 rank × 16 样本 | 32 个 rank × 4 样本 |
+
+因此，`8 × 16 = 32 × 4 = 128` 只保证每次更新的全局样本数量相同，**不保证“样本 ID → rank → 随机数流 → 噪声/时间步”的映射相同**。同一个样本换到不同 rank，会对应不同的随机流；即使留在同一个 rank，每次调用的 batch 大小与此前消耗的随机数数量也可能不同。更多 rank 不意味着“随机性更大”，这里改变的是随机流与样本的具体配对。
+
+这会通过以下路径影响训练：
+
+1. **噪声和扩散时间步影响每次实际求解的训练目标。** [时间步采样器](../../cosmos-training/cosmos_framework/model/generator/diffusion/rectified_flow.py#L134) 使用随机采样；[WAM 加噪过程](../../cosmos-training/cosmos_framework/model/generator/omni_mot_model.py#L1940) 分别为视频和动作生成噪声。配对发生变化后，相同原始数据也不再构成相同的带噪训练样本，梯度与后续优化轨迹会发生变化。
+2. **数据分配也与 rank/worker 有关。** 实际使用的 [ActionIterableShuffleDataset](../../cosmos-training/cosmos_framework/data/generator/action/datasets/action_sft_dataset.py#L45) 先按 `42 + epoch` 生成共同的块排列，再按 `global_shard = rank × num_workers + worker_id` 和 `total_shards = world_size × num_workers` 切片。四组每 rank 都是 4 个 worker，因此从 8 卡的 32 个数据流变成 32 卡的 128 个数据流。共同的 shuffle seed 不代表相同的 rank 分配或相同的逐步 minibatch。
+3. **分布式与设备数值路径也存在差异。** 8 → 32 卡改变了 FSDP 分片数及梯度归约路径；与原生 A100 比较还同时包含 NPU 算子、compile 开关及优化器后端的差异。浮点舍入和算子实现可能进一步影响长期训练轨迹。
+
+源码还有一个条件分支：当 `torch.are_deterministic_algorithms_enabled()` 为真且传入 iteration 时，时间步生成器使用 `iteration × 65536 + rank`，噪声生成器使用 `iteration × 65536 + rank + 32768`。**这条确定性路径仍然包含 rank，因此确定性不等于跨 world size 的随机数对齐。** 四组归档中的 `trainer.cudnn.deterministic` 均为 false，默认启动入口也没有传入 `--deterministic`；该配置字段本身不能证明每个时刻的全局算法开关状态，所以本报告不把上述条件公式当作历史运行已逐步采证的事实。前述无条件的 `42 + rank` 初始化和数据分片机制则已由源码确认。
+
+这些机制解释了为什么扩到 32 卡后，不能要求 loss 与 8 卡逐步重合，也与当前“整体下降趋势相同、局部差异更明显”的观测相容。但现有四组记录没有逐样本噪声、时间步和随机状态跟踪，也没有分别固定随机映射、样本顺序与归约路径的消融实验，**尚不能量化各因素贡献，更不能断言 5.9432% 的 Action loss 均值差全部由随机数造成**。若后续要研究严格的跨规模一致性，需要以全局样本/更新编号绑定随机数，再进行专门对照；本次仅补充分析，不改变训练逻辑或既定配置。
+
+## 4. 性能随训练步数的变化
 
 ![四组实验全程训练耗时与吞吐曲线](performance_curves.png)
 
@@ -65,7 +115,7 @@ NPU 配置文件中的 `optimizer_type: FusedAdam` 是保留的配置入口，�
 
 窗口时间使用同步后的跨 rank 最大墙钟耗时，包含窗口内的数据加载、通信和日志等工作。因此该指标反映训练链路的实际稳态速度，不等于单个算子的计算时间。统计实现见 [training_monitor.py](../../cosmos-training/mrlv/training_monitor.py)。
 
-## 4. 效率与显存汇总
+## 5. 效率与显存汇总
 
 ![四组实验效率与显存六项指标对比](performance_summary.png)
 
@@ -96,7 +146,7 @@ NPU 配置文件中的 `optimizer_type: FusedAdam` 是保留的配置入口，�
 
 8 → 32 张 910B 保持 global batch 不变，属于固定工作量的扩展比较：加速比为 `11.240654 / 4.304488 = 2.6114`，扩展效率为 `2.6114 / (32/8) = 65.28%`。每卡 batch 从 16 降为 4，FSDP 分片数从 8 增为 32，同时引入跨节点通信；单卡显存下降符合这种配置变化，不能单独解释为某一优化器或平台功能的节省。
 
-## 5. 数据来源、检查和重现
+## 6. 数据来源、检查和重现
 
 每个实验读取五个文件：`metrics.csv`、`performance_windows.csv`、`performance.json`、`action_stats.json` 以及 `cosmos3_action/action_sft/<原实验名>/config.yaml`。本目录直接引用相邻四组数据，没有复制或改写它们。
 
@@ -110,6 +160,6 @@ python reference/comparison-four-runs/generate_report.py
 
 这里的 `python` 应指向已安装好的 venv 解释器，也可以直接使用该 venv 的 `bin/python` 路径。脚本仅需已交付依赖中的 NumPy、Pandas、Matplotlib 和 PyYAML，不导入 Torch、不加载模型、不要求 NPU 或原始模型/数据挂载。它根据自身路径定位输入，与执行时的当前目录无关。
 
-命令重新生成三张 PNG、对应的三张 SVG 和 `summary.json`；本 Markdown 文档是这四组固定实验的说明。图中文字采用英文，以便在没有额外中文字体的新镜像中直接重现；指标解释在本文中给出。重新生成文件后若要重新打包交付，需要同步更新根目录 `MANIFEST.json`。
+命令重新生成四张 PNG、对应的四张 SVG 和 `summary.json`（含完整和分窗口 loss 差异）；本 Markdown 文档是这四组固定实验的说明。图中文字采用英文，以便在没有额外中文字体的新镜像中直接重现；指标解释在本文中给出。重新生成文件后若要重新打包交付，需要同步更新根目录 `MANIFEST.json`。
 
 本报告分析的是已有完整 5000 步记录，不是两步功能验收；本轮没有重新训练或检查历史完整 DCP，也没有进行独立任务成功率、泛化能力或能耗评测。loss 下降趋势、训练速度与最终任务效果应分别评价。

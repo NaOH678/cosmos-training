@@ -18,10 +18,10 @@ sys.path.insert(0, str(ROOT / "cosmos-training"))
 from mrlv.compare_wam_litegen import LOSS_KEYS, load_recorded_metrics, numerical_config
 
 RUNS = (
-    ("wam-steps5k-8xA100", "A | 8 x A100 / Native", "#0057ff", "-"),
+    ("wam-steps5k-8xA100", "A | 8 x A100 / Native", "#808080", "-"),
     ("wam-steps5k-8xA100-LiteGen", "B | 8 x A100 / LiteGen", "#00a83b", "-"),
-    ("wam-steps5k-8x910B-LiteGen", "C | 8 x 910B / LiteGen", "#ff6b00", "--"),
-    ("wam-steps5k-32x910B-LiteGen", "D | 32 x 910B / LiteGen", "#d000ff", "--"),
+    ("wam-steps5k-8x910B-LiteGen", "C | 8 x 910B / LiteGen", "#0057ff", "--"),
+    ("wam-steps5k-32x910B-LiteGen", "D | 32 x 910B / LiteGen", "#ff0000", "--"),
 )
 STEPS = np.arange(10, 5001, 10)
 plt.rcParams.update({
@@ -47,7 +47,20 @@ def configuration_differences(before, after, path=""):
         yield {"field": path.lstrip("."), "baseline": before, "candidate": after}
 
 
+def loss_differences(baseline, candidate):
+    assert baseline.shape == candidate.shape == (500,)
+    signed = 100 * (candidate.mean() / baseline.mean() - 1)
+    windows = 100 * (candidate.reshape(10, 50).mean(axis=1) / baseline.reshape(10, 50).mean(axis=1) - 1)
+    return {"full_mean_signed_percent": float(signed), "full_mean_absolute_percent": float(abs(signed)),
+            "window_mean_signed_percent": windows.tolist()}
+
+
 def main():
+    for scale, expected in ((1.0, 0.0), (1.1, 10.0), (0.9, -10.0)):
+        check = loss_differences(np.ones(500), np.full(500, scale))
+        np.testing.assert_allclose(check["full_mean_signed_percent"], expected, atol=1e-12)
+        np.testing.assert_allclose(check["full_mean_absolute_percent"], abs(expected), atol=1e-12)
+        np.testing.assert_allclose(check["window_mean_signed_percent"], expected, atol=1e-12)
     sources, records, curves = {}, {}, {}
     baseline_config = baseline_stats = None
     for name, label, color, style in RUNS:
@@ -169,6 +182,40 @@ def main():
     fig.text(0.5, 0.035, "Card-hours are resource-time estimates, not full job wall time, energy or monetary cost.", ha="center", fontsize=11)
     save(fig, "performance_summary")
 
+    differences = {
+        name: {key: loss_differences(curves[RUNS[0][0]][0][key].to_numpy(), curves[name][0][key].to_numpy())
+               for key in LOSS_KEYS}
+        for name, *_ in RUNS[1:]
+    }
+    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+    fig.subplots_adjust(left=0.075, right=0.98, bottom=0.11, top=0.80, hspace=0.38, wspace=0.23)
+    titles = ("Total loss", "Video loss", "Action loss")
+    ax = axes[0, 0]
+    for index, (name, label, color, _) in enumerate(RUNS[1:]):
+        values = [differences[name][key]["full_mean_absolute_percent"] for key in LOSS_KEYS]
+        bars = ax.bar(np.arange(3) + (index - 1) * 0.25, values, width=0.25, color=color, label=label)
+        ax.bar_label(bars, labels=[f"{v:.2f}%" for v in values], padding=4, fontsize=9)
+    ax.set_xticks(np.arange(3), titles)
+    ax.set_ylim(0, ax.get_ylim()[1] * 1.16)
+    ax.set_title("Absolute full-run mean difference", loc="left", fontweight="bold")
+    ax.set_ylabel("Absolute relative difference (%)")
+    ax.grid(axis="x", visible=False)
+    ax.set_axisbelow(True)
+    for ax, key, title in zip(list(axes.flat)[1:], LOSS_KEYS, titles):
+        ax.axhline(0, color=RUNS[0][2], linewidth=1, label=RUNS[0][1] + " (reference)")
+        for name, label, color, style in RUNS[1:]:
+            ax.plot(np.arange(500, 5001, 500), differences[name][key]["window_mean_signed_percent"],
+                    color=color, linestyle=style, marker="o", markersize=4, linewidth=1.8, label=label)
+        ax.set_title(f"{title}: signed 500-step window difference", loc="left", fontsize=11, fontweight="bold")
+        ax.set_xlabel("Window end step")
+        ax.set_ylabel("Signed relative difference (%)")
+        ax.set_xlim(0, 5000)
+    fig.suptitle("Loss differences relative to 8 x A100 / Native", y=0.98, fontsize=18, fontweight="bold")
+    fig.text(0.5, 0.93, "All statistics use unsmoothed recorded losses | Each window contains 50 points over 500 steps", ha="center", fontsize=11)
+    fig.legend(*axes[0, 1].get_legend_handles_labels(), loc="upper center", bbox_to_anchor=(0.5, 0.90), ncol=2, frameon=False)
+    fig.text(0.5, 0.025, "Positive: above the native A100 mean. Negative: below it. Windows span the full run; no final-window zoom.", ha="center", fontsize=10)
+    save(fig, "loss_difference")
+
     a, b, c, d = (records[name]["performance"] for name, *_ in RUNS)
     speedup = c["mean_step_seconds"] / d["mean_step_seconds"]
     summary = {
@@ -177,6 +224,7 @@ def main():
                       "total_and_action_y_axis": "log", "video_y_axis": "linear"},
         "source_sha256": sources,
         "runs": records,
+        "loss_differences_from_A": {"window_end_steps": list(range(500, 5001, 500)), "runs": differences},
         "comparisons": {
             "A100_LiteGen_vs_native_throughput_change_percent": 100 * (b["samples_per_second"] / a["samples_per_second"] - 1),
             "NPU_8_to_32_speedup": speedup,
