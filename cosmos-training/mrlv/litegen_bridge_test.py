@@ -15,7 +15,7 @@ from cosmos_framework.integrations import litegen as bridge
 from mrlv.compare_wam_litegen import compare, load_recorded_metrics, load_run, numerical_config
 
 ROOT = Path(__file__).resolve().parents[2]
-BASELINE = ROOT / "reference/wam-task27-align5k-01"
+BASELINE = ROOT / "reference/wam-steps5k-8A100"
 CONFIG = next(BASELINE.glob("cosmos3_action/action_sft/*/config.yaml"))
 
 

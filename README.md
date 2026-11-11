@@ -274,12 +274,21 @@ bash train.sh
 
 ```bash
 "$TRAIN_PYTHON" cosmos-training/mrlv/compare_wam_cross_device.py \
-  --baseline reference/wam-task27-align5k-01 \
+  --baseline reference/wam-steps5k-8A100 \
   --candidate "$OUTPUT_ROOT" \
   --report "$RUN_DIR/alignment.json"
 ```
 
 保持原门槛：三类 loss 全程均值相对差 ≤5%，每 500 步窗口均值相对差 ≤10%；比较完整 5000 步、有效配置、动作归一化及运行元数据。只允许 `compile.enabled` 不同。性能单独报告，不把 910B 吞吐强行套用 A100 速度门槛。
+
+`reference/` 只保留以下两组实验数据：
+
+| 目录 | 实验 |
+|---|---|
+| `wam-steps5k-8A100/` | 原生 Cosmos，8 × A100，5000 步；上述命令的默认对照 |
+| `wam-steps5k-8A100-LiteGen/` | 接入 LiteGen 的 Cosmos，8 × A100，5000 步 |
+
+每组保留有效配置、动作归一化统计、loss CSV、性能汇总及性能窗口记录，不包含历史检查点。两者是独立实验；需要以 LiteGen A100 实验为对照时，显式将 `--baseline` 改为第二个目录。
 
 此入口对应原八卡对齐实验，仍严格比较卡数、每卡 batch 和分片数。16/32 卡实验会产生这些配置差异，需要独立记录并审核跨规模比较条件；本次未放宽原比较规则。
 
@@ -300,7 +309,7 @@ MANIFEST.json             本交付文件 SHA256
 cosmos-training/          Cosmos 运行时、原配置、桥接、NPU 验收与训练脚本
 config/litegen.lock.json   外部 LiteGen 仓库、分支和验收提交；不含平台源码
 environment/              固定依赖和环境资料
-reference/                原生 A100 5000 步基线，无历史权重
+reference/                原生及 LiteGen 两组 8 × A100 5000 步实验数据，无历史权重
 docs/                     实验、LiteGen 改动、新目录复测说明
 provenance/               来源提交、补丁、原清单和源码快照哈希
 outputs/                  本地新运行输出；不进入迁移压缩包

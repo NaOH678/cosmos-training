@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-11T02:21:34.030582+00:00",
+  "created_at_utc": "2026-11-11T02:33:01.352011+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source and documentation; historical evidence, external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,8 +16,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 22242,
-      "sha256": "e4a00b79067efabecebcdec8eb1b00eee9e3ebb4e6129503c690a9647a388ff8"
+      "bytes": 22769,
+      "sha256": "22ed52c617d7608138745af0e30526430b728a977109ca19003b46640db40c30"
     },
     {
       "path": "config/cluster.env.example",
@@ -3281,8 +3281,8 @@
     },
     {
       "path": "cosmos-training/mrlv/litegen_bridge_test.py",
-      "bytes": 8346,
-      "sha256": "8daaa870308f3262f32e1e598aa802279f906e2b56957f91b4ea42948af74876"
+      "bytes": 8342,
+      "sha256": "03634d14eda2007a25f7f2a6154c612e6373fb5062837e5ccbf5c0822bea19f3"
     },
     {
       "path": "cosmos-training/mrlv/npu/activate_conda.sh",
@@ -3376,8 +3376,8 @@
     },
     {
       "path": "docs/experiment_910b.md",
-      "bytes": 17982,
-      "sha256": "64effed13c0966e24db0324961512146c59162ee24d1044ec3a9f994067cc3a1"
+      "bytes": 17978,
+      "sha256": "4b9766fe9c0aa99a712c0ebbf43386029f36df62d271ed01da583016ed936864"
     },
     {
       "path": "docs/litegen_changes.md",
@@ -3465,57 +3465,52 @@
       "sha256": "86d52aaa11954a1430617158d727276b0b1bd7b38e567c2c188c8b22889cde3b"
     },
     {
-      "path": "reference/cuda-litegen-regression/alignment_report.md",
-      "bytes": 1640,
-      "sha256": "5ac98f5a1207911879a785a475e9ffd10e1a8d3a3b7614d1c4f7171ebc64941c"
-    },
-    {
-      "path": "reference/cuda-litegen-regression/alignment_summary.json",
-      "bytes": 3243,
-      "sha256": "af1b47c670e079f0ba3cb0d98b5d29f64ee9e540886773cbec491c7eeda9d66d"
-    },
-    {
-      "path": "reference/migration_cpu_tests.xml",
-      "bytes": 6591,
-      "sha256": "b37e177308eb58c05274d9586c1b075ca05f5226b66caf1101d88dfb58848d5e"
-    },
-    {
-      "path": "reference/migration_dryrun_config.yaml",
-      "bytes": 19255,
-      "sha256": "55c389a7619aba762cfe2989a4bb2ba1dee497dbc4159005f70dedbb486807b7"
-    },
-    {
-      "path": "reference/migration_input_check.json",
-      "bytes": 1582,
-      "sha256": "7003a8bbe90b78de90aa8bd140761a7af30cc646471c2f692ebedf86098db63e"
-    },
-    {
-      "path": "reference/migration_validation.json",
-      "bytes": 1431,
-      "sha256": "2a6fcba0d0994f73a110072933466f707138591bb166ce8fe9eaa7ec7871ec6e"
-    },
-    {
-      "path": "reference/wam-task27-align5k-01/action_stats.json",
+      "path": "reference/wam-steps5k-8A100-LiteGen/action_stats.json",
       "bytes": 4384,
       "sha256": "9b15f453662433b311ef6994c5a19f424e27d2b956eec05471703b8b9f617f9a"
     },
     {
-      "path": "reference/wam-task27-align5k-01/cosmos3_action/action_sft/sim_task27_wam_task_baseline/config.yaml",
+      "path": "reference/wam-steps5k-8A100-LiteGen/cosmos3_action/action_sft/sim_task27_wam_task_baseline/config.yaml",
+      "bytes": 19386,
+      "sha256": "bf40a15ce6643eb9892ee793e4ce393da91b3a02c5ccec01d333c42512915a31"
+    },
+    {
+      "path": "reference/wam-steps5k-8A100-LiteGen/metrics.csv",
+      "bytes": 32718,
+      "sha256": "7adf26c0a62f6abaca5a0789c0f5864bde4ddf840439655acf937395aa05aa39"
+    },
+    {
+      "path": "reference/wam-steps5k-8A100-LiteGen/performance.json",
+      "bytes": 816,
+      "sha256": "637d5d8021f5b1f3562e78ee5be6f8ff49ac46e1d8a91665cba3f1661b2349ec"
+    },
+    {
+      "path": "reference/wam-steps5k-8A100-LiteGen/performance_windows.csv",
+      "bytes": 33271,
+      "sha256": "844f421d1959ce754db26b2a428e2b81cd876a159a526b18030d0fea377e4664"
+    },
+    {
+      "path": "reference/wam-steps5k-8A100/action_stats.json",
+      "bytes": 4384,
+      "sha256": "9b15f453662433b311ef6994c5a19f424e27d2b956eec05471703b8b9f617f9a"
+    },
+    {
+      "path": "reference/wam-steps5k-8A100/cosmos3_action/action_sft/sim_task27_wam_task_baseline/config.yaml",
       "bytes": 19286,
       "sha256": "e1d3bf80dfb3ce0fe45fd8f876fc12a45d47eeea547c284ef8105b429d0bbf30"
     },
     {
-      "path": "reference/wam-task27-align5k-01/metrics.csv",
+      "path": "reference/wam-steps5k-8A100/metrics.csv",
       "bytes": 32726,
       "sha256": "add4eeecf880aef5482c61fc09b1179571dc51c5c7b742af476b04d3242e973e"
     },
     {
-      "path": "reference/wam-task27-align5k-01/performance.json",
+      "path": "reference/wam-steps5k-8A100/performance.json",
       "bytes": 797,
       "sha256": "54102e892ceec7d3378edaa6942af06bb026f91108cd19c8ebfa48f81b823609"
     },
     {
-      "path": "reference/wam-task27-align5k-01/performance_windows.csv",
+      "path": "reference/wam-steps5k-8A100/performance_windows.csv",
       "bytes": 33397,
       "sha256": "b0b7c18f7e11575beac84846ed03767ece4f8c73251711c2be5316eee14314f8"
     },

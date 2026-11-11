@@ -28,7 +28,7 @@ checkpoint:
   load_path: /oss/shichaojian/models/cosmos3-edge-droid-dcp
   load_training_state: false
   only_load_scheduler_state: false
-  save_iter: 2
+  save_iter: 5000
   save_to_object_store:
     bucket: ''
     credentials: ''
@@ -46,12 +46,12 @@ dataloader_train:
   audio_sample_rate: 48000
   dataloader:
     _target_: cosmos_framework.data.generator.joint_dataloader.RankPartitionedDataLoader
-    batch_size: 1
+    batch_size: 16
     datasets:
       sim_pointfk:
         dataset:
           _target_: cosmos_framework.data.generator.action.datasets.sim_pointfk_dataset.get_sim_pointfk_sft_dataset
-          action_stats_path: /oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam/normalization_train_only.json
+          action_stats_path: /mnt/lvminrui/workspace/outputs/wam-task27-cuda-device-align5k-20261104-222702/action_stats.json
           action_stats_sha256: 9b15f453662433b311ef6994c5a19f424e27d2b956eec05471703b8b9f617f9a
           bundle: /oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam
           cached_video_only: true
@@ -78,7 +78,7 @@ dataloader_train:
     worker_init_fn: cosmos_framework.data.generator.joint_dataloader.limit_dataloader_worker_threads
   dataset_name: sim_pointfk_train
   lookahead_limit: 10
-  max_samples_per_batch: 1
+  max_samples_per_batch: 16
   max_sequence_length: null
   patch_spatial: 2
   sound_latent_fps: 0
@@ -96,7 +96,7 @@ dataloader_val:
       sim_pointfk:
         dataset:
           _target_: cosmos_framework.data.generator.action.datasets.sim_pointfk_dataset.get_sim_pointfk_sft_dataset
-          action_stats_path: /oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam/normalization_train_only.json
+          action_stats_path: /mnt/lvminrui/workspace/outputs/wam-task27-cuda-device-align5k-20261104-222702/action_stats.json
           action_stats_sha256: 9b15f453662433b311ef6994c5a19f424e27d2b956eec05471703b8b9f617f9a
           bundle: /oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam
           cached_video_only: false
@@ -153,7 +153,7 @@ defaults:
 job:
   cluster: null
   group: action_sft
-  name: sim_task27_wam_task_smoke
+  name: sim_task27_wam_task_baseline
   project: cosmos3_action
   wandb_mode: offline
 model:
@@ -178,7 +178,7 @@ model:
       compile_dynamic: true
       compiled_region: language
       coordinate_descent_tuning: false
-      enabled: false
+      enabled: true
       max_autotune_pointwise: false
       use_cuda_graphs: false
     diffusion_expert_config:
@@ -438,7 +438,7 @@ trainer:
   callbacks:
     baseline_monitor:
       _target_: mrlv.training_monitor.TrainingMonitor
-      log_dir: /tmp/cosmos-migration-dryrun/tensorboard
+      log_dir: /mnt/lvminrui/workspace/outputs/wam-task27-cuda-device-align5k-20261104-222702/tensorboard
       warmup_steps: 50
     compile_tokenizer:
       _target_: cosmos_framework.callbacks.compile_tokenizer.CompileTokenizer
@@ -510,7 +510,7 @@ trainer:
     mfu:
       _target_: cosmos_framework.callbacks.mfu.MFUCallback
       backwardpass_ratio: 2.0
-      every_n: 1
+      every_n: 10
       grad_accum_iter: 1
       hit_thres: 5
       include_padding: true
@@ -532,7 +532,7 @@ trainer:
       track_activations: true
     ofu:
       _target_: cosmos_framework.callbacks.ofu.OFUCallback
-      every_n: 1
+      every_n: 10
       hit_thres: 5
     param_count:
       _target_: cosmos_framework.callbacks.param_count.ParamCount
@@ -542,10 +542,10 @@ trainer:
       creds_path: null
       enabled: false
       flush_every_n_batches: 100
-      output_uri: /tmp/cosmos-migration-dryrun/cosmos3_action/action_sft/sim_task27_wam_task_smoke/sampled_media.lance
+      output_uri: /mnt/lvminrui/workspace/outputs/wam-task27-cuda-device-align5k-20261104-222702/cosmos3_action/action_sft/sim_task27_wam_task_baseline/sampled_media.lance
     sequence_packing_padding:
       _target_: cosmos_framework.callbacks.sequence_packing_padding.SequencePackingPadding
-      every_n: 1
+      every_n: 10
     sigma_loss_analysis:
       _target_: cosmos_framework.callbacks.sigma_loss_analysis.SigmaLossAnalysis
       every_n: 5000
@@ -586,8 +586,8 @@ trainer:
   grad_accum_iter: 1
   grad_scaler_args:
     enabled: false
-  logging_iter: 1
-  max_iter: 2
+  logging_iter: 10
+  max_iter: 5000
   max_val_iter: 1
   memory_format: torch.preserve_format
   profiling:
@@ -611,8 +611,8 @@ trainer:
     - 7
     with_modules: true
     with_stack: true
-  run_validation: false
-  run_validation_on_start: false
+  run_validation: true
+  run_validation_on_start: true
   save_zero_checkpoint: false
   seed: 42
   straggler_detection:
