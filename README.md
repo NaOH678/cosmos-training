@@ -4,6 +4,7 @@
 
 **已完成真实八卡两步功能验收和完整 5000 步训练。** 相对原生 8 × A100 基线，5000 步的 20 项对齐检查全部通过；三类 loss 全程均值相对差为 0.073%、0.037%、0.318%。这是本任务的 loss 曲线工程对齐，不是逐位一致、所有 Cosmos 分支兼容或相同训练速度。
 
+- [四组 5000 步实验对比报告](reference/comparison-four-runs/README.md)：完整 loss 曲线、逐窗口性能曲线、吞吐与显存汇总，包含可重现绘图脚本。
 - [历史国产卡适配实验说明](https://github.com/NaOH678/cosmos-training/blob/470fdd883dc28c850c30f553f08170096ac78da5/docs/experiment_910b.md)：原八卡实验记录；当前四组实验数据与趋势比较命令见下文 `reference/` 说明。
 - [5000 步完整报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/full_comparison.json)、[loss 对比图](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/loss_comparison.png)。
 - [跨仓库衔接与版本升级](docs/litegen_integration.md)：LiteGen 分支链接、固定提交、克隆、安装及升级流程。
@@ -302,36 +303,15 @@ bash train.sh
 
 `metrics.csv` 每 10 步记录一次，共 500 个点；性能汇总排除 warmup、validation 和 checkpoint 窗口，统计 4920 步。8 卡 NPU 数据来自 `wam-910b-8x-5000-20261105T131003Z/output`，32 卡数据来自 `job-mrlv-sys5` 的 `wam-910b-multinode-5000-run02`。配置中的历史绝对路径仅供追溯，读取这些指标不需要原模型、缓存或输出挂载。
 
-需要以 LiteGen A100 实验为对照时，将基线目录改为 `reference/wam-steps5k-8xA100-LiteGen`。以下命令读取四组归档数据，汇总三类 loss 在前、后 500 步的记录均值，以及各组训练性能，方便比较下降趋势和效率；不加载检查点，也不执行训练：
+需要以 LiteGen A100 实验为对照时，将基线目录改为 `reference/wam-steps5k-8xA100-LiteGen`。
+
+[四组实验对比报告](reference/comparison-four-runs/README.md)展示三类 loss 的完整 5000 步曲线、逐窗口耗时与吞吐曲线，以及效率和显存汇总。报告直接读取上述四组数据，不需要历史检查点或原始模型挂载。使用已安装项目依赖的 Python 重新生成图表与统计：
 
 ```bash
-PYTHONPATH="$PWD/cosmos-training${PYTHONPATH:+:$PYTHONPATH}" "$TRAIN_PYTHON" - <<'PY'
-import json
-from pathlib import Path
-from statistics import mean
-from mrlv.compare_wam_litegen import LOSS_KEYS, load_recorded_metrics
-
-summary = {}
-for path in sorted(Path("reference").glob("wam-steps5k-*")):
-    run = load_recorded_metrics(path, 5000)
-    summary[path.name] = {
-        "performance": run["performance"],
-        "loss": {
-            key: {
-                "first_500_steps_mean": mean(float(row[key]) for row in run["rows"][:50]),
-                "last_500_steps_mean": mean(float(row[key]) for row in run["rows"][-50:]),
-            }
-            for key in LOSS_KEYS
-        },
-    }
-output = Path("outputs/reference-comparison/trend-and-performance.json")
-output.parent.mkdir(parents=True, exist_ok=True)
-output.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
-print(output)
-PY
+"$TRAIN_PYTHON" reference/comparison-four-runs/generate_report.py
 ```
 
-四组实验的三类 loss 均呈整体下降趋势。上述摘要用于趋势和性能对比，逐步曲线仍以各目录中的原始 `metrics.csv` 为准。需要检查新训练的完整最终 DCP 时，仍使用本节开头的正式命令。
+图表的 PNG、SVG 和 `summary.json` 写入 `reference/comparison-four-runs/`；该目录随源码交付，包含完整指标口径和配置差异说明。四组实验的三类 loss 均呈整体下降趋势。需要检查新训练的完整最终 DCP 时，仍使用本节开头的正式对齐命令。
 
 此入口对应原八卡对齐实验，仍严格比较卡数、每卡 batch 和分片数。16/32 卡实验会产生这些配置差异，需要独立记录并审核跨规模比较条件；本次未放宽原比较规则。
 
@@ -352,7 +332,7 @@ MANIFEST.json             本交付文件 SHA256
 cosmos-training/          Cosmos 运行时、原配置、桥接、NPU 验收与训练脚本
 config/litegen.lock.json   外部 LiteGen 仓库、分支和验收提交；不含平台源码
 environment/              依赖声明 requirements.in 与安装锁文件 requirements.lock
-reference/                两组 8 × A100、8/32 × 910B 的 5000 步实验数据，无历史权重
+reference/                四组 5000 步实验数据及 comparison-four-runs/ 对比报告，无历史权重
 docs/                     跨仓库衔接、共享环境和多节点训练操作说明
 outputs/                  本地新运行输出；不进入迁移压缩包
 ```

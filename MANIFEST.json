@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-11T03:04:42.772543+00:00",
+  "created_at_utc": "2026-11-11T03:24:22.084414+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, reference data and operating documentation; historical evidence/provenance, external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,8 +16,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 25110,
-      "sha256": "65a2b5a4ac0e97eb545b17680e4ff0101bb149a739f955ed792ba8f0e4167bf2"
+      "bytes": 24653,
+      "sha256": "9c7547fc79808ad4aab59826fc21d83cb431830ef43b8a6bc4cd5ec04b098464"
     },
     {
       "path": "config/cluster.env.example",
@@ -3393,6 +3393,51 @@
       "path": "external_inputs.json",
       "bytes": 4140,
       "sha256": "a2a987714688d238e6319dc9e9c2ea8b9b78ab9eaf2339cf511a4c414f70f187"
+    },
+    {
+      "path": "reference/comparison-four-runs/README.md",
+      "bytes": 9961,
+      "sha256": "dd32f0e107b8678fb85f4c2c53d3c554466590ddb6b94695085bab85c8bb655c"
+    },
+    {
+      "path": "reference/comparison-four-runs/generate_report.py",
+      "bytes": 11371,
+      "sha256": "1251687c281360d4357b25aa7557cb480f14f3f7e6e0e4889617c3b902436bbe"
+    },
+    {
+      "path": "reference/comparison-four-runs/loss_full.png",
+      "bytes": 602504,
+      "sha256": "7dcb7d5f5fa6c7056675c7ef83d16b16d480f3f2b8b98b5b5b00e1fde030b9c1"
+    },
+    {
+      "path": "reference/comparison-four-runs/loss_full.svg",
+      "bytes": 340221,
+      "sha256": "6e1979c1f700c4376ea2f14f783ebb930c367001e0e458410c34d1c582375983"
+    },
+    {
+      "path": "reference/comparison-four-runs/performance_curves.png",
+      "bytes": 284220,
+      "sha256": "db42a9a2c012678fd8f6e5fc0beef757280045d1c7ab3857ad08cd0f5fab8327"
+    },
+    {
+      "path": "reference/comparison-four-runs/performance_curves.svg",
+      "bytes": 147607,
+      "sha256": "b3ca4d60515b8626ed7f6fbffe9d7ce4741c6308929a721ec2ad1dfaa68a2c9b"
+    },
+    {
+      "path": "reference/comparison-four-runs/performance_summary.png",
+      "bytes": 255580,
+      "sha256": "c9f17864513355eda58b1a864a7a0da258cdda22344fbfa1163a5bc4be9bfc8d"
+    },
+    {
+      "path": "reference/comparison-four-runs/performance_summary.svg",
+      "bytes": 136046,
+      "sha256": "efe876c90dfa88d75bdcb388a75b15854daa178ebc8b2c5f7d8f4a3466512901"
+    },
+    {
+      "path": "reference/comparison-four-runs/summary.json",
+      "bytes": 15725,
+      "sha256": "23f275a93a2381dd457dfdd8f6f12eccc33987c7143952e9557b0d61ff68d843"
     },
     {
       "path": "reference/wam-steps5k-32x910B-LiteGen/action_stats.json",

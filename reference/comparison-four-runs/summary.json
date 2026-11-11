@@ -1,0 +1,443 @@
+{
+  "scope": "Four complete archived training-loss series and measured performance; no new training or DCP verification",
+  "loss_plot": {
+    "range": [
+      10,
+      5000
+    ],
+    "record_interval_steps": 10,
+    "trailing_mean_points": 10,
+    "total_and_action_y_axis": "log",
+    "video_y_axis": "linear"
+  },
+  "source_sha256": {
+    "reference/wam-steps5k-8xA100/action_stats.json": "9b15f453662433b311ef6994c5a19f424e27d2b956eec05471703b8b9f617f9a",
+    "reference/wam-steps5k-8xA100/cosmos3_action/action_sft/sim_task27_wam_task_baseline/config.yaml": "e1d3bf80dfb3ce0fe45fd8f876fc12a45d47eeea547c284ef8105b429d0bbf30",
+    "reference/wam-steps5k-8xA100/metrics.csv": "add4eeecf880aef5482c61fc09b1179571dc51c5c7b742af476b04d3242e973e",
+    "reference/wam-steps5k-8xA100/performance.json": "54102e892ceec7d3378edaa6942af06bb026f91108cd19c8ebfa48f81b823609",
+    "reference/wam-steps5k-8xA100/performance_windows.csv": "b0b7c18f7e11575beac84846ed03767ece4f8c73251711c2be5316eee14314f8",
+    "reference/wam-steps5k-8xA100-LiteGen/action_stats.json": "9b15f453662433b311ef6994c5a19f424e27d2b956eec05471703b8b9f617f9a",
+    "reference/wam-steps5k-8xA100-LiteGen/cosmos3_action/action_sft/sim_task27_wam_task_baseline/config.yaml": "bf40a15ce6643eb9892ee793e4ce393da91b3a02c5ccec01d333c42512915a31",
+    "reference/wam-steps5k-8xA100-LiteGen/metrics.csv": "7adf26c0a62f6abaca5a0789c0f5864bde4ddf840439655acf937395aa05aa39",
+    "reference/wam-steps5k-8xA100-LiteGen/performance.json": "637d5d8021f5b1f3562e78ee5be6f8ff49ac46e1d8a91665cba3f1661b2349ec",
+    "reference/wam-steps5k-8xA100-LiteGen/performance_windows.csv": "844f421d1959ce754db26b2a428e2b81cd876a159a526b18030d0fea377e4664",
+    "reference/wam-steps5k-8x910B-LiteGen/action_stats.json": "9b15f453662433b311ef6994c5a19f424e27d2b956eec05471703b8b9f617f9a",
+    "reference/wam-steps5k-8x910B-LiteGen/cosmos3_action/action_sft/sim_task27_wam_910b_align5k/config.yaml": "183db92bad46fb5ad9a0eb24c502e66fe21bbbfdb5ff134cc2104367c2a5ee84",
+    "reference/wam-steps5k-8x910B-LiteGen/metrics.csv": "b1a4c71e55511b5cf526268f2f0c715d1435f0c68dbb211eb399acf86b45f9db",
+    "reference/wam-steps5k-8x910B-LiteGen/performance.json": "70df0a918327836c5154eb5172455bf03a97e680d82ecf92d85a0613ef6d1b8a",
+    "reference/wam-steps5k-8x910B-LiteGen/performance_windows.csv": "ba0c385d61591ea8acb432738f6e7c5836929b4ec3c788a5df8142400a4f7547",
+    "reference/wam-steps5k-32x910B-LiteGen/action_stats.json": "9b15f453662433b311ef6994c5a19f424e27d2b956eec05471703b8b9f617f9a",
+    "reference/wam-steps5k-32x910B-LiteGen/cosmos3_action/action_sft/sim_task27_wam_task_baseline/config.yaml": "e2378c699aa0777186989f7205c4c813e13b46d90a80c298400ff35d40731a67",
+    "reference/wam-steps5k-32x910B-LiteGen/metrics.csv": "6e4795e5a94b65ef7fa732011a6b7820e96cfad08c69ec7da29b441226f5d191",
+    "reference/wam-steps5k-32x910B-LiteGen/performance.json": "86db02ae2555cc034cb565708ce668e7173342040565b7ac8441eec8f483bbf1",
+    "reference/wam-steps5k-32x910B-LiteGen/performance_windows.csv": "35cf206bea5341bcab956c2cc452ce93bdb9f73b43c7761aa33b1e15afd88d4d"
+  },
+  "runs": {
+    "wam-steps5k-8xA100": {
+      "label": "A | 8 x A100 / Native",
+      "metric_points": 500,
+      "configuration_differences_from_A": [],
+      "performance": {
+        "segment_start_iteration": 0,
+        "warmup_steps": 50,
+        "window_steps": 10,
+        "world_size": 8,
+        "precision": "bfloat16",
+        "compile": true,
+        "batch_per_gpu": 16,
+        "global_batch": 128,
+        "grad_accum_iter": 1,
+        "seed": 42,
+        "base_checkpoint": "/oss/shichaojian/models/cosmos3-edge-droid-dcp",
+        "dataset_bundle": "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam",
+        "measurement": "max rank wall time; includes I/O, communication and logging; excludes warmup/checkpoint/validation windows",
+        "steady_windows": 492,
+        "measured_steps": 4920,
+        "mean_step_seconds": 3.611516938050205,
+        "median_window_step_seconds": 3.611175984950387,
+        "samples_per_second": 35.44217075418313,
+        "peak_allocated_gib": 40.9632134437561,
+        "peak_reserved_gib": 44.23828125,
+        "status": "measured"
+      },
+      "derived_performance": {
+        "samples_per_second_per_card": 4.430271344272891,
+        "steady_rate_5000_step_hours_estimate": 5.015995747291951,
+        "steady_rate_5000_step_card_hours_estimate": 40.12796597833561
+      },
+      "excluded_windows": [
+        {
+          "first_step": 1,
+          "last_step": 10,
+          "excluded_reason": "validation,warmup"
+        },
+        {
+          "first_step": 11,
+          "last_step": 20,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 21,
+          "last_step": 30,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 31,
+          "last_step": 40,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 41,
+          "last_step": 50,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 2001,
+          "last_step": 2010,
+          "excluded_reason": "validation"
+        },
+        {
+          "first_step": 4001,
+          "last_step": 4010,
+          "excluded_reason": "validation"
+        },
+        {
+          "first_step": 4991,
+          "last_step": 5000,
+          "excluded_reason": "checkpoint"
+        }
+      ],
+      "loss": {
+        "train/loss": {
+          "recorded_mean": 1.3773676903247833,
+          "step_10": 13.992070198059082,
+          "step_5000": 0.7735334634780884
+        },
+        "train/video_loss": {
+          "recorded_mean": 0.09515704046189785,
+          "step_10": 0.18292048573493958,
+          "step_5000": 0.07485976070165634
+        },
+        "train/action_loss": {
+          "recorded_mean": 0.04257972989277914,
+          "step_10": 1.216286540031433,
+          "step_5000": 0.002493585692718625
+        }
+      }
+    },
+    "wam-steps5k-8xA100-LiteGen": {
+      "label": "B | 8 x A100 / LiteGen",
+      "metric_points": 500,
+      "configuration_differences_from_A": [],
+      "performance": {
+        "segment_start_iteration": 0,
+        "warmup_steps": 50,
+        "window_steps": 10,
+        "world_size": 8,
+        "precision": "bfloat16",
+        "device": "cuda",
+        "compile": true,
+        "batch_per_gpu": 16,
+        "global_batch": 128,
+        "grad_accum_iter": 1,
+        "seed": 42,
+        "base_checkpoint": "/oss/shichaojian/models/cosmos3-edge-droid-dcp",
+        "dataset_bundle": "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam",
+        "measurement": "max rank wall time; includes I/O, communication and logging; excludes warmup/checkpoint/validation windows",
+        "steady_windows": 492,
+        "measured_steps": 4920,
+        "mean_step_seconds": 3.52566631674157,
+        "median_window_step_seconds": 3.524681588332169,
+        "samples_per_second": 36.30519411102351,
+        "peak_allocated_gib": 40.9632134437561,
+        "peak_reserved_gib": 44.08203125,
+        "status": "measured"
+      },
+      "derived_performance": {
+        "samples_per_second_per_card": 4.538149263877939,
+        "steady_rate_5000_step_hours_estimate": 4.896758773252181,
+        "steady_rate_5000_step_card_hours_estimate": 39.174070186017445
+      },
+      "excluded_windows": [
+        {
+          "first_step": 1,
+          "last_step": 10,
+          "excluded_reason": "validation,warmup"
+        },
+        {
+          "first_step": 11,
+          "last_step": 20,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 21,
+          "last_step": 30,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 31,
+          "last_step": 40,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 41,
+          "last_step": 50,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 2001,
+          "last_step": 2010,
+          "excluded_reason": "validation"
+        },
+        {
+          "first_step": 4001,
+          "last_step": 4010,
+          "excluded_reason": "validation"
+        },
+        {
+          "first_step": 4991,
+          "last_step": 5000,
+          "excluded_reason": "checkpoint"
+        }
+      ],
+      "loss": {
+        "train/loss": {
+          "recorded_mean": 1.3775906521081924,
+          "step_10": 13.991952896118164,
+          "step_5000": 0.7740239500999451
+        },
+        "train/video_loss": {
+          "recorded_mean": 0.09522211633622646,
+          "step_10": 0.18290714919567108,
+          "step_5000": 0.07482092082500458
+        },
+        "train/action_loss": {
+          "recorded_mean": 0.04253694906691089,
+          "step_10": 1.2162880897521973,
+          "step_5000": 0.0025814631953835487
+        }
+      }
+    },
+    "wam-steps5k-8x910B-LiteGen": {
+      "label": "C | 8 x 910B / LiteGen",
+      "metric_points": 500,
+      "configuration_differences_from_A": [
+        {
+          "field": "model.config.compile.enabled",
+          "baseline": true,
+          "candidate": false
+        }
+      ],
+      "performance": {
+        "segment_start_iteration": 0,
+        "warmup_steps": 50,
+        "window_steps": 10,
+        "world_size": 8,
+        "precision": "bfloat16",
+        "device": "npu",
+        "compile": false,
+        "batch_per_gpu": 16,
+        "global_batch": 128,
+        "grad_accum_iter": 1,
+        "seed": 42,
+        "base_checkpoint": "/oss/shichaojian/models/cosmos3-edge-droid-dcp",
+        "dataset_bundle": "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam",
+        "measurement": "max rank wall time; includes I/O, communication and logging; excludes warmup/checkpoint/validation windows",
+        "steady_windows": 492,
+        "measured_steps": 4920,
+        "mean_step_seconds": 11.240654202593051,
+        "median_window_step_seconds": 11.24285430908203,
+        "samples_per_second": 11.38723758359832,
+        "peak_allocated_gib": 24.29583168029785,
+        "peak_reserved_gib": 31.69921875,
+        "status": "measured"
+      },
+      "derived_performance": {
+        "samples_per_second_per_card": 1.42340469794979,
+        "steady_rate_5000_step_hours_estimate": 15.612019725823682,
+        "steady_rate_5000_step_card_hours_estimate": 124.89615780658946
+      },
+      "excluded_windows": [
+        {
+          "first_step": 1,
+          "last_step": 10,
+          "excluded_reason": "validation,warmup"
+        },
+        {
+          "first_step": 11,
+          "last_step": 20,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 21,
+          "last_step": 30,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 31,
+          "last_step": 40,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 41,
+          "last_step": 50,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 2001,
+          "last_step": 2010,
+          "excluded_reason": "validation"
+        },
+        {
+          "first_step": 4001,
+          "last_step": 4010,
+          "excluded_reason": "validation"
+        },
+        {
+          "first_step": 4991,
+          "last_step": 5000,
+          "excluded_reason": "checkpoint"
+        }
+      ],
+      "loss": {
+        "train/loss": {
+          "recorded_mean": 1.3763632822036742,
+          "step_10": 13.789311408996582,
+          "step_5000": 0.7736555933952332
+        },
+        "train/video_loss": {
+          "recorded_mean": 0.0951917921602726,
+          "step_10": 0.1813957840204239,
+          "step_5000": 0.07493221014738083
+        },
+        "train/action_loss": {
+          "recorded_mean": 0.04244453443749808,
+          "step_10": 1.1975352764129639,
+          "step_5000": 0.0024333493784070015
+        }
+      }
+    },
+    "wam-steps5k-32x910B-LiteGen": {
+      "label": "D | 32 x 910B / LiteGen",
+      "metric_points": 500,
+      "configuration_differences_from_A": [
+        {
+          "field": "dataloader_train.dataloader.batch_size",
+          "baseline": 16,
+          "candidate": 4
+        },
+        {
+          "field": "dataloader_train.max_samples_per_batch",
+          "baseline": 16,
+          "candidate": 4
+        },
+        {
+          "field": "model.config.compile.enabled",
+          "baseline": true,
+          "candidate": false
+        },
+        {
+          "field": "model.config.parallelism.data_parallel_shard_degree",
+          "baseline": 8,
+          "candidate": 32
+        }
+      ],
+      "performance": {
+        "segment_start_iteration": 0,
+        "warmup_steps": 50,
+        "window_steps": 10,
+        "world_size": 32,
+        "precision": "bfloat16",
+        "device": "npu",
+        "compile": false,
+        "batch_per_gpu": 4,
+        "global_batch": 128,
+        "grad_accum_iter": 1,
+        "seed": 42,
+        "base_checkpoint": "/oss/shichaojian/models/cosmos3-edge-droid-dcp",
+        "dataset_bundle": "/oss/shichaojian/wam_datasets_20261029/sim_task27_ball_wam",
+        "measurement": "max rank wall time; includes I/O, communication and logging; excludes warmup/checkpoint/validation windows",
+        "steady_windows": 492,
+        "measured_steps": 4920,
+        "mean_step_seconds": 4.304488471271546,
+        "median_window_step_seconds": 4.292778015136719,
+        "samples_per_second": 29.73640209615634,
+        "peak_allocated_gib": 8.222908973693848,
+        "peak_reserved_gib": 10.48828125,
+        "status": "measured"
+      },
+      "derived_performance": {
+        "samples_per_second_per_card": 0.9292625655048856,
+        "steady_rate_5000_step_hours_estimate": 5.97845621009937,
+        "steady_rate_5000_step_card_hours_estimate": 191.31059872317985
+      },
+      "excluded_windows": [
+        {
+          "first_step": 1,
+          "last_step": 10,
+          "excluded_reason": "validation,warmup"
+        },
+        {
+          "first_step": 11,
+          "last_step": 20,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 21,
+          "last_step": 30,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 31,
+          "last_step": 40,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 41,
+          "last_step": 50,
+          "excluded_reason": "warmup"
+        },
+        {
+          "first_step": 2001,
+          "last_step": 2010,
+          "excluded_reason": "validation"
+        },
+        {
+          "first_step": 4001,
+          "last_step": 4010,
+          "excluded_reason": "validation"
+        },
+        {
+          "first_step": 4991,
+          "last_step": 5000,
+          "excluded_reason": "checkpoint"
+        }
+      ],
+      "loss": {
+        "train/loss": {
+          "recorded_mean": 1.4033261225223541,
+          "step_10": 13.99140453338623,
+          "step_5000": 0.7906547784805298
+        },
+        "train/video_loss": {
+          "recorded_mean": 0.09522226765751839,
+          "step_10": 0.19727519154548645,
+          "step_5000": 0.07571524381637573
+        },
+        "train/action_loss": {
+          "recorded_mean": 0.04511034459643997,
+          "step_10": 1.2018651962280273,
+          "step_5000": 0.00335023389197886
+        }
+      }
+    }
+  },
+  "comparisons": {
+    "A100_LiteGen_vs_native_throughput_change_percent": 2.435018336845296,
+    "NPU_8_to_32_speedup": 2.611379790563723,
+    "NPU_8_to_32_scaling_efficiency_percent": 65.28449476409307,
+    "NPU_8_to_32_card_hours_ratio": 1.5317572780696573,
+    "NPU_32_vs_A100_native_throughput_ratio": 0.8390118738042207,
+    "NPU_32_vs_A100_LiteGen_throughput_ratio": 0.819067431652358
+  }
+}
