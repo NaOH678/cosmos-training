@@ -4,7 +4,9 @@ import csv
 import json
 import math
 import os
+import shutil
 import statistics
+import tempfile
 import time
 from pathlib import Path
 
@@ -33,6 +35,71 @@ def summarize_windows(windows):
         "peak_allocated_gib": max((row["peak_allocated_gib"] for row in windows), default=None),
         "peak_reserved_gib": max((row["peak_reserved_gib"] for row in windows), default=None),
     }
+
+
+def restore_history(root, iteration, logging_iter):
+    """Keep only complete records through the checkpoint, preserving originals."""
+    expected = list(range(logging_iter, iteration + 1, logging_iter))
+    tables = {}
+    windows = []
+    for name, step_key, schema in (
+        ("metrics.csv", "iteration", ["iteration", "train/loss", "train/video_loss", "train/action_loss"]),
+        ("performance_windows.csv", "last_step", ["first_step", "last_step", "steps", "seconds", "samples",
+                                                "peak_allocated_gib", "peak_reserved_gib", "excluded_reason"]),
+    ):
+        path = root / name
+        if not path.exists():
+            if expected:
+                raise ValueError(f"Missing resume history: {path}; restore the original logs before resuming")
+            continue
+        with path.open(newline="") as stream:
+            reader = csv.DictReader(stream)
+            fields = reader.fieldnames
+            rows = list(reader)
+        if fields != schema:
+            raise ValueError(f"Invalid resume CSV header: {path}")
+        kept = [row for row in rows if int(row[step_key]) <= iteration]
+        if name == "metrics.csv" and kept and int(kept[-1][step_key]) == iteration and iteration % logging_iter:
+            expected.append(iteration)
+        if [int(row[step_key]) for row in kept] != expected:
+            raise ValueError(f"Incomplete or duplicate resume history through step {iteration}: {path}")
+        for row in kept:
+            if None in row or any(value is None for value in row.values()):
+                raise ValueError(f"Incomplete resume CSV row: {path}")
+            if name == "metrics.csv":
+                if not all(math.isfinite(float(row[key])) for key in ("train/loss", "train/video_loss", "train/action_loss")):
+                    raise ValueError(f"Nonfinite loss in resume history: {path}")
+            else:
+                window = dict(row)
+                for key in ("first_step", "last_step", "steps", "samples"):
+                    window[key] = int(row[key])
+                for key in ("seconds", "peak_allocated_gib", "peak_reserved_gib"):
+                    window[key] = float(row[key])
+                    if not math.isfinite(window[key]) or window[key] < 0:
+                        raise ValueError(f"Invalid {key} in resume history: {path}")
+                previous = windows[-1]["last_step"] if windows else 0
+                if (window["first_step"] <= previous or window["steps"] <= 0
+                        or window["steps"] != window["last_step"] - window["first_step"] + 1
+                        or window["samples"] <= 0 or window["seconds"] <= 0):
+                    raise ValueError(f"Invalid performance window in resume history: {path}")
+                windows.append(window)
+        tables[path] = (fields, kept)
+    originals = [path for path in (*tables, root / "performance.json") if path.exists()]
+    if originals:
+        backup_root = root / "resume-backups"
+        backup_root.mkdir(exist_ok=True)
+        backup = Path(tempfile.mkdtemp(prefix=f"step-{iteration:09d}-", dir=backup_root))
+        for path in originals:
+            shutil.copy2(path, backup / path.name)
+        # Both CSVs are validated and backed up before either is replaced.
+        for path, (fields, rows) in tables.items():
+            temporary = path.with_suffix(".csv.tmp")
+            with temporary.open("w", newline="") as stream:
+                writer = csv.DictWriter(stream, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            temporary.replace(path)
+    return windows
 
 
 class TrainingMonitor(Callback):
@@ -78,6 +145,9 @@ class TrainingMonitor(Callback):
             from torch.utils.tensorboard import SummaryWriter
 
             self._output_root.mkdir(parents=True, exist_ok=True)
+            self._windows = restore_history(self._output_root, iteration, self._logging_iter)
+            if iteration or (self._output_root / "performance.json").exists():
+                self._save_summary()
             self.writer = SummaryWriter(
                 log_dir=str(self.log_dir),
                 flush_secs=10,

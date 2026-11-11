@@ -154,3 +154,62 @@ printf 'ACTIVE_PYTHONPATH=%s\n' "$PYTHONPATH"
     assert f"ACTIVE_PYTHONPATH={bundle}:{bundle / 'cosmos-training'}:" in result.stdout
     assert f"INPUT_MODEL={tmp_path / 'input mount/models/cosmos3-edge-droid'}\n" in result.stdout
     assert "Bootstrap Python: python3.12\n" in result.stdout
+
+
+@pytest.mark.parametrize("failure", ["", "existing", "bootstrap", "preflight"])
+def test_documented_shared_setup_stops_before_sealing_on_failure(tmp_path, failure):
+    project = tmp_path / "shared project"
+    (project / "config").mkdir(parents=True)
+    (project / "scripts").mkdir()
+    commands = project / "commands"
+    commands.mkdir()
+    (project / "config/cluster.env").write_text('export COSMOS_NPU_ENV="$PWD/venv"\n')
+    if failure == "existing":
+        (project / "venv").mkdir()
+    (project / "scripts/bootstrap.sh").write_text('''set -eu
+echo bootstrap >> "$STAGES"
+[[ "$FAIL_STAGE" != bootstrap ]] || exit 17
+mkdir -p "$COSMOS_NPU_ENV"
+echo '{}' > "$NPU_BOOTSTRAP_REPORT_ROOT/installed.json"
+''')
+    (project / "scripts/activate.sh").write_text('export TRAIN_PYTHON="$PWD/commands/python"\n')
+    (commands / "python").write_text('''#!/bin/bash
+echo preflight >> "$STAGES"
+[[ "$FAIL_STAGE" != preflight ]] || exit 17
+''')
+    (commands / "chmod").write_text('#!/bin/bash\necho sealed >> "$STAGES"\n')
+    for path in commands.iterdir():
+        path.chmod(0o755)
+    root = Path(__file__).resolve().parents[1]
+    code = (root / "docs/shared_environment.md").read_text().split("```bash\n", 1)[1].split("```", 1)[0]
+    code = code.replace("cd /目标共享卷/workspace/cosmos-training-litegen-910b", 'cd "$DOC_PROJECT"')
+    stages = project / "stages"
+    env = {"PATH": f"{commands}:{os.environ['PATH']}", "DOC_PROJECT": str(project),
+           "STAGES": str(stages), "FAIL_STAGE": failure}
+    result = subprocess.run(["bash", "--noprofile", "--norc", "-c", code], env=env, capture_output=True, text=True)
+    expected = {"": ["bootstrap", "preflight", "sealed"], "existing": [],
+                "bootstrap": ["bootstrap"], "preflight": ["bootstrap", "preflight"]}[failure]
+    assert result.returncode == (1 if failure == "existing" else 17 if failure else 0), result.stderr
+    assert (stages.read_text().splitlines() if stages.exists() else []) == expected
+    assert (project / "venv/.cosmos-shared").exists() == (not failure)
+
+
+@pytest.mark.parametrize("failure", ["", "--verify", "--check-inputs", "--bootstrap-only"])
+def test_readme_installation_stops_on_failed_stage(tmp_path, failure):
+    (tmp_path / "run.sh").write_text('''#!/bin/bash
+echo "$1" >> "$STAGES"
+[[ "$1" != "$FAIL_STAGE" ]] || exit 17
+''')
+    root = Path(__file__).resolve().parents[1]
+    section = (root / "README.md").read_text().split("## 3.", 1)[1]
+    code = section.split("```bash\n", 1)[1].split("```", 1)[0]
+    code = code.replace("cd /目标卷/cosmos-training-litegen-910b", 'cd "$DOC_PROJECT"')
+    stages = tmp_path / "stages"
+    env = {"PATH": os.environ["PATH"], "DOC_PROJECT": str(tmp_path),
+           "STAGES": str(stages), "FAIL_STAGE": failure}
+    result = subprocess.run(["bash", "--noprofile", "--norc", "-c", code], env=env, capture_output=True, text=True)
+    expected = ["--verify", "--check-inputs", "--bootstrap-only"]
+    if failure:
+        expected = expected[:expected.index(failure) + 1]
+    assert result.returncode == (17 if failure else 0), result.stderr
+    assert stages.read_text().splitlines() == expected

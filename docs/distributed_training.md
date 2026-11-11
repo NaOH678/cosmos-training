@@ -30,6 +30,7 @@ migration/                 WAM 启动器、监控、比较和 NPU 验证实现
 可选择[预先安装的共享 venv](shared_environment.md)，由 `scripts/submit_sensecore.sh` 在各节点校验后使用，全程不安装依赖。若选择各节点自行安装，则每节点使用本地 venv，不要并发修改一个共享 venv。在已有配置的环境中不要覆盖 `cluster.env`：
 
 ```bash
+set -euo pipefail
 cd /目标卷/cosmos-training-litegen-910b
 # 本段选择每节点独立安装；共享环境请使用上面链接中的单次准备流程。
 export COSMOS_NPU_ENV=/tmp/cosmos-npu-env
@@ -41,7 +42,7 @@ cp config/train.env.example config/train.env
 
 各节点需有相同软件栈、足够 CPU/内存和完整驱动设备映射。平台还须提供跨节点 HCCL 网络；主节点端口可连接不能代替 HCCL 集合通信测试。通信网卡环境变量按实际集群设置，本项目不猜测网卡名称。
 
-平台在所有节点执行同一启动命令时，可将 `bash run.sh --bootstrap-only` 放在 `bash train.sh` 之前，自动在每节点创建本地环境。共享源码不代表共享 `/tmp`；新容器不能直接使用开发容器的 `/tmp/cosmos-npu-env`。设置 `NPU_BOOTSTRAP_REPORT_ROOT="$OUTPUT_ROOT/setup/$(hostname)"` 可将各节点的 `installed.json` 分开保存，安装日志也应写入该目录。安装失败必须停止训练；使用管道记录日志时启用 `set -o pipefail`。构建依赖临时清单位于各自 venv 内，不在共享目录并发写入。
+平台在所有节点执行同一启动命令时，可将 `bash run.sh --bootstrap-only` 放在 `bash train.sh` 之前，自动在每节点创建本地环境。共享源码不代表共享 `/tmp`；新容器不能直接使用开发容器的 `/tmp/cosmos-npu-env`。设置 `NPU_BOOTSTRAP_REPORT_ROOT="$OUTPUT_ROOT/setup/$(hostname)"` 可将各节点的 `installed.json` 分开保存，安装日志也应写入该目录。整个命令开头启用 `set -euo pipefail`，确保安装或日志管道失败后停止训练。构建依赖临时清单位于各自 venv 内，不在共享目录并发写入。
 
 本集群作业已实际观察到旧版平台变量：`WORLD_SIZE=4` 表示节点数，`RANK=0..3` 表示节点编号；在平台入口映射为 `NNODES` 和 `NODE_RANK` 后，再调用训练脚本。不要将该含义推广到 `torchrun` 创建的训练进程，其 `WORLD_SIZE` 和 `RANK` 表示全局训练进程数和编号。
 
@@ -151,6 +152,8 @@ bash train.sh
 ```
 
 默认拒绝含有可恢复检查点的输出目录。`ALLOW_RESUME=1` 仅用于相同拓扑、batch、代码和数值配置下的中断恢复；本次未实现或验证从 8 卡完整恢复为 32 卡的 RNG/数据进度语义。改变规模后，从相同原始 `BASE_CHECKPOINT_PATH` 开始新实验。
+
+恢复时同时保留原输出目录中的 `metrics.csv` 和 `performance_windows.csv`。监控回调先检查日志完整性，再将 CSV 和已有性能汇总备份到 `OUTPUT_ROOT/resume-backups/step-<恢复步数>-*/`，移除检查点之后的记录，合并保留的性能窗口统计。每次恢复后的 warmup 窗口仍按原规则排除。检查点之前若有缺失、重复或损坏的记录，恢复会报错且不改写原日志；应从原日志备份恢复完整记录，不能补造 loss 或放宽验收条件。
 
 ## 数值和性能比较的边界
 

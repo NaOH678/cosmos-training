@@ -15,9 +15,10 @@ workspace/
 
 ## 一次准备，之后只读取
 
-只在一个准备容器安装一次，并使用最终路径。不要移动 `/tmp` 中已有的 venv；venv 依赖基础 Python 路径，其他节点也必须具有匹配的解释器。不要在已有训练任务使用的环境内升级软件，升级时使用新的版本目录。
+只在一个准备容器安装一次，并使用最终路径。不要移动 `/tmp` 中已有的 venv；venv 依赖基础 Python 路径，其他节点也必须具有匹配的解释器。不要在已有训练任务使用的环境内升级软件，升级时使用新的版本目录。下面整段命令遇到失败立即停止，仅在安装和硬件预检成功后封存环境。
 
 ```bash
+set -euo pipefail
 cd /目标共享卷/workspace/cosmos-training-litegen-910b
 source config/cluster.env
 # 模板默认 COSMOS_NPU_ENV=.venv-npu，相对于项目根目录。
@@ -25,21 +26,15 @@ source config/cluster.env
 export NPU_BOOTSTRAP_REPORT_ROOT="$PWD/outputs/environment-shared-v1"
 test ! -e "$COSMOS_NPU_ENV"
 mkdir -p "$NPU_BOOTSTRAP_REPORT_ROOT"
-set -o pipefail
 bash scripts/bootstrap.sh 2>&1 | tee "$NPU_BOOTSTRAP_REPORT_ROOT/bootstrap.log"
 source scripts/activate.sh
 "$TRAIN_PYTHON" -m migration.npu.preflight --expected-devices 8 \
   --report "$NPU_BOOTSTRAP_REPORT_ROOT/preflight.json"
-```
-
-以上准备命令在项目根目录执行，原生 Python、LiteGen 和外部输入路径来自目标集群的本地配置。`source scripts/activate.sh` 会将相对 venv 路径解析成当前项目下的绝对路径。安装仍使用原有 `requirements.lock` 的版本和哈希；不为修复包源错误而更改依赖版本。锁文件中两份源码分发包仍由锁定构建工具安装。
-
-完成依赖检查及硬件验证后，将安装报告复制为封存标记，再移除写权限：
-
-```bash
 cp "$NPU_BOOTSTRAP_REPORT_ROOT/installed.json" "$COSMOS_NPU_ENV/.cosmos-shared"
 chmod -R a-w "$COSMOS_NPU_ENV"
 ```
+
+以上准备命令在项目根目录执行，原生 Python、LiteGen 和外部输入路径来自目标集群的本地配置。`source scripts/activate.sh` 会将相对 venv 路径解析成当前项目下的绝对路径。安装仍使用原有 `requirements.lock` 的版本和哈希；不为修复包源错误而更改依赖版本。锁文件中两份源码分发包仍由锁定构建工具安装。
 
 `.cosmos-shared` 表示环境已准备好供任务共享使用；不是完整内容哈希证明。`.cosmos-npu-lock` 记录依赖锁哈希和环境绝对路径。对封存环境再次调用 bootstrap，只运行依赖校验和 `pip check`，不会执行安装、删除或升级。运行账号若是 root，文件权限并不能阻止其主动修改文件，因此仍必须遵守不更新活动环境的约定。
 

@@ -10,14 +10,19 @@ EXTRA_OVERRIDES=()
 
 usage() {
     cat <<'HELP'
-Usage: bash migration/launch_wam_task.sh [--smoke] [--dry-run] [-- HYDRA_OVERRIDE ...]
+Project entry: bash train.sh [--smoke] [--dry-run] [-- HYDRA_OVERRIDE ...]
 
-Default: activate Conda cosmos, then train 4B Edge-DROID WAM on task27.
-         1 node / 8 accelerators, global batch 128, 2000 steps, 40000-step LR schedule.
---smoke: 2 steps, batch 1/GPU; disable compile and validation, save at step 2.
-         Set SENSECORE_ACCELERATE_DEVICE_COUNT=2 for a two-GPU smoke test.
---dry-run: activate the environment and resolve the config without GPU workers.
+The project entry activates the prepared ARM Python 3.12 venv and uses LiteGen/NPU.
+Defaults: 1 node / 8 accelerators, global batch 128, 5000 steps, save at step 5000,
+          40000-step LR schedule. Environment/config overrides take precedence.
+--smoke: 2 steps, batch 1/accelerator; disable compile and validation, save at step 2.
+         Set SENSECORE_ACCELERATE_DEVICE_COUNT=2 for a two-accelerator smoke test.
+--dry-run: activate the environment and resolve the config without training workers.
 Checkpoint policy: after a successful save, retain only the newest complete checkpoint.
+
+Direct low-level entry: bash migration/launch_wam_task.sh [same options].
+It requires TRAIN_PYTHON (or explicitly configured CONDA_INIT/CONDA_ENV),
+and defaults to 2000 steps / save every 500 steps when called without the project entry.
 
 Defaults below can be overridden with environment variables:
   LITEGEN_DEVICE (cuda|npu), TRAIN_PYTHON (skip Conda activation), LITEGEN_ROOT,

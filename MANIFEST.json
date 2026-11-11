@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-11T06:52:24.018115+00:00",
+  "created_at_utc": "2026-11-11T07:48:45.325894+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, reference data and operating documentation; historical evidence/provenance, external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,8 +16,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 20662,
-      "sha256": "3e8159186aad54efa1f0e3bf552f8e95596f0c13b33e81fa8aa93194e9fd5934"
+      "bytes": 20926,
+      "sha256": "576f88a47757386a4c62bb045711ffbfd741784e7768236c052226d691056a6c"
     },
     {
       "path": "config/cluster.env.example",
@@ -3261,18 +3261,18 @@
     },
     {
       "path": "docs/distributed_training.md",
-      "bytes": 10237,
-      "sha256": "54c5b85abfcca82cc3cce663a76d60462f37c1defda3419f45c0525aa3554d78"
+      "bytes": 10797,
+      "sha256": "5824ea958b9765b730d138f92bf6fb98b2709c73af1320ce5af1bb46cf7357b6"
     },
     {
       "path": "docs/litegen_integration.md",
-      "bytes": 5136,
-      "sha256": "3056539de5355ee82f8f87f6afc6735ddae7e6048cdc8c58883ef916e7186396"
+      "bytes": 5154,
+      "sha256": "525540e56b67c3c443cd85c5f30718e4da78bffe1da7a80ed484df56b5ed8b01"
     },
     {
       "path": "docs/shared_environment.md",
-      "bytes": 5657,
-      "sha256": "3e1dc57df31f660a71ef4c1f2f5e987169d2f57360a58aaafd3c703a5c27844e"
+      "bytes": 5641,
+      "sha256": "f5cfe4552367d07bdc11c2feff8d2f7e5413cf5b0de391ccfda21a0f9001c375"
     },
     {
       "path": "environment/requirements.in",
@@ -3311,13 +3311,13 @@
     },
     {
       "path": "migration/launch_wam_task.sh",
-      "bytes": 16467,
-      "sha256": "e5d61e21b44cdc5a1aac2193e5a0cc2e7a5aabc0928fda71f6a0e1db64f88f8e"
+      "bytes": 16802,
+      "sha256": "6b9d98c663d1c902d513987c22274eef72b43f7418b6ff94efaa7c41263e15e4"
     },
     {
       "path": "migration/launcher_test.py",
-      "bytes": 6810,
-      "sha256": "1c58c9aa43b8a8a15b363090d0a143de69e73b44cdae6cdb145594e5e63cd6ea"
+      "bytes": 7278,
+      "sha256": "d49289333f60eb9afd588ab1ca8b30be5d7c9fb1b61a3f9168addbe2b715939b"
     },
     {
       "path": "migration/litegen_bridge_test.py",
@@ -3386,8 +3386,13 @@
     },
     {
       "path": "migration/training_monitor.py",
-      "bytes": 10346,
-      "sha256": "3ca4fd128f250380cbc299507c9a8967d2099c3756af5904c57c170c750c1eb4"
+      "bytes": 14239,
+      "sha256": "c6c56b4ac08e1f6a1c5891722fc4b1ca2f94000a13d7349e2b3185bea213f1d6"
+    },
+    {
+      "path": "migration/training_monitor_test.py",
+      "bytes": 7274,
+      "sha256": "a649dc23373a34a0930c2505d7ca53fc31194e1bbb239642960bc693497f4745"
     },
     {
       "path": "reference/comparison-four-runs/experiment-comparison.md",
@@ -3581,8 +3586,8 @@
     },
     {
       "path": "scripts/shared_environment_test.py",
-      "bytes": 7189,
-      "sha256": "4795da60e2fc88f830b10356fb979e8443e832105e3d5a6b1f4119b13e0b45f6"
+      "bytes": 10340,
+      "sha256": "783cd66976c84d20445ae9945887e5dac6e09f37eaa3eac2039aae9c5ad4cd7b"
     },
     {
       "path": "scripts/submit_sensecore.sh",

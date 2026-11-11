@@ -54,6 +54,7 @@ df -h . /tmp /dev/shm
 从两个独立分支克隆，保持并列目录。以下 Git 命令只在其子进程中清理动态库路径，训练仍保留 CANN 环境：
 
 ```bash
+set -euo pipefail
 export WORKSPACE_ROOT=/目标共享卷/工作目录
 export NPU_BOOTSTRAP_PYTHON=python3.12  # 若不在 PATH，改为目标镜像中的实际解释器路径
 "$NPU_BOOTSTRAP_PYTHON" --version
@@ -131,9 +132,9 @@ export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-$OSS_ROOT/datasets/sim_task27_b
 ## 3. 安装环境并检查输入
 
 ```bash
+set -euo pipefail
 cd /目标卷/cosmos-training-litegen-910b
 mkdir -p outputs/setup
-set -o pipefail
 bash run.sh --verify 2>&1 | tee outputs/setup/verify.log
 bash run.sh --check-inputs --all-payloads 2>&1 | tee outputs/setup/inputs.log
 bash run.sh --bootstrap-only 2>&1 | tee outputs/setup/bootstrap.log
@@ -201,6 +202,8 @@ bash train.sh
 
 `train.sh` 依次读取 `config/cluster.env`、可选的 `config/train.env`，激活环境后调用已有的 `launch_wam_litegen.sh`；后者复用原始 WAM launcher 与训练配置，不另写一套训练循环。`--dry-run` 只解析配置；正式训练需要去掉该选项。不会静默回退 CPU。`ALLOW_RESUME=1` 才允许从同一输出目录的已有检查点续训；有意续训前应确认检查点、拓扑和数值配置一致。
 
+恢复时还需保留原始 `metrics.csv` 和 `performance_windows.csv`。日志备份、回退到检查点和性能窗口合并规则见[恢复说明](docs/distributed_training.md#正式训练与恢复)。
+
 ### 后台运行，关闭终端不影响任务
 
 执行上一段的 `source` 和 `export`，**将最后一行训练命令替换为以下段落**。`OUTPUT_ROOT` 仍须为新路径：
@@ -226,7 +229,7 @@ printf '%s\n' "$!" > "$RUN_DIR/launcher.pid"
 printf 'Run directory: %s\n' "$RUN_DIR"
 ```
 
-`nohup + setsid` 脱离当前终端，但不能抵御容器回收、节点重启或平台任务超时；长期任务应保留平台作业。`training_completed` 只表示启动器正常退出，必须继续核对 step=5000、检查点与下节对齐结果。强制杀进程可能来不及写退出状态，不能只看 PID 或进程消失判断成功。
+`nohup + setsid` 脱离当前终端，但不能抵御容器回收、节点重启或平台任务超时；长期任务应保留平台作业。`training_completed` 只表示启动器正常退出，必须继续按[第 7 节](#7-检查训练输出)核对 step=5000、loss 记录与完整检查点。强制杀进程可能来不及写退出状态，不能只看 PID 或进程消失判断成功。
 
 ```bash
 tail -n 50 "$RUN_DIR/console.log"

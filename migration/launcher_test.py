@@ -11,6 +11,15 @@ import pytest
 LAUNCHER = Path(__file__).with_name("launch_wam_litegen.sh")
 
 
+def test_help_distinguishes_project_and_low_level_defaults():
+    result = subprocess.run(["bash", str(LAUNCHER), "--help"], capture_output=True, text=True, check=True)
+    assert "Project entry: bash train.sh" in result.stdout
+    assert "prepared ARM Python 3.12 venv" in result.stdout
+    assert "5000 steps, save at step 5000" in result.stdout
+    assert "Direct low-level entry:" in result.stdout
+    assert "2000 steps / save every 500 steps" in result.stdout
+
+
 @pytest.fixture
 def launch(tmp_path):
     interpreter = tmp_path / "python"

@@ -38,6 +38,7 @@ export LITEGEN_ROOT=/实际路径/LiteGen.dev
 使用已验证的镜像 `registry2.d.pjlab.org.cn/ccr-lepton-official-images/a2-cann:9.1.0-a2-ubuntu22.04-py3.12`，检查步骤与硬件前提见[README 第1节](../README.md#1-先准备目标节点)。
 
 ```bash
+set -euo pipefail
 cd /实际路径/cosmos-training-litegen-910b
 cp config/cluster.env.example config/cluster.env
 # 编辑模型、数据、原生Python、外部LiteGen路径后执行：
