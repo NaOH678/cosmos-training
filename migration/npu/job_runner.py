@@ -19,8 +19,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-WORKSPACE = REPO.parent
+WORKSPACE = Path(__file__).resolve().parents[2]
+REPO = WORKSPACE / "cosmos-training"
 LOSS_KEYS = ("train/loss", "train/video_loss", "train/action_loss")
 
 
@@ -219,7 +219,7 @@ class Job:
             "preflight",
             [
                 self.python,
-                "mrlv/npu/preflight.py",
+                WORKSPACE / "migration/npu/preflight.py",
                 "--expected-devices",
                 "8",
                 "--report",
@@ -244,10 +244,10 @@ class Job:
                 self.python,
                 "-m",
                 "pytest",
-                "--confcutdir=mrlv/npu",
+                f"--confcutdir={WORKSPACE / 'migration/npu'}",
                 "-o",
                 "addopts=",
-                "mrlv/npu/hardware_test.py",
+                WORKSPACE / "migration/npu/hardware_test.py",
                 "-q",
                 "-rs",
                 f"--junitxml={xml}",
@@ -266,7 +266,7 @@ class Job:
                 "--nproc_per_node=2",
                 "--master_addr=127.0.0.1",
                 "--master_port=29674",
-                "mrlv/npu/distributed_smoke.py",
+                WORKSPACE / "migration/npu/distributed_smoke.py",
                 "--device",
                 "npu",
                 "--output-dir",
@@ -318,14 +318,14 @@ class Job:
         )
         self.command(
             "wam_smoke",
-            ["bash", "mrlv/launch_wam_litegen.sh", "--smoke"],
+            ["bash", WORKSPACE / "migration/launch_wam_litegen.sh", "--smoke"],
             timeout=int(env.get("NPU_WAM_TIMEOUT_SECONDS", "3600")),
             env=env,
         )
         result = verify_wam(self.wam_root)
         self.command(
             "checkpoint_schema",
-            [self.python, "-m", "mrlv.npu.checkpoint_verify", self.wam_root,
+            [self.python, "-m", "migration.npu.checkpoint_verify", self.wam_root,
              "--report", self.report / "checkpoint_schema.json"],
             timeout=120,
         )

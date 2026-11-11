@@ -36,7 +36,7 @@ def summarize_windows(windows):
 
 
 class TrainingMonitor(Callback):
-    """An optional callback, registered only by mrlv/launch_wam_task.sh.
+    """An optional callback, registered only by migration/launch_wam_task.sh.
 
     Wall time is synchronized at logging boundaries and reduced with MAX across
     ranks. Windows include data loading, communication and logging overhead.

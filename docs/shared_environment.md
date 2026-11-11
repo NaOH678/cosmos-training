@@ -28,7 +28,7 @@ mkdir -p "$NPU_BOOTSTRAP_REPORT_ROOT"
 set -o pipefail
 bash scripts/bootstrap.sh 2>&1 | tee "$NPU_BOOTSTRAP_REPORT_ROOT/bootstrap.log"
 source scripts/activate.sh
-"$TRAIN_PYTHON" -m mrlv.npu.preflight --expected-devices 8 \
+"$TRAIN_PYTHON" -m migration.npu.preflight --expected-devices 8 \
   --report "$NPU_BOOTSTRAP_REPORT_ROOT/preflight.json"
 ```
 
@@ -54,7 +54,7 @@ export COSMOS_NPU_ENV="${COSMOS_NPU_ENV:-.venv-npu}"
 
 ## 平台只提交一份启动命令
 
-已完成的 `job-mrlv-sys5` 使用四节点、每节点八张 910B，5000 步训练的配置、平台变量映射和完整提交命令集中在 [README 第 6 节](../README.md#6-四节点-32-卡正式训练)。先按本页完成共享环境准备，再使用该节的单份命令；平台在每个节点执行一次。
+四节点、每节点八张 910B 的提前准备要求和正式提交命令见 [README 第 6 节](../README.md#6-四节点-32-卡正式训练)。先按本页完成共享环境准备，再使用该节的单份命令；平台在每个节点执行一次。
 
 平台工作目录应为共享项目根目录，所有节点使用同一个新的输出目录名，不要在各节点分别生成时间戳。命令显式指定 5000 步、global batch 128、累积 1 和学习率周期 40000，每卡 batch 自动得到 4；使用 `config/train.env.example` 避免旧本地训练配置覆盖参数。
 

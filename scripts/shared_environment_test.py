@@ -42,7 +42,7 @@ def test_submission_checks_before_training_without_installing(tmp_path, failure,
 set -eu
 if [[ "$1" == scripts/check_environment.py ]]; then stage=environment
 elif [[ "$*" == "-m pip check" ]]; then stage=pip
-elif [[ "$*" == *mrlv.npu.preflight* ]]; then stage=preflight
+elif [[ "$*" == *migration.npu.preflight* ]]; then stage=preflight
 else exit 91
 fi
 [[ "$LD_LIBRARY_PATH" == /vendor/cann/libraries ]]
@@ -144,11 +144,13 @@ bash "$1/scripts/bootstrap.sh" --plan
 source "$1/scripts/activate.sh"
 printf 'ACTIVE_PREFIX=%s\nACTIVE_PYTHON=%s\nACTIVE_LIBS=%s\nINPUT_MODEL=%s\n' \
     "$COSMOS_NPU_ENV" "$TRAIN_PYTHON" "$LD_LIBRARY_PATH" "$EDGE_DROID_MODEL_PATH"
+printf 'ACTIVE_PYTHONPATH=%s\n' "$PYTHONPATH"
 ''', "test", str(bundle)], cwd=tmp_path, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert f"Environment: {prefix}\n" in result.stdout
     assert f"ACTIVE_PREFIX={prefix}\n" in result.stdout
     assert f"ACTIVE_PYTHON={interpreter}\n" in result.stdout
     assert "ACTIVE_LIBS=/vendor/cann/libraries\n" in result.stdout
+    assert f"ACTIVE_PYTHONPATH={bundle}:{bundle / 'cosmos-training'}:" in result.stdout
     assert f"INPUT_MODEL={tmp_path / 'input mount/models/cosmos3-edge-droid'}\n" in result.stdout
     assert "Bootstrap Python: python3.12\n" in result.stdout

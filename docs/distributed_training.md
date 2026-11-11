@@ -10,16 +10,16 @@ config/train.env            可选的本地训练配置，不提交 Git
 config/train.env.example    训练拓扑和 batch 的模板
 train.sh                   激活环境，启动当前节点的训练进程
 run.sh                     安装、输入检查、原单机八卡验收
-cosmos-training/mrlv/       现有启动器、监控、比较和 NPU 验证实现
+migration/                 WAM 启动器、监控、比较和 NPU 验证实现
 ```
 
 采用固定节点数的全局 FSDP2：`shard=NNODES*NPROC_PER_NODE`、`replicate=1`，CP/CFGP 保持 1。不提供自动申请节点、SSH 启动、训练中动态扩缩容或 HSDP 切换。
 
 已完成单节点 8 × 910B 和四节点 32 × 910B 的 5000 步实验，loss 与性能数据保留在 [`reference/`](../reference/)。新集群仍须按下文执行各节点预检和两步测试，再开始正式训练。
 
-## 平台作业：推荐复现 sys5 的共享环境入口
+## 平台作业：预装共享环境与单份提交命令
 
-`job-mrlv-sys5` 已完成 4 节点 × 8 张 910B、5000 步训练和最终产物检查。平台无法逐节点登录时，按 [README 第 6 节](../README.md#6-四节点-32-卡正式训练)使用预装共享 venv，只提交一份 `scripts/submit_sensecore.sh` 启动命令；平台提供的 `WORLD_SIZE=4` / `RANK=0..3` 在入口转为节点拓扑，随后 torchrun 创建总计 32 个训练 rank。
+四节点 32 卡任务的资源、共享挂载、预装 venv 和平台变量要求见 [README 第 6 节](../README.md#6-四节点-32-卡正式训练)。准备完成后只提交该节的一份启动命令，由平台在每个节点执行一次；节点编号由平台自动提供。
 
 下文保留各节点独立环境和手动部署方式，供不使用该平台入口的集群参考。两种环境方式都要求相同的源码、输入和共享输出；不需要同时执行两种安装流程。
 
@@ -125,7 +125,7 @@ bash train.sh --smoke
 ```bash
 source config/cluster.env
 source scripts/activate.sh
-"$TRAIN_PYTHON" -m mrlv.npu.checkpoint_verify "$OUTPUT_ROOT" \
+"$TRAIN_PYTHON" -m migration.npu.checkpoint_verify "$OUTPUT_ROOT" \
   --world-size 32 --steps 2 --report "$OUTPUT_ROOT/verification.json"
 ```
 
@@ -146,7 +146,7 @@ bash train.sh
 完成后使用同一个检查器，步数应能被日志间隔整除：
 
 ```bash
-"$TRAIN_PYTHON" -m mrlv.npu.checkpoint_verify "$OUTPUT_ROOT" \
+"$TRAIN_PYTHON" -m migration.npu.checkpoint_verify "$OUTPUT_ROOT" \
   --world-size 32 --steps 5000 --report "$OUTPUT_ROOT/verification.json"
 ```
 
@@ -156,4 +156,4 @@ bash train.sh
 
 全局 batch 128 保持每个 optimizer step 的样本数，但 rank 数、随机数流和归约顺序仍变化，不能预先承诺曲线逐点一致或四倍加速。全局 FSDP2 会跨节点收集参数、归约梯度，须实测集群网络上的性能。
 
-交付中的四组实验数据、完整曲线、差异图及 rank 随机数机制说明见[实验对比报告](../reference/comparison-four-runs/experiment_comparison.md)，重现命令见 [README](../README.md)。跨规模对比时记录卡数、每卡 batch 和全局 batch，使用完整 loss 记录与同口径的性能窗口；正式验收工具保留原有检查条件。
+交付中的四组实验数据、完整曲线、差异图及 rank 随机数机制说明见[实验对比报告](../reference/comparison-four-runs/experiment-comparison.md)，重现命令见 [README](../README.md)。跨规模对比时记录卡数、每卡 batch 和全局 batch，使用完整 loss 记录与同口径的性能窗口；正式验收工具保留原有检查条件。

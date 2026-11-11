@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from mrlv.npu.job_runner import Job, verify_junit, verify_wam
+from migration.npu.job_runner import Job, verify_junit, verify_wam
 
 
 @pytest.mark.parametrize("incomplete", ["skipped", "failure", "error", "missing"])
@@ -118,7 +118,7 @@ def test_artifact_failure_does_not_report_job_passed(tmp_path):
 
 
 def test_original_acceptance_pins_eight_ranks_even_with_multinode_environment(tmp_path, monkeypatch):
-    from mrlv.npu import job_runner
+    from migration.npu import job_runner
 
     job = Job(tmp_path)
     job.python = sys.executable

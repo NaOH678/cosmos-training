@@ -102,7 +102,7 @@ def main():
     args = parser.parse_args()
     if args.world_size < 2 or args.steps < 1:
         parser.error("--world-size must be >=2 and --steps must be positive")
-    from mrlv.npu.job_runner import verify_wam
+    from migration.npu.job_runner import verify_wam
 
     try:
         wam = verify_wam(args.root, world_size=args.world_size, steps=args.steps)

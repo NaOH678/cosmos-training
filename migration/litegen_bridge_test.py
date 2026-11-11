@@ -12,9 +12,9 @@ from omegaconf import OmegaConf
 from torch import nn
 
 from cosmos_framework.integrations import litegen as bridge
-from mrlv.compare_wam_litegen import compare, load_recorded_metrics, load_run, numerical_config
+from migration.compare_wam_litegen import compare, load_recorded_metrics, load_run, numerical_config
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 BASELINE = ROOT / "reference/wam-steps5k-8xA100"
 CONFIG = next(BASELINE.glob("cosmos3_action/action_sft/*/config.yaml"))
 

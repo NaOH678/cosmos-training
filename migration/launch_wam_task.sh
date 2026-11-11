@@ -3,14 +3,14 @@
 # 默认训练 Cosmos3-Edge-DROID 4B / task27 / WAM，运行 2000 步。
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../cosmos-training" && pwd)"
 MODE=baseline
 DRY_RUN=0
 EXTRA_OVERRIDES=()
 
 usage() {
     cat <<'HELP'
-Usage: bash mrlv/launch_wam_task.sh [--smoke] [--dry-run] [-- HYDRA_OVERRIDE ...]
+Usage: bash migration/launch_wam_task.sh [--smoke] [--dry-run] [-- HYDRA_OVERRIDE ...]
 
 Default: activate Conda cosmos, then train 4B Edge-DROID WAM on task27.
          1 node / 8 accelerators, global batch 128, 2000 steps, 40000-step LR schedule.
@@ -66,9 +66,9 @@ fi
 cd "$REPO_ROOT"
 # The original CUDA image needs this workaround; NPU must retain CANN libraries.
 if [[ "$DEVICE_KIND" == cuda ]]; then export LD_LIBRARY_PATH=''; fi
-export PYTHONPATH="$REPO_ROOT" PYTHONUNBUFFERED=1
+export PYTHONPATH="$REPO_ROOT/..:$REPO_ROOT" PYTHONUNBUFFERED=1
 LITEGEN_ROOT="${LITEGEN_ROOT:-$REPO_ROOT/../LiteGen.dev}"
-if [[ -r "$LITEGEN_ROOT/litegen/__init__.py" ]]; then export PYTHONPATH="$REPO_ROOT:$LITEGEN_ROOT"; fi
+if [[ -r "$LITEGEN_ROOT/litegen/__init__.py" ]]; then export PYTHONPATH="$REPO_ROOT/..:$REPO_ROOT:$LITEGEN_ROOT"; fi
 if [[ "${COSMOS_TRAINING_BACKEND:-native}" == litegen ]]; then
     "$TRAIN_PYTHON" - <<'PY_CHECK'
 import inspect
@@ -200,7 +200,7 @@ if find_spec("tensorboard") is None:
     raise SystemExit("TensorBoard is missing in the active environment; install tensorboard or set BASELINE_MONITOR=0.")
 PY
     MONITOR_OVERRIDES=(
-        "+trainer.callbacks.baseline_monitor._target_=mrlv.training_monitor.TrainingMonitor"
+        "+trainer.callbacks.baseline_monitor._target_=migration.training_monitor.TrainingMonitor"
         "+trainer.callbacks.baseline_monitor.log_dir=$TENSORBOARD_DIR"
         "+trainer.callbacks.baseline_monitor.warmup_steps=$BENCH_WARMUP_STEPS"
     )
@@ -272,7 +272,7 @@ TAIL_OVERRIDES=(
     "model.config.rectified_flow_training_config.independent_action_schedule=false"
     "model.config.rectified_flow_training_config.independent_pointflow_schedule=false"
     "model.config.rectified_flow_training_config.independent_fk_schedule=false"
-    "+trainer.callbacks.latest_checkpoint._target_=mrlv.checkpoint_retention.KeepLatestCheckpoint"
+    "+trainer.callbacks.latest_checkpoint._target_=migration.checkpoint_retention.KeepLatestCheckpoint"
     "${MONITOR_OVERRIDES[@]}"
     "${EXTRA_OVERRIDES[@]}"
 )

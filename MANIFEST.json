@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-11T03:52:49.773524+00:00",
+  "created_at_utc": "2026-11-11T06:52:24.018115+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, reference data and operating documentation; historical evidence/provenance, external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,8 +16,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 28855,
-      "sha256": "e3561e9329c2facda345c111ece973d21bc4cee7ec0e841031f00fef0609195c"
+      "bytes": 20662,
+      "sha256": "3e8159186aad54efa1f0e3bf552f8e95596f0c13b33e81fa8aa93194e9fd5934"
     },
     {
       "path": "config/cluster.env.example",
@@ -3250,109 +3250,9 @@
       "sha256": "1ec237176f524e419e6b94cc84b966aaa1546cc66d97affbc3ced45f57969cf7"
     },
     {
-      "path": "cosmos-training/mrlv/checkpoint_retention.py",
-      "bytes": 2054,
-      "sha256": "3b680b49617896ce8cdec7ac590bbfbcc3b51d859fc94f50e8e4fc028267969e"
-    },
-    {
-      "path": "cosmos-training/mrlv/compare_wam_cross_device.py",
-      "bytes": 4889,
-      "sha256": "d41f5364fb1c84bff38f85026b0c94b57910261ad12525a0f629d90553272b79"
-    },
-    {
-      "path": "cosmos-training/mrlv/compare_wam_litegen.py",
-      "bytes": 6837,
-      "sha256": "3907cfb8e512a2855ee572e6ed0d710f245d32dcb92d4520c2ad0db439e97946"
-    },
-    {
-      "path": "cosmos-training/mrlv/launch_wam_litegen.sh",
-      "bytes": 1333,
-      "sha256": "174e0df8060cb5774791c38426881ced1660e9a3cffd61a30e45cbe4a7b4a14e"
-    },
-    {
-      "path": "cosmos-training/mrlv/launch_wam_task.sh",
-      "bytes": 16408,
-      "sha256": "0c13ff8594e1d7bcd28dc9f024f4b0ed794ce97efdeb1b8e38b1ce568643bc17"
-    },
-    {
-      "path": "cosmos-training/mrlv/launcher_test.py",
-      "bytes": 6810,
-      "sha256": "1c58c9aa43b8a8a15b363090d0a143de69e73b44cdae6cdb145594e5e63cd6ea"
-    },
-    {
-      "path": "cosmos-training/mrlv/litegen_bridge_test.py",
-      "bytes": 8343,
-      "sha256": "7eb35a019eba94b4256d8a2cda55b0415f18f8ff1e0508910487a625e6d01caf"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/attention_test.py",
-      "bytes": 8165,
-      "sha256": "2d48a2ad45dd3e86f120c310251b801a76cfc0fd76e8e274647c8171394f331d"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/checkpoint_verify.py",
-      "bytes": 5575,
-      "sha256": "738039441da681c30fd4350d595335816e45eed97e7e57a6b03701a3377d7d99"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/checkpoint_verify_test.py",
-      "bytes": 3022,
-      "sha256": "3841f476faa18f2b8fa4d97fc753974a3b024a686f92aaaf7e48f3664154897d"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/comparison_test.py",
-      "bytes": 1379,
-      "sha256": "c53949201815cdb6fd3bc1be3970894cc80734c9394610ec053f016c437491af"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/device_optimizer_test.py",
-      "bytes": 5309,
-      "sha256": "5b8ecaeb0a10bd72e3b10eb546a3a65d8a8112ce3546e7299744c4610143cfff"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/distributed_smoke.py",
-      "bytes": 5524,
-      "sha256": "679bee2d2efa73bdb9e7265fcf8ca68213a75565f8a746b0661ebc3215057e42"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/hardware_test.py",
-      "bytes": 3770,
-      "sha256": "8dc9fe9305350add65eeb23c31d5edd50e15c51c3c199cc59f88f0acccdf0229"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/import_test.py",
-      "bytes": 2435,
-      "sha256": "759c3cbb34df49378406c99860972cb8677373865114615ac6dcf1d95da0a708"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/job_runner.py",
-      "bytes": 17292,
-      "sha256": "dbc095007d2e6d4a6e72cf140a3434d0f968155209bb50387f8fbe5951451ccd"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/job_runner_test.py",
-      "bytes": 5798,
-      "sha256": "58b38f057e5404c6d6a60fc6b8f6b0b103ccf309db055a45b135d35bfd8efffd"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/preflight.py",
-      "bytes": 3173,
-      "sha256": "1ddc2cd5021d93e7ae61505673fc56995fe012613fcd22ca7d6a01dc92dbff39"
-    },
-    {
-      "path": "cosmos-training/mrlv/npu/submit_job.sh",
-      "bytes": 755,
-      "sha256": "3c868685b30d5eff5e4baf8e3eb885c1733107ed7da2754ec941d078133f4897"
-    },
-    {
-      "path": "cosmos-training/mrlv/training_monitor.py",
-      "bytes": 10341,
-      "sha256": "2e12a2533ff3b1240e64f5b4c5a887fa959e5cbeb2a05229a6a16b913547f522"
-    },
-    {
       "path": "cosmos-training/pyproject.toml",
-      "bytes": 1118,
-      "sha256": "4f3ede02155d1662df9595f246bb83b92576a566192ccfbedef7a96a2ce5cd96"
+      "bytes": 1109,
+      "sha256": "3d3db8629ed001758b8141a45b29c34d5052664f7529167e6d670ba74685c0dd"
     },
     {
       "path": "cosmos-training/tools/prepare_normalized_run.py",
@@ -3361,18 +3261,18 @@
     },
     {
       "path": "docs/distributed_training.md",
-      "bytes": 10349,
-      "sha256": "fe044552229d879a0dbeb2f447b02d8a4eb056f890e6dc5d2a16437856bd9b7b"
+      "bytes": 10237,
+      "sha256": "54c5b85abfcca82cc3cce663a76d60462f37c1defda3419f45c0525aa3554d78"
     },
     {
       "path": "docs/litegen_integration.md",
-      "bytes": 5145,
-      "sha256": "b2cbe809ffbd629953b322469415d7bfe4f40e8c00b789d9de03f7fbb6c73798"
+      "bytes": 5136,
+      "sha256": "3056539de5355ee82f8f87f6afc6735ddae7e6048cdc8c58883ef916e7186396"
     },
     {
       "path": "docs/shared_environment.md",
-      "bytes": 5718,
-      "sha256": "032c3ff34149f79202cec5d191cce59cb68f67cdb51afc9e8adff3830cfe82ec"
+      "bytes": 5657,
+      "sha256": "3e1dc57df31f660a71ef4c1f2f5e987169d2f57360a58aaafd3c703a5c27844e"
     },
     {
       "path": "environment/requirements.in",
@@ -3390,14 +3290,114 @@
       "sha256": "a2a987714688d238e6319dc9e9c2ea8b9b78ab9eaf2339cf511a4c414f70f187"
     },
     {
-      "path": "reference/comparison-four-runs/experiment_comparison.md",
-      "bytes": 15634,
-      "sha256": "af469531e763ec57645ddacc11beb626c9df4c1a93a2183f1fa63bd6fec546af"
+      "path": "migration/checkpoint_retention.py",
+      "bytes": 2054,
+      "sha256": "3b680b49617896ce8cdec7ac590bbfbcc3b51d859fc94f50e8e4fc028267969e"
+    },
+    {
+      "path": "migration/compare_wam_cross_device.py",
+      "bytes": 4894,
+      "sha256": "3fee1ad45327bb3a67e38917a5c22995031e6336b4651ae8aed60b9910f28f1c"
+    },
+    {
+      "path": "migration/compare_wam_litegen.py",
+      "bytes": 7279,
+      "sha256": "d58615b5444ffa4fe7d00795d8dbcff45081f7c48b4cddfd4089d9abd8401d95"
+    },
+    {
+      "path": "migration/launch_wam_litegen.sh",
+      "bytes": 1357,
+      "sha256": "4483e21597c4e10243587d34685fd1a490aa9df2918fc58065d00a7bc2cb6955"
+    },
+    {
+      "path": "migration/launch_wam_task.sh",
+      "bytes": 16467,
+      "sha256": "e5d61e21b44cdc5a1aac2193e5a0cc2e7a5aabc0928fda71f6a0e1db64f88f8e"
+    },
+    {
+      "path": "migration/launcher_test.py",
+      "bytes": 6810,
+      "sha256": "1c58c9aa43b8a8a15b363090d0a143de69e73b44cdae6cdb145594e5e63cd6ea"
+    },
+    {
+      "path": "migration/litegen_bridge_test.py",
+      "bytes": 8348,
+      "sha256": "39bdad8e809f1d0433f62c2f21c4f27d8137d18642a3cb501fd821cee081a46a"
+    },
+    {
+      "path": "migration/npu/attention_test.py",
+      "bytes": 8165,
+      "sha256": "2d48a2ad45dd3e86f120c310251b801a76cfc0fd76e8e274647c8171394f331d"
+    },
+    {
+      "path": "migration/npu/checkpoint_verify.py",
+      "bytes": 5580,
+      "sha256": "cac0d1f90ab23d8eb2d35b17041bbcf04a49a38d33fb2d58c5e7095c399c8727"
+    },
+    {
+      "path": "migration/npu/checkpoint_verify_test.py",
+      "bytes": 3032,
+      "sha256": "e7d2594645c621c3f070cbc0f975306d62144aef4f9c99da72babb61a5eafc9c"
+    },
+    {
+      "path": "migration/npu/comparison_test.py",
+      "bytes": 2291,
+      "sha256": "bcc29840864d61c89355046aabada25a7453f570cf89f90a477106cdb9987942"
+    },
+    {
+      "path": "migration/npu/device_optimizer_test.py",
+      "bytes": 5309,
+      "sha256": "5b8ecaeb0a10bd72e3b10eb546a3a65d8a8112ce3546e7299744c4610143cfff"
+    },
+    {
+      "path": "migration/npu/distributed_smoke.py",
+      "bytes": 5524,
+      "sha256": "679bee2d2efa73bdb9e7265fcf8ca68213a75565f8a746b0661ebc3215057e42"
+    },
+    {
+      "path": "migration/npu/hardware_test.py",
+      "bytes": 3770,
+      "sha256": "8dc9fe9305350add65eeb23c31d5edd50e15c51c3c199cc59f88f0acccdf0229"
+    },
+    {
+      "path": "migration/npu/import_test.py",
+      "bytes": 2435,
+      "sha256": "759c3cbb34df49378406c99860972cb8677373865114615ac6dcf1d95da0a708"
+    },
+    {
+      "path": "migration/npu/job_runner.py",
+      "bytes": 17405,
+      "sha256": "e1aadf72d10e0a6e8d221b0a54ec5cc14029c06d145cb6c338d91ce5c1e2cb8a"
+    },
+    {
+      "path": "migration/npu/job_runner_test.py",
+      "bytes": 5808,
+      "sha256": "02f360c4816286778961d480284e82f37f832a7e1a15a6e5882767c6d461b86c"
+    },
+    {
+      "path": "migration/npu/preflight.py",
+      "bytes": 3173,
+      "sha256": "1ddc2cd5021d93e7ae61505673fc56995fe012613fcd22ca7d6a01dc92dbff39"
+    },
+    {
+      "path": "migration/npu/submit_job.sh",
+      "bytes": 755,
+      "sha256": "3c868685b30d5eff5e4baf8e3eb885c1733107ed7da2754ec941d078133f4897"
+    },
+    {
+      "path": "migration/training_monitor.py",
+      "bytes": 10346,
+      "sha256": "3ca4fd128f250380cbc299507c9a8967d2099c3756af5904c57c170c750c1eb4"
+    },
+    {
+      "path": "reference/comparison-four-runs/experiment-comparison.md",
+      "bytes": 15623,
+      "sha256": "742c943a0aaf8740a45bcc8343e46fd3ad4259c206def312b9f8eec7238fce9c"
     },
     {
       "path": "reference/comparison-four-runs/generate_report.py",
-      "bytes": 14640,
-      "sha256": "38e4f9254a8e59e0561c35ec9f177fde325dfe71d474b4257588d6d432c8e1cc"
+      "bytes": 14625,
+      "sha256": "556f06fbdbca0876ebd7c38c117db6877b552f90df1cb3df6ca6ef8b19ee04e4"
     },
     {
       "path": "reference/comparison-four-runs/loss_difference.png",
@@ -3546,13 +3546,13 @@
     },
     {
       "path": "run.sh",
-      "bytes": 1775,
-      "sha256": "03a8b1b63daecbdd7097468f90c629b97ef4ff536cd37a1e356ecd73c01da3ae"
+      "bytes": 1764,
+      "sha256": "f493970d89bfc0ecf493c8427722ac2607ce65a803bebcb81860f471483f8be2"
     },
     {
       "path": "scripts/activate.sh",
-      "bytes": 2173,
-      "sha256": "b97fe966d2f120d2547050c5157a84cc1232f9a6f53f9034dc6133d7df88e119"
+      "bytes": 2181,
+      "sha256": "772f9757d2cc034ba97eb1e755882cc5c9bc67075b8ad50e58a6f3bba047f95a"
     },
     {
       "path": "scripts/bootstrap.sh",
@@ -3581,13 +3581,13 @@
     },
     {
       "path": "scripts/shared_environment_test.py",
-      "bytes": 7050,
-      "sha256": "75bc7cd79b69790ae916ef7dd9be7660c6f4d455992dbe47589bfc4e500bc919"
+      "bytes": 7189,
+      "sha256": "4795da60e2fc88f830b10356fb979e8443e832105e3d5a6b1f4119b13e0b45f6"
     },
     {
       "path": "scripts/submit_sensecore.sh",
-      "bytes": 1785,
-      "sha256": "dc00d7cb71226026d7116f0d9149b62b58447e7e23956bf3a36c34ba9570f969"
+      "bytes": 1790,
+      "sha256": "1a929de30d81123366a8f7c2d12b097918310b02fca22bce8dbc36406ee70207"
     },
     {
       "path": "scripts/verify_bundle.py",
@@ -3596,8 +3596,8 @@
     },
     {
       "path": "train.sh",
-      "bytes": 609,
-      "sha256": "ee94a30dd48159a35d5e4ec5335c51d1f462087bbc77cd69ce8adf9aef455a2e"
+      "bytes": 598,
+      "sha256": "81a8b853e144f075b5a0ec989f168d7642f1037acf242502e0f3ea259ec7f3b3"
     }
   ],
   "external_litegen": {

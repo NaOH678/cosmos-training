@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Match outputs/wam-task27-align5k-01; original launcher owns all data/numerical settings.
 set -euo pipefail
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../cosmos-training" && pwd)"
 export COSMOS_TRAINING_BACKEND=litegen
 export LITEGEN_DEVICE="${LITEGEN_DEVICE:-cuda}"
 SMOKE=0
@@ -25,4 +25,4 @@ if [[ "${ALLOW_RESUME:-0}" != 1 && -d "${OUTPUT_ROOT:-}" ]] &&
     printf 'Output contains a resumable checkpoint: %s (use a fresh OUTPUT_ROOT or ALLOW_RESUME=1)\n' "$OUTPUT_ROOT" >&2
     exit 1
 fi
-exec bash "$REPO_ROOT/mrlv/launch_wam_task.sh" "$@"
+exec bash "$REPO_ROOT/../migration/launch_wam_task.sh" "$@"

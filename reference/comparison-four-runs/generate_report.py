@@ -14,8 +14,8 @@ import pandas as pd
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-sys.path.insert(0, str(ROOT / "cosmos-training"))
-from mrlv.compare_wam_litegen import LOSS_KEYS, load_recorded_metrics, numerical_config
+sys.path.insert(0, str(ROOT))
+from migration.compare_wam_litegen import LOSS_KEYS, load_recorded_metrics, numerical_config
 
 RUNS = (
     ("wam-steps5k-8xA100", "A | 8 x A100 / Native", "#808080", "-"),

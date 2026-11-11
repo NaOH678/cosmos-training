@@ -11,4 +11,4 @@ elif [[ "$TRAIN_ENV" != "$BUNDLE/config/train.env" ]]; then
     exit 1
 fi
 source "$BUNDLE/scripts/activate.sh"
-exec bash "$BUNDLE/cosmos-training/mrlv/launch_wam_litegen.sh" "$@"
+exec bash "$BUNDLE/migration/launch_wam_litegen.sh" "$@"

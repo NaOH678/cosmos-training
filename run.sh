@@ -33,5 +33,5 @@ done
 if [[ "$CHECKS_ONLY" != 1 ]]; then
     "$COSMOS_NPU_ENV/bin/python" "$BUNDLE/scripts/check_inputs.py"
 fi
-exec bash "$BUNDLE/cosmos-training/mrlv/npu/submit_job.sh" "$@"
+exec bash "$BUNDLE/migration/npu/submit_job.sh" "$@"
 

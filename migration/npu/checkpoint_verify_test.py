@@ -6,7 +6,7 @@ import pytest
 import torch
 import torch.distributed.checkpoint as dcp
 
-from mrlv.npu.checkpoint_verify import read_small_state, verify_component, verify_checkpoint
+from migration.npu.checkpoint_verify import read_small_state, verify_component, verify_checkpoint
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ def test_missing_metadata_reference_cannot_pass(replicated_checkpoint):
 
 
 def test_32_rank_rng_and_requested_step_are_checked(monkeypatch, tmp_path):
-    from mrlv.npu import checkpoint_verify as module
+    from migration.npu import checkpoint_verify as module
 
     monkeypatch.setattr(module, "verify_component", lambda *args, **kwargs: {})
     trainer = {"iteration": 5000, **{f"rng_state_{rank}": {

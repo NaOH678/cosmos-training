@@ -4,9 +4,9 @@ import copy
 
 import pytest
 
-from mrlv.compare_wam_cross_device import compare
-from mrlv.compare_wam_litegen import load_recorded_metrics
-from mrlv.litegen_bridge_test import BASELINE
+from migration.compare_wam_cross_device import compare
+from migration.compare_wam_litegen import load_recorded_metrics
+from migration.litegen_bridge_test import BASELINE
 
 
 def test_compile_difference_is_reported_without_an_a100_speed_gate():
@@ -31,3 +31,19 @@ def test_numerical_regressions_fail(change):
         for row in candidate["rows"]:
             row["train/action_loss"] = float(row["train/action_loss"]) * (1.3 if change == "loss" else float("nan"))
     assert compare(baseline, candidate)["status"] == "failed"
+
+
+@pytest.mark.parametrize("change", ["directory_only", "target", "parameter"])
+def test_callback_directory_move_keeps_strict_comparison(change):
+    baseline = load_recorded_metrics(BASELINE, 5000)
+    candidate = copy.deepcopy(baseline)
+    callbacks = candidate["config"]["trainer"]["callbacks"]
+    for name in ("baseline_monitor", "latest_checkpoint"):
+        callbacks[name]["_target_"] = callbacks[name]["_target_"].replace("mrlv.", "migration.", 1)
+    if change == "target":
+        callbacks["baseline_monitor"]["_target_"] = "migration.training_monitor.DifferentMonitor"
+    elif change == "parameter":
+        callbacks["baseline_monitor"]["warmup_steps"] = 999
+    report = compare(baseline, candidate)
+    assert (report["status"] == "passed") == (change == "directory_only")
+    assert baseline["config"]["trainer"]["callbacks"]["baseline_monitor"]["_target_"].startswith("mrlv.")

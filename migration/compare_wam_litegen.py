@@ -80,6 +80,14 @@ def numerical_config(config):
     result["trainer"] = copy.deepcopy({key: value for key, value in config["trainer"].items() if key != "type"})
     result["trainer"]["callbacks"].get("baseline_monitor", {}).pop("log_dir", None)
     result["trainer"]["callbacks"].get("sampled_media", {}).pop("output_uri", None)
+    # Historical reports retain these two callback paths from before the directory move.
+    for name, target in (
+        ("baseline_monitor", "training_monitor.TrainingMonitor"),
+        ("latest_checkpoint", "checkpoint_retention.KeepLatestCheckpoint"),
+    ):
+        callback = result["trainer"]["callbacks"].get(name, {})
+        if callback.get("_target_") == f"mrlv.{target}":
+            callback["_target_"] = f"migration.{target}"
     return result
 
 

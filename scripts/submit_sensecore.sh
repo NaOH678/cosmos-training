@@ -30,7 +30,7 @@ for argument in "$@"; do
     if [[ "$argument" == --dry-run ]]; then DRY_RUN=1; fi
 done
 if [[ "$DRY_RUN" == 0 ]]; then
-    "$TRAIN_PYTHON" -m mrlv.npu.preflight --expected-devices "$NPROC_PER_NODE" \
+    "$TRAIN_PYTHON" -m migration.npu.preflight --expected-devices "$NPROC_PER_NODE" \
         --report "$REPORT_ROOT/preflight.json" 2>&1 | tee "$REPORT_ROOT/preflight.log"
 fi
 exec bash train.sh "$@"

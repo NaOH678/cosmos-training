@@ -10,5 +10,5 @@ requires-python = ">=3.12,<3.13"
 dependencies = ["torch==2.10.0", "torch-npu==2.10.0.post6", "torchvision==0.25.0", "numpy>=1.26,<3", "transformers>=4.57.1,<5", "diffusers>=0.39.0", "accelerate", "av", "cattrs", "decorator", "einops", "hydra-core", "imageio", "imageio-ffmpeg", "kornia", "loguru", "msgpack", "obstore", "omegaconf", "pydantic>=2.7,<3", "pyyaml>=6,<7", "requests", "safetensors>=0.7", "scipy", "termcolor", "tyro", "websockets", "aioboto3", "aiofiles", "aiohttp", "boto3", "botocore", "blobfile", "datasets", "matplotlib", "multi-storage-client[boto3]==0.44.0", "opencv-python-headless", "packaging", "pandas", "pillow>=12.2.0", "psutil", "pytest>=8,<9", "qwen-vl-utils", "s3fs", "semver", "setuptools", "tensorboard", "tiktoken", "timm", "wandb", "webdataset", "iopath==0.1.10", "pytz==2025.2"]
 
 [tool.setuptools.packages.find]
-include = ["cosmos_framework*", "mrlv*"]
+include = ["cosmos_framework*"]
 namespaces = true

@@ -39,7 +39,7 @@ _cosmos_migration_activate() {
     if (( result != 0 )); then return "$result"; fi
     export COSMOS_NPU_ENV="$prefix" TRAIN_PYTHON="$prefix/bin/python"
     export PATH="$prefix/bin:$PATH"
-    export PYTHONPATH="$bundle/cosmos-training:$LITEGEN_ROOT${PYTHONPATH:+:$PYTHONPATH}"
+    export PYTHONPATH="$bundle:$bundle/cosmos-training:$LITEGEN_ROOT${PYTHONPATH:+:$PYTHONPATH}"
     export LITEGEN_DEVICE=npu COSMOS_DEVICE=npu COMPILE=false
     export PYTHONNOUSERSITE=1
     if [[ -x "$prefix/bin/ffmpeg" ]]; then export IMAGEIO_FFMPEG_EXE="$prefix/bin/ffmpeg"; fi

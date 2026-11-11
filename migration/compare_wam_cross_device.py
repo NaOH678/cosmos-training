@@ -10,7 +10,7 @@ import math
 import statistics
 from pathlib import Path
 
-from mrlv.compare_wam_litegen import LOSS_KEYS, META_KEYS, load_recorded_metrics, load_run, numerical_config
+from migration.compare_wam_litegen import LOSS_KEYS, META_KEYS, load_recorded_metrics, load_run, numerical_config
 
 
 def compare(baseline, candidate, *, mean_rtol=0.05, window_rtol=0.10):
