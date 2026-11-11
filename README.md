@@ -9,12 +9,12 @@
 - [交付目录复测记录](docs/delivery_validation.md)：独立环境、新路径验收与可追溯来源。
 - [跨仓库衔接与版本升级](docs/litegen_integration.md)：LiteGen 分支链接、固定提交、克隆、安装及升级流程。
 - [LiteGen 实际改动](docs/litegen_changes.md)：与原 LiteGen 目录逐文件比较。
-- [多节点、多卡训练](docs/distributed_training.md)：统一 `train.sh` 入口、四节点 32 卡配置、两步训练和结果检查；多节点配置支持不等于已完成多节点硬件验收。
+- [多节点、多卡训练](docs/distributed_training.md)：统一 `train.sh` 入口、四节点 32 卡配置、两步训练和结果检查；已完成实验的数据与比较边界见下文 `reference/` 说明。
 - [预先安装的共享环境](docs/shared_environment.md)：一次安装、各节点只校验和读取，避免作业启动时重复访问包源；提供可直接提交的平台入口。
 
 训练入口分为两类：`bash run.sh` 保留单机八卡验收；`bash train.sh` 用于可配置的单机/多机正式训练，`bash train.sh --smoke` 用于指定拓扑的两步训练。环境/挂载配置在 `config/cluster.env`，可选训练拓扑配置在 `config/train.env`（从 `config/train.env.example` 复制）。
 
-本目录包含独立可安装源码、哈希锁定依赖、A100 基线和验收脚本；**模型权重、约 200 GiB 以上的数据缓存、35 GiB 级训练检查点、CANN/驱动和 Python 环境须另外准备**。LiteGen 作为独立仓库维护，不随本项目或压缩包分发；运行时通过 `LITEGEN_ROOT` 引用外部 checkout。随附报告中的历史绝对路径用于追溯，不是运行依赖。
+本目录包含独立可安装源码、哈希锁定依赖、A100/910B 实验数据和验收脚本；**模型权重、约 200 GiB 以上的数据缓存、35 GiB 级训练检查点、CANN/驱动和 Python 环境须另外准备**。LiteGen 作为独立仓库维护，不随本项目或压缩包分发；运行时通过 `LITEGEN_ROOT` 引用外部 checkout。随附报告中的历史绝对路径用于追溯，不是运行依赖。
 
 历史实验日志、报告附件和曲线已从交付目录移除，文档中的相关链接指向固定 Git 提交的归档。查看这些附件需要访问 GitHub；安装、训练、两步验收和新的 loss 对比不依赖这些历史附件。
 
@@ -268,27 +268,71 @@ bash train.sh
 
 以上默认值适用于梯度累积 1、未显式指定每卡 batch 的正式训练。`--smoke` 默认每卡 batch 1；全局 batch 不能整除总卡数与梯度累积次数的乘积时会报错。详细参数、每节点配置及 `--world-size 32 --steps 2/5000` 结果检查命令见[多节点训练文档](docs/distributed_training.md)。
 
-本轮 74 项回归、8/16/32 rank 配置解析和真实八卡两步验收通过；八卡两步的三类 loss 与之前记录一致。四节点 32 卡的硬件通信、性能及 5000 步 loss 趋势仍待实测，不能由配置解析通过推断。验证记录位于 `outputs/multinode-validation/validation_summary.json`。
+多节点入口此前完成 74 项回归、8/16/32 rank 配置解析和真实八卡两步验收，记录位于 `outputs/multinode-validation/validation_summary.json`。后续四节点 32 × 910B 的 `job-mrlv-sys5` 已完成 5000 步训练及输出检查，原始指标已收入下文的 `reference/`，可用于比较 loss 下降趋势和训练性能。
 
 ## 6. 与 A100 做完整对齐
 
 ```bash
 "$TRAIN_PYTHON" cosmos-training/mrlv/compare_wam_cross_device.py \
-  --baseline reference/wam-steps5k-8A100 \
+  --baseline reference/wam-steps5k-8xA100 \
   --candidate "$OUTPUT_ROOT" \
   --report "$RUN_DIR/alignment.json"
 ```
 
 保持原门槛：三类 loss 全程均值相对差 ≤5%，每 500 步窗口均值相对差 ≤10%；比较完整 5000 步、有效配置、动作归一化及运行元数据。只允许 `compile.enabled` 不同。性能单独报告，不把 910B 吞吐强行套用 A100 速度门槛。
 
-`reference/` 只保留以下两组实验数据：
+`reference/` 保存以下四组实验数据：
 
 | 目录 | 实验 |
 |---|---|
-| `wam-steps5k-8A100/` | 原生 Cosmos，8 × A100，5000 步；上述命令的默认对照 |
-| `wam-steps5k-8A100-LiteGen/` | 接入 LiteGen 的 Cosmos，8 × A100，5000 步 |
+| `wam-steps5k-8xA100/` | 原生 Cosmos，8 × A100，5000 步；上述命令的默认对照 |
+| `wam-steps5k-8xA100-LiteGen/` | 接入 LiteGen 的 Cosmos，8 × A100，5000 步 |
+| `wam-steps5k-8x910B-LiteGen/` | 接入 LiteGen 的 Cosmos，单节点 8 × 910B，5000 步；每卡 batch 16 |
+| `wam-steps5k-32x910B-LiteGen/` | 接入 LiteGen 的 Cosmos，四节点 32 × 910B，5000 步；每卡 batch 4 |
 
-每组保留有效配置、动作归一化统计、loss CSV、性能汇总及性能窗口记录，不包含历史检查点。两者是独立实验；需要以 LiteGen A100 实验为对照时，显式将 `--baseline` 改为第二个目录。
+四组 global batch 均为 128、梯度累积均为 1。每组保留以下五类原始文件，内容及 CSV 行尾不改写，不包含历史检查点或 TensorBoard event：
+
+```text
+<实验目录>/
+├── action_stats.json
+├── metrics.csv
+├── performance.json
+├── performance_windows.csv
+└── cosmos3_action/action_sft/<原实验名>/config.yaml
+```
+
+`metrics.csv` 每 10 步记录一次，共 500 个点；性能汇总排除 warmup、validation 和 checkpoint 窗口，统计 4920 步。8 卡 NPU 数据来自 `wam-910b-8x-5000-20261105T131003Z/output`，32 卡数据来自 `job-mrlv-sys5` 的 `wam-910b-multinode-5000-run02`。配置中的历史绝对路径仅供追溯，读取这些指标不需要原模型、缓存或输出挂载。
+
+需要以 LiteGen A100 实验为对照时，将基线目录改为 `reference/wam-steps5k-8xA100-LiteGen`。以下命令读取四组归档数据，汇总三类 loss 在前、后 500 步的记录均值，以及各组训练性能，方便比较下降趋势和效率；不加载检查点，也不执行训练：
+
+```bash
+PYTHONPATH="$PWD/cosmos-training${PYTHONPATH:+:$PYTHONPATH}" "$TRAIN_PYTHON" - <<'PY'
+import json
+from pathlib import Path
+from statistics import mean
+from mrlv.compare_wam_litegen import LOSS_KEYS, load_recorded_metrics
+
+summary = {}
+for path in sorted(Path("reference").glob("wam-steps5k-*")):
+    run = load_recorded_metrics(path, 5000)
+    summary[path.name] = {
+        "performance": run["performance"],
+        "loss": {
+            key: {
+                "first_500_steps_mean": mean(float(row[key]) for row in run["rows"][:50]),
+                "last_500_steps_mean": mean(float(row[key]) for row in run["rows"][-50:]),
+            }
+            for key in LOSS_KEYS
+        },
+    }
+output = Path("outputs/reference-comparison/trend-and-performance.json")
+output.parent.mkdir(parents=True, exist_ok=True)
+output.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+print(output)
+PY
+```
+
+四组实验的三类 loss 均呈整体下降趋势。上述摘要用于趋势和性能对比，逐步曲线仍以各目录中的原始 `metrics.csv` 为准。需要检查新训练的完整最终 DCP 时，仍使用本节开头的正式命令。
 
 此入口对应原八卡对齐实验，仍严格比较卡数、每卡 batch 和分片数。16/32 卡实验会产生这些配置差异，需要独立记录并审核跨规模比较条件；本次未放宽原比较规则。
 
@@ -309,7 +353,7 @@ MANIFEST.json             本交付文件 SHA256
 cosmos-training/          Cosmos 运行时、原配置、桥接、NPU 验收与训练脚本
 config/litegen.lock.json   外部 LiteGen 仓库、分支和验收提交；不含平台源码
 environment/              固定依赖和环境资料
-reference/                原生及 LiteGen 两组 8 × A100 5000 步实验数据，无历史权重
+reference/                两组 8 × A100、8/32 × 910B 的 5000 步实验数据，无历史权重
 docs/                     实验、LiteGen 改动、新目录复测说明
 provenance/               来源提交、补丁、原清单和源码快照哈希
 outputs/                  本地新运行输出；不进入迁移压缩包

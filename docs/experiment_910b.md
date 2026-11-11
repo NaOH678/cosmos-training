@@ -17,7 +17,7 @@
 | 原生 Cosmos 工作区 | `/mnt/lvminrui/workspace/cosmos-training`；复核 HEAD `6b9705f202beb513cdefcbdcb0a9395987c5c22f` |
 | 迁移源 | `/mnt/lvminrui/workspace/cosmos-litgen-npu-migration`；HEAD `60655e9c7bb8581bab95c2470816cf150e5bc57d` 加工作区修复 |
 | LiteGen 比较基准 | `/mnt/lvminrui/workspace/LiteGen.dev`，`ceff826ad729151fb385b1f4df787ebc4b5bd888` |
-| A100 基线 | `reference/wam-steps5k-8A100`，原生 8 × A100，5000 步 |
+| A100 基线 | `reference/wam-steps5k-8xA100`，原生 8 × A100，5000 步 |
 | 910B 正式实验 | `/mnt/lvminrui/workspace/mrlv/wam-910b-8x-5000-20261105T131003Z` |
 | 新交付 | `/mnt/lvminrui/workspace/cosmos-training-litegen-910b` |
 
