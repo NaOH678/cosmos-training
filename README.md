@@ -351,10 +351,12 @@ external_inputs.json      外部权重和缓存清单
 MANIFEST.json             本交付文件 SHA256
 cosmos-training/          Cosmos 运行时、原配置、桥接、NPU 验收与训练脚本
 config/litegen.lock.json   外部 LiteGen 仓库、分支和验收提交；不含平台源码
-environment/              固定依赖和环境资料
+environment/              依赖声明 requirements.in 与安装锁文件 requirements.lock
 reference/                两组 8 × A100、8/32 × 910B 的 5000 步实验数据，无历史权重
 docs/                     跨仓库衔接、共享环境和多节点训练操作说明
 outputs/                  本地新运行输出；不进入迁移压缩包
 ```
+
+`environment/requirements.in` 保留直接依赖声明，供后续维护锁文件；交付安装仅使用 `environment/requirements.lock` 中锁定的版本和哈希。Python 环境由镜像原生 Python 3.12 创建为 venv。
 
 当前交付由 Git 提交、`MANIFEST.json` 和 `config/litegen.lock.json` 记录版本与文件哈希。旧源码补丁、导出清单及复测报告保留在[历史提交](https://github.com/NaOH678/cosmos-training/tree/470fdd883dc28c850c30f553f08170096ac78da5)，不参与安装、训练或验收。Cosmos/附属运行时许可证保留在项目内，LiteGen 的许可证与平台修改说明保留在独立仓库。

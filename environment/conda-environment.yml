@@ -1,9 +1,0 @@
-name: cosmos-npu
-channels:
-  - conda-forge
-dependencies:
-  - python=3.12
-  - pip
-# Create for linux-aarch64. Install requirements.lock separately with hashes,
-# followed by the two local source packages with --no-deps.
-# The driver, CANN 9.1.X and matching Ascend ops come from the task environment.

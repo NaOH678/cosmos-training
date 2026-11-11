@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-11-11T02:56:18.049170+00:00",
+  "created_at_utc": "2026-11-11T03:04:42.772543+00:00",
   "project": "cosmos-training-litegen-910b",
   "source_commit": "60655e9c7bb8581bab95c2470816cf150e5bc57d plus validated working-tree patches",
   "scope": "Cosmos migration source, reference data and operating documentation; historical evidence/provenance, external LiteGen checkout, assets, environments and live outputs excluded",
@@ -16,8 +16,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 24844,
-      "sha256": "1908f2ef430d77b53788ecb696c41ae106467b7f6692858d246efc6683bc0338"
+      "bytes": 25110,
+      "sha256": "65a2b5a4ac0e97eb545b17680e4ff0101bb149a739f955ed792ba8f0e4167bf2"
     },
     {
       "path": "config/cluster.env.example",
@@ -3378,11 +3378,6 @@
       "path": "docs/shared_environment.md",
       "bytes": 5363,
       "sha256": "775c39086aaa2065f9e62b1955930f8ef7cf1131469da6b96c11da2914d903ca"
-    },
-    {
-      "path": "environment/conda-environment.yml",
-      "bytes": 300,
-      "sha256": "c016c577b21215d5ab79a425caf97885ef2abd1bb8921f8fd26f8f4f9b95a680"
     },
     {
       "path": "environment/requirements.in",
