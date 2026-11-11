@@ -5,7 +5,7 @@
 **已完成真实八卡两步功能验收和完整 5000 步训练。** 相对原生 8 × A100 基线，5000 步的 20 项对齐检查全部通过；三类 loss 全程均值相对差为 0.073%、0.037%、0.318%。这是本任务的 loss 曲线工程对齐，不是逐位一致、所有 Cosmos 分支兼容或相同训练速度。
 
 - [国产卡适配实验说明](docs/experiment_910b.md)：配置、接入职责、改动、完整 loss/性能对比及验证边界。
-- [5000 步完整报告](evidence/5000-step/full_comparison.json)、[loss 对比图](evidence/5000-step/loss_comparison.png)。
+- [5000 步完整报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/full_comparison.json)、[loss 对比图](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/loss_comparison.png)。
 - [交付目录复测记录](docs/delivery_validation.md)：独立环境、新路径验收与可追溯来源。
 - [跨仓库衔接与版本升级](docs/litegen_integration.md)：LiteGen 分支链接、固定提交、克隆、安装及升级流程。
 - [LiteGen 实际改动](docs/litegen_changes.md)：与原 LiteGen 目录逐文件比较。
@@ -14,7 +14,9 @@
 
 训练入口分为两类：`bash run.sh` 保留单机八卡验收；`bash train.sh` 用于可配置的单机/多机正式训练，`bash train.sh --smoke` 用于指定拓扑的两步训练。环境/挂载配置在 `config/cluster.env`，可选训练拓扑配置在 `config/train.env`（从 `config/train.env.example` 复制）。
 
-本目录包含独立可安装源码、哈希锁定依赖、A100 基线、验收脚本和实验小型证据；**模型权重、约 200 GiB 以上的数据缓存、35 GiB 级训练检查点、CANN/驱动和 Python 环境须另外准备**。LiteGen 作为独立仓库维护，不随本项目或压缩包分发；运行时通过 `LITEGEN_ROOT` 引用外部 checkout。随附报告中的历史绝对路径用于追溯，不是运行依赖。
+本目录包含独立可安装源码、哈希锁定依赖、A100 基线和验收脚本；**模型权重、约 200 GiB 以上的数据缓存、35 GiB 级训练检查点、CANN/驱动和 Python 环境须另外准备**。LiteGen 作为独立仓库维护，不随本项目或压缩包分发；运行时通过 `LITEGEN_ROOT` 引用外部 checkout。随附报告中的历史绝对路径用于追溯，不是运行依赖。
+
+历史实验日志、报告附件和曲线已从交付目录移除，文档中的相关链接指向固定 Git 提交的归档。查看这些附件需要访问 GitHub；安装、训练、两步验收和新的 loss 对比不依赖这些历史附件。
 
 ## 1. 先准备目标节点
 
@@ -130,7 +132,7 @@ export SIM_POINTFK_BUNDLE="${SIM_POINTFK_BUNDLE:-$OSS_ROOT/datasets/sim_task27_b
 
 项目位于共享卷时，默认 venv 也在共享卷：按[共享环境说明](docs/shared_environment.md)**只由一个准备容器提前安装并封存**，各训练节点只读取。若选择每节点自行安装，显式将 `COSMOS_NPU_ENV` 设为节点本地路径，例如 `/tmp/cosmos-npu-env`；容器重建后需要重建。不要让多个节点同时安装或升级同一个 venv。
 
-迁移的是源码与安装流程，venv 必须在目标最终位置重新创建；共享 venv 的各节点需要相同基础 Python 路径和挂载位置。`external_inputs.json`、`reference/`、`evidence/`、`provenance/` 和历史实验报告中的来源绝对路径用于追溯，不是当前安装目录；输入检查使用本地配置覆盖后的路径。
+迁移的是源码与安装流程，venv 必须在目标最终位置重新创建；共享 venv 的各节点需要相同基础 Python 路径和挂载位置。`external_inputs.json`、`reference/`、`provenance/` 和历史实验报告中的来源绝对路径用于追溯，不是当前安装目录；输入检查使用本地配置覆盖后的路径。
 
 ## 3. 安装环境并检查输入
 
@@ -283,7 +285,7 @@ bash train.sh
 
 **该严格工具还比较模型/数据路径。** 保持原挂载路径时可直接使用上述命令；迁移后路径不同，即使内容相同也会被判为配置不同。此时先核对输入内容，再对副本中的具体路径建立可审计映射，保留原始和映射后配置；不能关闭全部配置比较、改原基线或放宽 loss 门槛。两步输出不应送入该 5000 步对齐入口。
 
-已有完整结果在 `evidence/5000-step/`，包含 PNG/PDF/SVG、逐点 CSV、十个窗口统计、NPU TensorBoard 快照、原始配置和性能数据。`plot_loss_comparison.py`、`build_overview.py` 可在安装好的环境中依据同目录快照重新绘图；`verify_full_run.py` 是历史完整检查点复核脚本，需要历史源路径，不能拿无权重的交付包假装再次验证全部分片。
+历史完整报告与曲线见本页顶部的归档链接，不随当前源码交付。新实验使用上述比较命令和保留的 `reference/` 基线生成自己的对齐报告；报告、TensorBoard 和检查点写入本地输出目录。
 
 ## 7. 文件组织与可追溯性
 
@@ -300,7 +302,6 @@ config/litegen.lock.json   外部 LiteGen 仓库、分支和验收提交；不�
 environment/              固定依赖和环境资料
 reference/                原生 A100 5000 步基线，无历史权重
 docs/                     实验、LiteGen 改动、新目录复测说明
-evidence/                 已归档的报告、日志、曲线及小型原始数据
 provenance/               来源提交、补丁、原清单和源码快照哈希
 outputs/                  本地新运行输出；不进入迁移压缩包
 ```

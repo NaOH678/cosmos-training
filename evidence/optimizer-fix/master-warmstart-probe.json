@@ -1,8 +1,0 @@
-{
-  "case": "optimizer created, pretrained model weight loaded, first update at zero LR",
-  "model_before_step": 2.0,
-  "master_before_step": 0.25,
-  "model_after_step": 0.25,
-  "expected_model_after_step": 2.0,
-  "preserves_pretrained_weight": false
-}

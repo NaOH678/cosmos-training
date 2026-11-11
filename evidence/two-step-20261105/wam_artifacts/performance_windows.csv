@@ -1,3 +1,0 @@
-first_step,last_step,steps,seconds,samples,peak_allocated_gib,peak_reserved_gib,excluded_reason
-1,1,1,13.16566276550293,8,6.321188926696777,8.052734375,warmup
-2,2,1,18.530763626098633,8,8.34913444519043,10.072265625,"checkpoint,warmup"

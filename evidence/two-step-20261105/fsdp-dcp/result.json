@@ -1,7 +1,0 @@
-{
-  "status": "passed",
-  "device": "npu",
-  "world_size": 2,
-  "restored_step": 2,
-  "step_after_restore": true
-}

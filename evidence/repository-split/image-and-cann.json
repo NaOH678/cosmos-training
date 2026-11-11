@@ -1,7 +1,0 @@
-{
-  "base_image": "registry2.d.pjlab.org.cn/ccr-lepton-official-images/a3-cann:9.2.0-a3-ubuntu22.04-py3.12",
-  "base_image_source": "user-provided current task image; registry digest not independently inspected",
-  "observed_cann_runtime": "Version=9.1.0\nversion_dir=cann\ntimestamp=20260730_231653901\n",
-  "observed_ops": "package_name=Ascend-cann-910b-ops\nversion=9.1.0\ninnerversion=V100R001C11SPC001B243\ncompatible_version=[V100R001C15],[V100R001C21],[V100R001C23],[V100R001C10]\narch=aarch64\nos=linux\npath=/usr/local/Ascend/cann-9.1.0\n",
-  "note": "Current 910B acceptance uses the installed CANN/910B ops 9.1.0, not an untouched image-label-based 9.2.0 claim."
-}

@@ -13,24 +13,24 @@
 
 | 检查 | 结果 | 证据 |
 |---|---|---|
-| LiteGen全部单元测试 | 459 passed，0失败、0跳过 | [XML](../evidence/repository-split/litegen-unit.xml) |
-| 外部源码版本锁 | 6 passed | [XML](../evidence/repository-split/source-lock.xml) |
-| Cosmos针对性回归 | 68 passed，0失败、0跳过 | [XML](../evidence/repository-split/cosmos-regression.xml) |
-| 安装与版本 | pip check通过，146包匹配；LiteGen为外部路径 | [环境报告](../evidence/repository-split/installed.json)、[安装日志](../evidence/repository-split/bootstrap.log) |
-| 输入检查 | 模型/缓存清单和payload检查通过 | [报告](../evidence/repository-split/input_check.json) |
-| 八张真实910B预检 | BF16运算及同步通过 | [报告](../evidence/repository-split/acceptance/preflight.json) |
-| NPU attention | 5项实际执行通过，0跳过 | [XML](../evidence/repository-split/acceptance/attention.xml) |
-| 两卡FSDP2恢复 | FP32 master、RNG/DCP恢复及恢复后更新通过 | [报告](../evidence/repository-split/acceptance/fsdp-dcp/result.json) |
-| 八卡真实4B WAM | 三类loss有限，最终step=2 | [报告](../evidence/repository-split/acceptance/wam_result.json) |
-| 四类DCP组件 | model、optim、scheduler、trainer完整性检查通过 | [报告](../evidence/repository-split/acceptance/checkpoint_schema.json) |
+| LiteGen全部单元测试 | 459 passed，0失败、0跳过 | [XML](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/litegen-unit.xml) |
+| 外部源码版本锁 | 6 passed | [XML](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/source-lock.xml) |
+| Cosmos针对性回归 | 68 passed，0失败、0跳过 | [XML](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/cosmos-regression.xml) |
+| 安装与版本 | pip check通过，146包匹配；LiteGen为外部路径 | [环境报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/installed.json)、[安装日志](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/bootstrap.log) |
+| 输入检查 | 模型/缓存清单和payload检查通过 | [报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/input_check.json) |
+| 八张真实910B预检 | BF16运算及同步通过 | [报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/acceptance/preflight.json) |
+| NPU attention | 5项实际执行通过，0跳过 | [XML](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/acceptance/attention.xml) |
+| 两卡FSDP2恢复 | FP32 master、RNG/DCP恢复及恢复后更新通过 | [报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/acceptance/fsdp-dcp/result.json) |
+| 八卡真实4B WAM | 三类loss有限，最终step=2 | [报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/acceptance/wam_result.json) |
+| 四类DCP组件 | model、optim、scheduler、trainer完整性检查通过 | [报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/acceptance/checkpoint_schema.json) |
 
-[总状态](../evidence/repository-split/acceptance/status.json) · [复测汇总](../evidence/repository-split/summary.json) · [总日志](../evidence/repository-split/acceptance-console.log)。
+[总状态](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/acceptance/status.json) · [复测汇总](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/summary.json) · [总日志](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/acceptance-console.log)。
 
 初次平台测试的NPU替身缺少卷积HF32字段，补齐后通过；移出内嵌源码后旧editable注册失效，重新安装到外部目录后通过。未通过删除测试、跳过真实算子或放宽阈值处理这些问题。
 
 ## 3. 镜像和验证边界
 
-本次拆分验收当时记录的镜像为使用者提供的 `registry2.d.pjlab.org.cn/ccr-lepton-official-images/a3-cann:9.2.0-a3-ubuntu22.04-py3.12`；该容器修复后的实际CANN runtime及910B ops均为9.1.0。[版本原始记录](../evidence/repository-split/image-and-cann.json)。当时没有拉取镜像重建新容器，也没有验证原装CANN 9.2.0。
+本次拆分验收当时记录的镜像为使用者提供的 `registry2.d.pjlab.org.cn/ccr-lepton-official-images/a3-cann:9.2.0-a3-ubuntu22.04-py3.12`；该容器修复后的实际CANN runtime及910B ops均为9.1.0。[版本原始记录](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/repository-split/image-and-cann.json)。当时没有拉取镜像重建新容器，也没有验证原装CANN 9.2.0。
 
 2026-11-10更新：使用者确认原镜像选择有误，新建910B任务应使用 `registry2.d.pjlab.org.cn/ccr-lepton-official-images/a2-cann:9.1.0-a2-ubuntu22.04-py3.12`。配置模板和迁移说明已同步；上述历史证据中的镜像字段保留原记录，不据此声称已在新A2镜像中重跑实验。
 

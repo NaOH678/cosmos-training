@@ -12,9 +12,9 @@
 | [litegen.py](https://github.com/DeepLink-org/LiteGen.dev/blob/lmr-cosmos/litegen/litegen.py) | +31 / -3 | 先分片、由Cosmos负责后续物化的模式 |
 | [optim/master_shadow.py](https://github.com/DeepLink-org/LiteGen.dev/blob/lmr-cosmos/litegen/optim/master_shadow.py) | +6 / -5 | FP32 master初始化时序及空状态恢复修复 |
 | [optim/prepare.py](https://github.com/DeepLink-org/LiteGen.dev/blob/lmr-cosmos/litegen/optim/prepare.py) | +1 / -1 | 跳过未初始化空状态 |
-| [历史pyproject.toml差异](../evidence/litegen-diff/runtime-and-packaging.patch) | +8 / -145 | NPU交付依赖元数据 |
+| [历史pyproject.toml差异](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/litegen-diff/runtime-and-packaging.patch) | +8 / -145 | NPU交付依赖元数据 |
 
-运行时代码共净增220行，含安装配置净增83行；以上不把未导出的开发资料算作代码删除量。完整逐文件结果见 [comparison.json](../evidence/litegen-diff/comparison.json)，完整差异见 [runtime-and-packaging.patch](../evidence/litegen-diff/runtime-and-packaging.patch)。
+运行时代码共净增220行，含安装配置净增83行；以上不把未导出的开发资料算作代码删除量。完整逐文件结果见 [comparison.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/litegen-diff/comparison.json)，完整差异见 [runtime-and-packaging.patch](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/litegen-diff/runtime-and-packaging.patch)。
 
 ## 2. 原 LiteGen 已有的能力
 
@@ -68,10 +68,10 @@ runtime.prepare(model, materialize_meta=False)
 
 ## 7. 验证与证据
 
-- [函数级差异](../evidence/litegen-diff/function-changes.json)。
-- [修复审查和回归证据](../evidence/optimizer-fix/review_summary.json)。
-- [两步完整硬件验收](../evidence/two-step-20261105/status.json)。
-- [5000步完整对齐](../evidence/5000-step/full_comparison.json)。
+- [函数级差异](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/litegen-diff/function-changes.json)。
+- [修复审查和回归证据](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/optimizer-fix/review_summary.json)。
+- [两步完整硬件验收](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/two-step-20261105/status.json)。
+- [5000步完整对齐](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/full_comparison.json)。
 - [新交付路径复测](delivery_validation.md)。
 
 静态差异、两步功能验收、完整5000步数值对齐是三个不同证据层次。已验证范围是当前task27纯WAM，不推断其他模型、多机或可选分支的兼容性。

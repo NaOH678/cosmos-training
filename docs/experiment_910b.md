@@ -63,7 +63,7 @@
 
 静态复核中 60 个配置源文件逐字节相同，`flow_matching.py`、`rectified_flow.py`、`action_processing.py` 相同，`trainer.training_step` 的语法树相同。正式实验另外比较**最终有效配置**，只允许 `compile.enabled` 不同；不能用配置源文件相同替代启动覆盖后的核对。
 
-证据：[核心逻辑比较](../evidence/optimizer-fix/core-functions-comparison.json)、[配置源比较](../evidence/optimizer-fix/configuration-comparison.json)、[A100 有效配置](../evidence/5000-step/a100_config.yaml)、[NPU 有效配置](../evidence/5000-step/npu_config.yaml)、[正式配置复核](../evidence/5000-step/original-run/final-config-check.json)。
+证据：[核心逻辑比较](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/optimizer-fix/core-functions-comparison.json)、[配置源比较](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/optimizer-fix/configuration-comparison.json)、[A100 有效配置](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/a100_config.yaml)、[NPU 有效配置](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/npu_config.yaml)、[正式配置复核](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/original-run/final-config-check.json)。
 
 ## 5. LiteGen 的职责与实际改动
 
@@ -104,7 +104,7 @@ flowchart TD
 | `litegen/optim/prepare.py` | 跳过未初始化的空源状态 |
 | `pyproject.toml` | NPU 交付元数据与 Python 3.12 范围，由外层锁文件统一依赖 |
 
-`NpuBackend`、HCCL 后端选择、FSDP2、register、自定义 forward 钩子以及 FP32 master 主体能力在基准 LiteGen 已经存在，不能归为此次新增。[详细差异说明](litegen_changes.md) 和 [实际补丁](../evidence/litegen-diff/runtime-and-packaging.patch) 随包保存。
+`NpuBackend`、HCCL 后端选择、FSDP2、register、自定义 forward 钩子以及 FP32 master 主体能力在基准 LiteGen 已经存在，不能归为此次新增。[详细差异说明](litegen_changes.md) 保留在本项目，[实际补丁](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/litegen-diff/runtime-and-packaging.patch) 可从 Git 历史归档查看。
 
 LiteGen 的收益是集中硬件接口、复用分布式与精度设施、减少模型代码对设备 API 的直接耦合，并让后续维护聚焦在明确的桥接边界。当前证据未分离 LiteGen 的单独开销，因此不能声称接入带来了训练加速。
 
@@ -121,19 +121,19 @@ LiteGen 的收益是集中硬件接口、复用分布式与精度设施、减少
 
 修复前9个新增回归用例失败，修复后50项针对性测试通过；真实910B上 BF16/FP32、零/非零学习率四组更新与 FP32 AdamW 对照逐位符合。随后重新做完整两步验收并启动本次5000步。更早的两份 smoke checkpoint 仅作诊断，不能继续作为正式起点。
 
-证据：[修复审查](../evidence/optimizer-fix/review_summary.json)、[修复前测试](../evidence/optimizer-fix/regression-before.log)、[修复后测试](../evidence/optimizer-fix/regression-after.log)、[真实 NPU optimizer 对照](../evidence/optimizer-fix/master-warmstart-npu-after.json)。历史报告中“未做5000步”描述的是当时状态，本说明追加了后续完整实验结果。
+证据：[修复审查](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/optimizer-fix/review_summary.json)、[修复前测试](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/optimizer-fix/regression-before.log)、[修复后测试](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/optimizer-fix/regression-after.log)、[真实 NPU optimizer 对照](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/optimizer-fix/master-warmstart-npu-after.json)。历史报告中“未做5000步”描述的是当时状态，本说明追加了后续完整实验结果。
 
 ## 7. 验证过程与完成证据
 
 | 层级 | 实际结果 | 证据 |
 |---|---|---|
-| 八卡预检 | 八张910B BF16运算、同步、版本通过 | [preflight.json](../evidence/two-step-20261105/preflight.json) |
-| NPU attention | 5项实际执行通过，0跳过 | [attention.xml](../evidence/two-step-20261105/attention.xml) |
-| 两卡 LiteGen | FSDP2、FP32 master、RNG/DCP恢复及恢复后更新通过 | [result.json](../evidence/two-step-20261105/fsdp-dcp/result.json) |
-| 八卡两步 WAM | step=2，三类loss有限，完整DCP，passed/true | [status.json](../evidence/two-step-20261105/status.json)、[wam_result.json](../evidence/two-step-20261105/wam_result.json) |
-| 正式5000步 | 八rank、最终5000步、exit code 0、500个记录点/指标 | [completion.json](../evidence/5000-step/completion.json)、[console.log](../evidence/5000-step/original-run/console.log) |
-| 正式配置与loss | 原有20项检查全部通过 | [alignment.json](../evidence/5000-step/alignment.json) |
-| 最终DCP | 四组件完整，全部引用和字节边界通过；小状态实际回读 | [checkpoint_verification.json](../evidence/5000-step/checkpoint_verification.json) |
+| 八卡预检 | 八张910B BF16运算、同步、版本通过 | [preflight.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/two-step-20261105/preflight.json) |
+| NPU attention | 5项实际执行通过，0跳过 | [attention.xml](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/two-step-20261105/attention.xml) |
+| 两卡 LiteGen | FSDP2、FP32 master、RNG/DCP恢复及恢复后更新通过 | [result.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/two-step-20261105/fsdp-dcp/result.json) |
+| 八卡两步 WAM | step=2，三类loss有限，完整DCP，passed/true | [status.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/two-step-20261105/status.json)、[wam_result.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/two-step-20261105/wam_result.json) |
+| 正式5000步 | 八rank、最终5000步、exit code 0、500个记录点/指标 | [completion.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/completion.json)、[console.log](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/original-run/console.log) |
+| 正式配置与loss | 原有20项检查全部通过 | [alignment.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/alignment.json) |
+| 最终DCP | 四组件完整，全部引用和字节边界通过；小状态实际回读 | [checkpoint_verification.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/checkpoint_verification.json) |
 
 正式任务开始于 **2026-11-05 13:13:16 UTC**，结束于 **2026-11-06 04:57:02 UTC**，总时长 **15小时43分46秒**（含启动和比较）。validation 在起始、2000和4000步执行，对应 loss 约47.4461、1.205314、1.56352；这里只作为验证路径实际执行的证据，没有将这三点扩展为跨设备任务质量对齐。
 
@@ -157,9 +157,9 @@ LiteGen 的收益是集中硬件接口、复用分布式与精度设施、减少
 | video | 0.0748597607 | 0.0749322101 |
 | action | 0.0024935857 | 0.0024333494 |
 
-![三类loss完整5000步与末500步对比](../evidence/5000-step/loss_comparison.png)
+![三类loss完整5000步与末500步对比](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/loss_comparison.png?raw=true)
 
-[PDF](../evidence/5000-step/loss_comparison.pdf) · [SVG](../evidence/5000-step/loss_comparison.svg) · [逐点对齐数据](../evidence/5000-step/aligned_losses.csv) · [窗口统计](../evidence/5000-step/window_comparison.csv)。本结论针对该任务、种子、输入和配置；单次对齐不是多种子统计检验。
+[PDF](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/loss_comparison.pdf) · [SVG](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/loss_comparison.svg) · [逐点对齐数据](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/aligned_losses.csv) · [窗口统计](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/window_comparison.csv)。本结论针对该任务、种子、输入和配置；单次对齐不是多种子统计检验。
 
 ## 9. 性能单独报告
 
@@ -174,7 +174,7 @@ LiteGen 的收益是集中硬件接口、复用分布式与精度设施、减少
 
 本实验910B步耗时约为A100的3.112倍，吞吐约为32.13%。显存值是框架allocator统计，不能当成整卡总占用。硬件、attention kernel、优化器实现和compile策略不同，不能据此单独归因LiteGen；本轮主要目标是正确迁移与loss趋势对齐。
 
-![误差门槛与性能对比](../evidence/5000-step/alignment_performance.png)
+![误差门槛与性能对比](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/5000-step/alignment_performance.png?raw=true)
 
 ## 10. 检查点完整性与边界
 
@@ -190,6 +190,6 @@ LiteGen 的收益是集中硬件接口、复用分布式与精度设施、减少
 
 ## 11. 交付范围与后续使用
 
-安装、外部输入、两步验收、5000步正式训练、后台启动和对齐命令均见 README。迁移包中保存完整的小型实验凭据、曲线与源快照，不包含模型权重、训练缓存、环境二进制或最终35GiB级checkpoint；这些由目标集群挂载。
+安装、外部输入、两步验收、5000步正式训练、后台启动和对齐命令均见 README。迁移包保留源码、安装流程、验收脚本和对齐基线；历史实验附件与曲线通过本文的固定 Git 归档链接查看。模型权重、训练缓存、环境二进制或最终35GiB级checkpoint不随包分发，由目标集群准备。
 
 当前范围不涵盖原生工作区新增的可选模式混合/四塔分支、PointFlow/FK、NPU sparse/neighborhood attention、多机/HSDP或NPU compile；没有在本NPU容器重新做CUDA硬件回归，也没有下游任务成功率评估。跨机器迁移必须重做实际设备和输入验收；保持原loss阈值和训练配方。

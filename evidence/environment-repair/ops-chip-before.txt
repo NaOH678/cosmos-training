@@ -1,1 +1,0 @@
-chip=Ascend910_93

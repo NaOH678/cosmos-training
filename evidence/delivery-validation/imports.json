@@ -1,8 +1,0 @@
-{
-  "status": "passed",
-  "torch": "2.10.0+cpu",
-  "torch_npu": "2.10.0.post6",
-  "litegen": "/mnt/lvminrui/workspace/cosmos-training-litegen-910b/LiteGen.dev/litegen/__init__.py",
-  "cosmos_framework": "/mnt/lvminrui/workspace/cosmos-training-litegen-910b/cosmos-training/cosmos_framework/__init__.py",
-  "visible_devices": 8
-}

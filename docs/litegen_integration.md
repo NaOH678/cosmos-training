@@ -70,4 +70,4 @@ source scripts/activate.sh
 
 ## 5. 验证范围
 
-拆分前的完整5000步报告位于 `evidence/5000-step/`，平台逐文件差异记录位于 `evidence/litegen-diff/`，其中旧目录名是历史来源，不是当前安装路径。当前拆分的复测说明见 `docs/repository_split_validation.md`。
+拆分前的完整5000步报告和平台逐文件差异已移至 Git 历史归档，可通过[实验说明](experiment_910b.md)和[平台改动说明](litegen_changes.md)中的固定版本链接查看，不是安装或训练依赖。当前拆分的复测说明见[仓库拆分验证](repository_split_validation.md)。

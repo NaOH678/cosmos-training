@@ -6,21 +6,21 @@
 
 **真实八卡两步验收通过：`status=passed`、`wam_executed=true`。** 验收器运行时间为2026-11-08 12:10:58至12:16:49 UTC。源码运行时、数值配置和测试阈值未修改。
 
-| 项目 | 结果 | 随包证据 |
+| 项目 | 结果 | 历史归档证据 |
 |---|---|---|
-| 原生ARM Python 3.12建环境、锁文件安装 | 146个分发包匹配，pip check通过 | [bootstrap.log](../evidence/delivery-validation/bootstrap.log)、[installed.json](../evidence/delivery-validation/installed.json) |
-| 导入路径与可见设备 | 两个包均来自新项目，八张NPU | [imports.json](../evidence/delivery-validation/imports.json) |
-| 模型与数据挂载 | 全部清单检查通过，含全部动作payload存在性检查 | [input-check-all.json](../evidence/delivery-validation/input-check-all.json) |
-| 既有针对性回归 | 55 passed，0 failed，0 skipped | [regression.xml](../evidence/delivery-validation/regression.xml)、[日志](../evidence/delivery-validation/regression.log) |
-| 5000步有效配置dry-run | 与已完成NPU配置相同；与A100仅compile不同 | [config-parity.json](../evidence/delivery-validation/config-parity.json) |
-| 八卡预检 | 910B BF16与同步通过 | [preflight.json](../evidence/delivery-validation/acceptance/preflight.json) |
-| NPU attention | 5项执行通过、0跳过 | [attention.xml](../evidence/delivery-validation/acceptance/attention.xml) |
-| 两卡FSDP2恢复 | FP32 master、RNG/DCP及恢复后更新通过 | [result.json](../evidence/delivery-validation/acceptance/fsdp-dcp/result.json) |
-| 八卡真实4B WAM | step=2，三类loss有限 | [wam_result.json](../evidence/delivery-validation/acceptance/wam_result.json) |
-| 完整DCP | model/optim/scheduler/trainer通过；回读step2与八份RNG | [checkpoint_schema.json](../evidence/delivery-validation/acceptance/checkpoint_schema.json) |
-| README后台命令 | 模拟退出码0及7的状态/日志处理正确 | [background-command-check.json](../evidence/delivery-validation/background-command-check.json) |
+| 原生ARM Python 3.12建环境、锁文件安装 | 146个分发包匹配，pip check通过 | [bootstrap.log](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/bootstrap.log)、[installed.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/installed.json) |
+| 导入路径与可见设备 | 两个包均来自新项目，八张NPU | [imports.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/imports.json) |
+| 模型与数据挂载 | 全部清单检查通过，含全部动作payload存在性检查 | [input-check-all.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/input-check-all.json) |
+| 既有针对性回归 | 55 passed，0 failed，0 skipped | [regression.xml](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/regression.xml)、[日志](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/regression.log) |
+| 5000步有效配置dry-run | 与已完成NPU配置相同；与A100仅compile不同 | [config-parity.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/config-parity.json) |
+| 八卡预检 | 910B BF16与同步通过 | [preflight.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/acceptance/preflight.json) |
+| NPU attention | 5项执行通过、0跳过 | [attention.xml](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/acceptance/attention.xml) |
+| 两卡FSDP2恢复 | FP32 master、RNG/DCP及恢复后更新通过 | [result.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/acceptance/fsdp-dcp/result.json) |
+| 八卡真实4B WAM | step=2，三类loss有限 | [wam_result.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/acceptance/wam_result.json) |
+| 完整DCP | model/optim/scheduler/trainer通过；回读step2与八份RNG | [checkpoint_schema.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/acceptance/checkpoint_schema.json) |
+| README后台命令 | 模拟退出码0及7的状态/日志处理正确 | [background-command-check.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/background-command-check.json) |
 
-[总报告](../evidence/delivery-validation/summary.json) · [验收status.json](../evidence/delivery-validation/acceptance/status.json) · [验收总日志](../evidence/delivery-validation/acceptance-console.log) · [系统快照](../evidence/delivery-validation/system.txt) · [CANN包元数据](../evidence/delivery-validation/cann-packages.json)。
+[总报告](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/summary.json) · [验收status.json](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/acceptance/status.json) · [验收总日志](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/acceptance-console.log) · [系统快照](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/system.txt) · [CANN包元数据](https://github.com/NaOH678/cosmos-training/blob/d49e5f14bea617a6a5bd59ea210cc063bdee09f1/evidence/delivery-validation/cann-packages.json)。
 
 ## 2. 本轮实际loss
 
