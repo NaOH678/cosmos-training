@@ -7,10 +7,36 @@ CUDA attention selection and kernels are unaffected.
 
 from __future__ import annotations
 
+import os
+
 import torch
 from torch.utils.checkpoint import checkpoint
 
 from cosmos_framework.model.attention.masks import CausalType
+
+
+def _host_ints(t):
+    """``tolist()`` with a per-object memo.
+
+    Packed-sequence offsets are step-constant metadata: the same tensors are
+    passed to every layer's attention in forward and again in SAC backward
+    recompute, so without the memo each of those ~58 calls pays a D2H copy
+    plus a full stream synchronize (~1400 forced syncs per training step).
+    Only the first access per tensor object syncs; later ones read the cached
+    host list.  Batch boundaries get fresh tensors, so staleness is impossible
+    unless someone mutates offsets in place, which nothing does.  Gated by
+    COSMOS_NPU_SYNC_CACHE=1 (probe switch for A/B attribution).
+    """
+    if os.environ.get("COSMOS_NPU_SYNC_CACHE") != "1":
+        return t.tolist()
+    cached = getattr(t, "_host_list_cache", None)
+    if cached is None:
+        cached = t.tolist()
+        try:
+            t._host_list_cache = cached
+        except (AttributeError, TypeError):
+            pass
+    return cached
 
 
 def _segments(query, key, value, cumulative_seqlen_Q=None, cumulative_seqlen_KV=None, seqlens_Q=None, seqlens_KV=None):
@@ -43,7 +69,7 @@ def _segments(query, key, value, cumulative_seqlen_Q=None, cumulative_seqlen_KV=
         return [(query[b], key[b], value[b]) for b in range(query.shape[0])], False
     if query.shape[0] != 1:
         raise ValueError("packed attention requires batch dimension 1")
-    qoff, koff = cumulative_seqlen_Q.tolist(), cumulative_seqlen_KV.tolist()
+    qoff, koff = _host_ints(cumulative_seqlen_Q), _host_ints(cumulative_seqlen_KV)
     if len(qoff) != len(koff) or len(qoff) < 2 or qoff[0] != 0 or koff[0] != 0:
         raise ValueError("invalid packed offsets")
     if qoff[-1] > query.shape[1] or koff[-1] > key.shape[1]:
@@ -213,8 +239,8 @@ def npu_attention(
     scale = scale if scale is not None else query.shape[-1] ** -0.5
     # Full noncausal attention over packed segments is a single TND call.
     if packed and not is_causal:
-        qends = cumulative_seqlen_Q[1:].tolist() if cumulative_seqlen_Q is not None else seqlens_Q.cumsum(0).tolist()
-        kends = cumulative_seqlen_KV[1:].tolist() if cumulative_seqlen_KV is not None else seqlens_KV.cumsum(0).tolist()
+        qends = _host_ints(cumulative_seqlen_Q)[1:] if cumulative_seqlen_Q is not None else _host_ints(seqlens_Q.cumsum(0))
+        kends = _host_ints(cumulative_seqlen_KV)[1:] if cumulative_seqlen_KV is not None else _host_ints(seqlens_KV.cumsum(0))
         q = query[0, : qends[-1]]
         k, v = _expand_kv(q, key[0, : kends[-1]], value[0, : kends[-1]])
         out = torch_npu.npu_fusion_attention(
