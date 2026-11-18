@@ -256,6 +256,39 @@ def npu_attention(
             sparse_mode=0,
         )[0]
         return _assemble([out], query, packed)
+    # Env-gated fast path: packed CAUSAL attention as a single TND call with
+    # sparse_mode=3 (bottom-right-aligned causal, i.e. plain causal for the
+    # equal-Q/K segments produced by sequence packing).  Replaces the default
+    # per-segment loop whose per-call arange/Greater dense mask, GQA
+    # repeat_interleave and Q/K/V transposes are the dominant elementwise
+    # chain around each FlashAttentionScore in eager profiles.  Falls back to
+    # the generic path whenever a segment shape/semantics does not map 1:1.
+    if (
+        packed
+        and is_causal
+        and causal_type in (CausalType.TopLeft, CausalType.DontCare)
+        and os.environ.get("COSMOS_NPU_FA_TND") == "1"
+        and query.dtype in (torch.bfloat16, torch.float16)
+    ):
+        qends = _host_ints(cumulative_seqlen_Q)[1:]
+        kends = _host_ints(cumulative_seqlen_KV)[1:]
+        # TopLeft with equal Q/K lengths == sparse_mode 3; bail out otherwise.
+        if all(a == b for a, b in zip(qends, kends)):
+            q = query[0, : qends[-1]]
+            k, v = key[0, : kends[-1]], value[0, : kends[-1]]  # FA handles GQA natively
+            out = torch_npu.npu_fusion_attention(
+                q.contiguous(),
+                k.contiguous(),
+                v.contiguous(),
+                head_num=query.shape[-2],
+                input_layout="TND",
+                scale=scale,
+                keep_prob=1.0,
+                actual_seq_qlen=qends,
+                actual_seq_kvlen=kends,
+                sparse_mode=3,
+            )[0]
+            return _assemble([out], query, packed)
     outputs = []
     for q, k, v in segments:
         k, v = _expand_kv(q, k, v)
