@@ -8,6 +8,7 @@ or aten.mm RHS shapes, and recomputes other operations. Full AC uses the
 standard checkpoint wrapper without a per-op policy.
 """
 
+import os
 import re
 from typing import Callable
 
@@ -418,6 +419,40 @@ def apply_fsdp(
     for _, block in model.model.layers.named_children():
         fully_shard(block, mesh=parallel_dims.dp_mesh)
         register_fsdp_forward_method(block, "reasoner_forward")
+    # Optional gradient-average fusion (env-gated): for bf16 grads FSDP2
+    # asks HCCL for ReduceOp.AVG, but the c10d HCCL backend emulates AVG as
+    # SUM + a separate in-place ``div_(world_size)`` kernel on the
+    # reduce-scatter stream (one per FSDP unit per step).  Those div kernels
+    # fight co-running GEMM/attention kernels for HBM bandwidth — profiles
+    # show 1.1-18.6ms for the same 6.29M-element bf16 shard division.
+    # HCCL supports pre-multiplied sums, so swap AVG for
+    # ``_make_hccl_premul_sum(1/group_size)``: the 1/N scaling folds into the
+    # collective and the standalone div kernel disappears.  1/8 is exact in
+    # bf16 (power of two), so numerics are unchanged.  COSMOS_NPU_RS_PREMUL=1
+    # enables; anything else keeps stock behavior.
+    if os.environ.get("COSMOS_NPU_RS_PREMUL") == "1":
+        import torch.distributed as dist
+        import torch_npu.distributed as tnd
+        from torch.distributed.fsdp._fully_shard import _fsdp_collectives as _fc
+
+        _orig_factors = _fc._get_gradient_divide_factors
+        _premul_by_size = {}
+
+        def _premul_factors(reduce_scatter_group, *args, **kwargs):
+            pre, post, rs_op, ar_op = _orig_factors(reduce_scatter_group, *args, **kwargs)
+            if rs_op is dist.ReduceOp.AVG and reduce_scatter_group is not None:
+                size = reduce_scatter_group.size()
+                op = _premul_by_size.get(size)
+                if op is None:
+                    op = _premul_by_size[size] = tnd._make_hccl_premul_sum(1.0 / size)
+                return pre, post, op, ar_op
+            return pre, post, rs_op, ar_op
+
+        _fc._get_gradient_divide_factors = _premul_factors
+        log.info(
+            "apply_fsdp: RS gradient average folded into HCCL premul_sum (div kernel removed)",
+            rank0_only=True,
+        )
 
 
 def parallelize_unified_mot(
