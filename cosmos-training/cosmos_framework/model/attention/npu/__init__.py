@@ -39,7 +39,7 @@ def _host_ints(t):
     return cached
 
 
-def _segments(query, key, value, cumulative_seqlen_Q=None, cumulative_seqlen_KV=None, seqlens_Q=None, seqlens_KV=None):
+def _segments(query, key, value, cumulative_seqlen_Q=None, cumulative_seqlen_KV=None, seqlens_Q=None, seqlens_KV=None, build_views=True):
     if (
         query.device != key.device
         or query.device != value.device
@@ -76,6 +76,10 @@ def _segments(query, key, value, cumulative_seqlen_Q=None, cumulative_seqlen_KV=
         raise ValueError("packed offsets exceed the tensor length")
     if any(b < a for a, b in zip(qoff, qoff[1:])) or any(b < a for a, b in zip(koff, koff[1:])):
         raise ValueError("packed offsets must be nondecreasing")
+    if not build_views:
+        # Validations done; skip the per-segment view constructions (the
+        # TND fast paths never read them).
+        return None, True
     return [
         (query[0, qa:qb], key[0, ka:kb], value[0, ka:kb]) for qa, qb, ka, kb in zip(qoff, qoff[1:], koff, koff[1:])
     ], True
@@ -102,6 +106,10 @@ def _assemble(values, query, packed, *, fill=0):
 
 
 def _check_causal(segments, is_causal, causal_type):
+    if segments is None:
+        # Lazy-segments mode: DontCare's equal-length check runs on the
+        # packed endpoints in npu_attention before this point.
+        return
     if is_causal and not isinstance(causal_type, CausalType):
         raise ValueError("causal_type must be a CausalType for causal attention")
     if is_causal and causal_type == CausalType.DontCare and any(q.shape[0] != k.shape[0] for q, k, _ in segments):
@@ -214,13 +222,9 @@ def npu_attention(
             seqlens_Q=seqlens_Q,
             seqlens_KV=seqlens_KV,
         )
-    segments, packed = _segments(query, key, value, cumulative_seqlen_Q, cumulative_seqlen_KV, seqlens_Q, seqlens_KV)
-    _check_causal(segments, is_causal, causal_type)
-    if (
-        return_lse
-        or query.dtype not in {torch.bfloat16, torch.float16}
-        or any(q.shape[0] == 0 or k.shape[0] == 0 for q, k, v in segments)
-    ):
+    if return_lse or query.dtype not in {torch.bfloat16, torch.float16}:
+        segments, packed = _segments(query, key, value, cumulative_seqlen_Q, cumulative_seqlen_KV, seqlens_Q, seqlens_KV)
+        _check_causal(segments, is_causal, causal_type)
         return reference_attention(
             query,
             key,
@@ -234,6 +238,55 @@ def npu_attention(
             seqlens_Q=seqlens_Q,
             seqlens_KV=seqlens_KV,
         )
+    # Env-gated lazy segments (COSMOS_NPU_SEGMENTS_LAZY=1): the TND fast
+    # paths below read only the packed endpoints, never the per-segment
+    # view list, but stock flow builds ~21k as_strided views per 2 steps
+    # (profiled host gap: the device idles while slices are constructed).
+    # With the gate on, run the offset validations without building views
+    # and materialize segments only if a fallback path is actually taken.
+    lazy_segments = os.environ.get("COSMOS_NPU_SEGMENTS_LAZY") == "1" and cumulative_seqlen_Q is not None
+    if lazy_segments:
+        segments, packed = _segments(query, key, value, cumulative_seqlen_Q, cumulative_seqlen_KV, seqlens_Q, seqlens_KV, build_views=False)
+        _check_causal(None, is_causal, causal_type)
+        if causal_type is CausalType.DontCare:
+            qoff, koff = _host_ints(cumulative_seqlen_Q), _host_ints(cumulative_seqlen_KV)
+            if qoff[1:] != koff[1:]:
+                raise ValueError("DontCare causal masking requires equal Q/K lengths in every segment")
+        qoff, koff = _host_ints(cumulative_seqlen_Q), _host_ints(cumulative_seqlen_KV)
+        if any(b == a for a, b in zip(qoff, qoff[1:])) or any(b == a for a, b in zip(koff, koff[1:])):
+            # Zero-length segment: the fused path rejects it; route through
+            # the chunked reference like the stock empty-segment check.
+            segments, packed = _segments(query, key, value, cumulative_seqlen_Q, cumulative_seqlen_KV, seqlens_Q, seqlens_KV)
+            return reference_attention(
+                query,
+                key,
+                value,
+                scale=scale,
+                is_causal=is_causal,
+                causal_type=causal_type,
+                return_lse=return_lse,
+                cumulative_seqlen_Q=cumulative_seqlen_Q,
+                cumulative_seqlen_KV=cumulative_seqlen_KV,
+                seqlens_Q=seqlens_Q,
+                seqlens_KV=seqlens_KV,
+            )
+    else:
+        segments, packed = _segments(query, key, value, cumulative_seqlen_Q, cumulative_seqlen_KV, seqlens_Q, seqlens_KV)
+        _check_causal(segments, is_causal, causal_type)
+        if any(q.shape[0] == 0 or k.shape[0] == 0 for q, k, v in segments):
+            return reference_attention(
+                query,
+                key,
+                value,
+                scale=scale,
+                is_causal=is_causal,
+                causal_type=causal_type,
+                return_lse=return_lse,
+                cumulative_seqlen_Q=cumulative_seqlen_Q,
+                cumulative_seqlen_KV=cumulative_seqlen_KV,
+                seqlens_Q=seqlens_Q,
+                seqlens_KV=seqlens_KV,
+            )
     import torch_npu
 
     scale = scale if scale is not None else query.shape[-1] ** -0.5
@@ -290,6 +343,8 @@ def npu_attention(
             )[0]
             return _assemble([out], query, packed)
     outputs = []
+    if segments is None:
+        segments, packed = _segments(query, key, value, cumulative_seqlen_Q, cumulative_seqlen_KV, seqlens_Q, seqlens_KV)
     for q, k, v in segments:
         k, v = _expand_kv(q, k, v)
         mask = None
