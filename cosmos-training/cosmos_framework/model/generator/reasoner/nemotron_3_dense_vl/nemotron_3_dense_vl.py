@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import atexit
 import functools
+import os
 
 import torch
 import torch.nn.functional as F
@@ -20,6 +22,23 @@ from transformers.modeling_utils import PreTrainedModel
 from cosmos_framework.model.generator.reasoner.nemotron_3_dense_vl.configuration_nemotron_3_dense_vl import (
     Nemotron3DenseVLTextConfig,
 )
+
+
+_FUSION_STATS = {"rmsnorm": 0, "rotary": 0}
+
+
+def _note_fusion(name: str) -> None:
+    """Count fused-kernel hits; dumped at interpreter exit under COSMOS_NPU_FUSION_DEBUG=1."""
+    if os.environ.get("COSMOS_NPU_FUSION_DEBUG") == "1":
+        _FUSION_STATS[name] += 1
+
+
+def _dump_fusion_stats() -> None:
+    if os.environ.get("COSMOS_NPU_FUSION_DEBUG") == "1" and any(_FUSION_STATS.values()):
+        print(f"[fusion-debug] {_FUSION_STATS}", flush=True)
+
+
+atexit.register(_dump_fusion_stats)
 
 
 def rotate_half(x: torch.Tensor) -> torch.Tensor:
@@ -39,6 +58,28 @@ def apply_rotary_pos_emb_partial(
     cos = cos.unsqueeze(unsqueeze_dim)
     sin = sin.unsqueeze(unsqueeze_dim)
     rot_dim = cos.shape[-1]
+    # Env-gated fused path (COSMOS_NPU_ROTARY=1): one aclnn RotaryPositionEmbedding
+    # replaces slice/neg/cat/Mul/Mul/Add (~6 kernels) per tensor.  The fused op
+    # implements the same half-rotation (GPT-NeoX) layout as rotate_half; it is
+    # used only for the full-rotation case on contiguous bf16/fp16 NPU tensors.
+    if (
+        os.environ.get("COSMOS_NPU_ROTARY") == "1"
+        and q.device.type == "npu"
+        and q.dtype == k.dtype
+        and q.dtype in (torch.bfloat16, torch.float16)
+        and rot_dim == q.shape[-1] == k.shape[-1] == cos.shape[-1]
+        and q.is_contiguous()
+        and k.is_contiguous()
+        and cos.is_contiguous()
+        and sin.is_contiguous()
+    ):
+        import torch_npu
+
+        _note_fusion("rotary")
+        return (
+            torch_npu.npu_rotary_mul(q, cos, sin),
+            torch_npu.npu_rotary_mul(k, cos, sin),
+        )
     q_rot, q_pass = q[..., :rot_dim], q[..., rot_dim:]
     k_rot, k_pass = k[..., :rot_dim], k[..., rot_dim:]
     q_embed = (q_rot * cos) + (rotate_half(q_rot) * sin)
@@ -53,6 +94,23 @@ class Nemotron3DenseVLRMSNorm(nn.Module):
         self.variance_epsilon = eps
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        # Env-gated fused path (COSMOS_NPU_RMSNORM=1): single aclnn RmsNorm
+        # kernel replaces the eager fp32 cast/pow/mean/rsqrt/mul/cast chain
+        # (bf16/fp16 NPU inputs only; math identical, fp32 accumulation
+        # internal to the kernel).
+        if (
+            hidden_states.device.type == "npu"
+            and hidden_states.dtype in (torch.bfloat16, torch.float16)
+            and os.environ.get("COSMOS_NPU_RMSNORM") == "1"
+        ):
+            import torch_npu
+
+            weight = self.weight
+            if hasattr(weight, "to_local"):  # FSDP2 DTensor; norm weights are replicated
+                weight = weight.to_local()
+            out, _ = torch_npu.npu_rms_norm(hidden_states, weight, self.variance_epsilon)
+            _note_fusion("rmsnorm")
+            return out
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
